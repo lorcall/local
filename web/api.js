@@ -23,9 +23,14 @@ const CONFIG = {
   PROXY_URL: 'https://script.google.com/macros/s/AKfycbyUHWXJ3jWn8mweIOyHi2UY_UdBhCbw64QaAYZgzM08tjKKemlVmswbDgskYWl885MR/exec'
 };
 
-/** Reports a loading step to the skeleton screen (see LOAD_STEPS in index.html). */
-function status(key, text) {
-  try { if (window.LoCalProgress) window.LoCalProgress(key, text); } catch (e) { /* the app may have rendered already */ }
+/** Shows progress on the boot screen. A stalled step should say which step it is. */
+function status(msg) {
+  try {
+    // The boot markup is <div class="boot"><logo tile/><span>message</span></div>, and the
+    // logo tile contains spans of its own, so only a direct child is the message.
+    const el = document.querySelector('#app .boot > span');
+    if (el) el.textContent = msg;
+  } catch (e) { /* the app may have rendered already */ }
 }
 
 /** Rejects rather than hanging. Without this a request that never answers spins forever. */
@@ -240,14 +245,13 @@ function WebAPI() {
     const saved = loadIds();
     ids = {sheet: saved.sheet || '', photos: saved.photos || '', app: saved.app || ''};
 
-    status('folder');
+    status('Looking for your LoCal App folder');
     if (!(await alive(ids.app))) ids.app = await findByName(APP_FOLDER, 'application/vnd.google-apps.folder');
-    if (!ids.app) { status('folder', 'Creating your LoCal App folder in Drive'); ids.app = (await createFolder(APP_FOLDER)).id; }
+    if (!ids.app) ids.app = (await createFolder(APP_FOLDER)).id;
 
-    status('log');
+    status('Looking for your log');
     if (!(await alive(ids.sheet))) ids.sheet = await findByName(SHEET_NAME, 'application/vnd.google-apps.spreadsheet');
     if (!ids.sheet) {
-      status('log', 'Creating your LoCal log');
       const ss = await json(SHEETS, {properties: {title: SHEET_NAME}});
       ids.sheet = ss.spreadsheetId;
       // Sheets API creates in Drive root; move it into the app folder.
@@ -259,7 +263,7 @@ function WebAPI() {
     if (!ids.photos) ids.photos = (await createFolder(PHOTO_FOLDER, ids.app)).id;
 
     saveIds();
-    status('tabs');
+    status('Setting up the tabs');
     await ensureTabs();
   }
 
@@ -459,10 +463,11 @@ function WebAPI() {
   return {
     /** Called once at start. Signs in, finds or makes the files, reads everything. */
     async bootstrap() {
-      status('signin');
+      status('Checking your sign-in');
       await auth();
+      status('Finding your LoCal files');
       await ensureFiles();
-      status('read');
+      status('Reading your log');
       const data = await readAll();
       return {data, meta: meta()};
     },
