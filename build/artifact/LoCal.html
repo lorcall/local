@@ -387,11 +387,24 @@ function targetFor(day) {
 }
 const currentTarget = () => targetFor(today());
 /* on target = total kcal at or under target (calories); protein: within 10% or above */
+/* What "on target" means per nutrient, as the Today screen treats them: calories, carbs and fat are
+   budgets (at or under), protein and fiber are goals to reach (protein counts from 90%), sugar and
+   sodium are limits. A target of 0 means that nutrient isn't being tracked. */
+const MEASURE = {
+  kcal: {label: 'Calories', v: 'kcal', t: 'kcal', kind: 'max'},
+  protein: {label: 'Protein', v: 'protein_g', t: 'protein_g', kind: 'min', from: 0.9},
+  carbs: {label: 'Carbs', v: 'carbs_g', t: 'carbs_g', kind: 'max'},
+  fat: {label: 'Fat', v: 'fat_g', t: 'fat_g', kind: 'max'},
+  sugar: {label: 'Sugar', v: 'sugar_g', t: 'sugar_max_g', kind: 'max'},
+  fiber: {label: 'Fiber', v: 'fiber_g', t: 'fiber_min_g', kind: 'min'},
+  sodium: {label: 'Sodium', v: 'sodium_mg', t: 'sodium_max_mg', kind: 'max'}
+};
+/* 'on', 'over' (over a budget or limit, or short of a goal) or 'none' (nothing logged, or no target that day) */
 function dayStatus(day, measure) {
   if (!logged(day)) return 'none';
-  const t = totalsOn(day), tg = targetFor(day);
-  if (measure === 'protein') return t.protein_g >= num(tg.protein_g) * 0.9 ? 'on' : 'over';
-  return t.kcal <= num(tg.kcal) ? 'on' : 'over';
+  const M = MEASURE[measure] || MEASURE.kcal, v = totalsOn(day)[M.v], tg = num(targetFor(day)[M.t]);
+  if (!(tg > 0)) return 'none';
+  return (M.kind === 'min' ? v >= tg * (M.from || 1) : v <= tg) ? 'on' : 'over';
 }
 const within10 = day => { const t = totalsOn(day), tg = num(targetFor(day).kcal); return Math.abs(t.kcal - tg) <= tg * 0.1; };
 const macroKcal = x => num(x.protein_g) * 4 + num(x.carbs_g) * 4 + num(x.fat_g) * 9;
@@ -1508,35 +1521,39 @@ SCREENS.topfoods = () => {
 
 /* ---------- Consistency ---------- */
 SCREENS.consistency = () => {
-  const ms = S.ui.cm || 'Calories', measure = ms === 'Protein' ? 'protein' : 'kcal', t = today();
+  const t = today(), tracked = Object.keys(MEASURE).filter(k => num(currentTarget()[MEASURE[k].t]) > 0);
+  const measure = tracked.includes(S.ui.cm) ? S.ui.cm : 'kcal', M = MEASURE[measure], goal = M.kind === 'min';
   const si = streakInfo(measure);
   const last30 = rangeDays(addDays(t, -30), addDays(t, -1)).filter(logged);
-  const pct = last30.length ? Math.round(last30.filter(d => measure === 'protein' ? Math.abs(totalsOn(d).protein_g - num(targetFor(d).protein_g)) <= num(targetFor(d).protein_g) * 0.1 || totalsOn(d).protein_g >= num(targetFor(d).protein_g) : within10(d)).length / last30.length * 100) : 0;
+  // calories: within 10% either side; every other nutrient: on target by its own rule
+  const pct = last30.length ? Math.round(last30.filter(d => measure === 'kcal' ? within10(d) : dayStatus(d, measure) === 'on').length / last30.length * 100) : 0;
   const wb = weekBounds(t), start = addDays(wb.start, -28);
   const cells = rangeDays(start, wb.end).map(d => {
     const cls = d > t ? 'fut' : d === t ? (dayStatus(d, measure) === 'on' ? 'on' : 'today') : dayStatus(d, measure);
     return '<div class="hm ' + cls + '" title="' + shortDay(d) + '"></div>';
   }).join('');
   const sw = rangeDays(addDays(t, -13), addDays(t, -1));
-  const vals = sw.map(d => ({d, v: measure === 'protein' ? totalsOn(d).protein_g : totalsOn(d).kcal, tg: measure === 'protein' ? num(targetFor(d).protein_g) : num(targetFor(d).kcal), l: logged(d)}));
-  const tgv = vals.length ? vals[vals.length - 1].tg : 1, spanV = Math.max(tgv * 0.35, ...vals.filter(x => x.l).map(x => Math.abs(x.v - x.tg))) || 1;
+  const vals = sw.map(d => ({d, v: totalsOn(d)[M.v], tg: num(targetFor(d)[M.t]), l: logged(d) && num(targetFor(d)[M.t]) > 0}));
+  const tgv = vals.length ? vals[vals.length - 1].tg || 1 : 1, spanV = Math.max(tgv * 0.35, ...vals.filter(x => x.l).map(x => Math.abs(x.v - x.tg))) || 1;
   const W = 322, Hh = 96, y = v => (Hh / 2 - (v - tgv) / spanV * (Hh / 2 - 8)).toFixed(1), bandH = (tgv * 0.1 / spanV) * (Hh / 2 - 8);
-  const pts = vals.map((x, i) => x.l ? '<circle cx="' + (12 + i * (W - 24) / (vals.length - 1)).toFixed(1) + '" cy="' + y(x.v) + '" r="5" fill="' + (Math.abs(x.v - x.tg) <= x.tg * 0.1 ? COLOR.a : COLOR.ov) + '"/>' : '').join('');
+  const good = x => measure === 'kcal' ? Math.abs(x.v - x.tg) <= x.tg * 0.1 : dayStatus(x.d, measure) === 'on';
+  const pts = vals.map((x, i) => x.l ? '<circle cx="' + (12 + i * (W - 24) / (vals.length - 1)).toFixed(1) + '" cy="' + y(x.v) + '" r="5" fill="' + (good(x) ? COLOR.a : COLOR.ov) + '"/>' : '').join('');
   const lg = vals.filter(x => x.l), diffs = lg.map(x => Math.abs(x.v - x.tg)).sort((a, b) => a - b), med = diffs.length ? diffs[Math.floor(diffs.length / 2)] : 0;
-  const misses = lg.filter(x => Math.abs(x.v - x.tg) > x.tg * 0.1), wkMiss = misses.filter(x => [0, 6].includes(parseDay(x.d).getDay())).length;
-  const u = measure === 'protein' ? 'g of protein' : 'kcal';
+  const misses = lg.filter(x => !good(x)), wkMiss = misses.filter(x => [0, 6].includes(parseDay(x.d).getDay())).length;
+  const u = measure === 'kcal' ? 'kcal' : VALUE_UNIT[M.v] + ' of ' + M.label.toLowerCase(), step = measure === 'kcal' ? 10 : measure === 'sodium' ? 50 : 1;
   const bestWhen = si.bestEnd ? (si.bestEnd >= addDays(t, -1) ? 'your current run' : 'set in ' + MONTHS[parseDay(si.bestEnd).getMonth()]) : '';
-  return '<div class="scr">' + backHeader('Consistency') + track('cm', ['Calories', 'Protein'], ms, 'Target') +
+  const name = measure === 'kcal' ? 'calorie' : M.label.toLowerCase();
+  return '<div class="scr">' + backHeader('Consistency') + chips('cm', tracked.map(k => [k, MEASURE[k].label]), measure, 'Target', {scroll: true}) +
     '<section class="row" style="gap:16px">' + ringDial(150, 118, si.best ? si.cur / si.best : 0, '<div class="num" style="font-size:44px">' + si.cur + '</div><div class="cap">day streak</div>', 'Streak of ' + si.cur + ' days, best ' + si.best, {raised: true, inset: 7}) +
     '<div class="col" style="gap:12px"><div><div class="num" style="font-size:24px;line-height:1.2">' + plural(si.best, 'day') + '</div><div class="cap">Best streak' + (bestWhen ? ', ' + bestWhen : '') + '</div></div>' +
-    '<div><div class="num" style="font-size:24px;line-height:1.2">' + pct + '%</div><div class="cap">of days within 10% of target in 30 days</div></div></div></section>' +
+    '<div><div class="num" style="font-size:24px;line-height:1.2">' + pct + '%</div><div class="cap">' + (measure === 'kcal' ? 'of days within 10% of target in 30 days' : 'of days on ' + name + ' target in 30 days') + '</div></div></div></section>' +
     '<section class="raised r24" style="padding:14px 16px;display:flex;flex-direction:column;gap:10px"><div class="between"><h2 class="sec15">Last 5 weeks</h2><span class="cap">' + (weekStart() ? 'Mon to Sun' : 'Sun to Sat') + '</span></div>' +
-    '<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px" role="img" aria-label="Days on ' + (measure === 'protein' ? 'protein' : 'calorie') + ' target over the last 5 weeks">' + cells + '</div>' +
-    '<div class="row cap" style="gap:14px;flex-wrap:wrap"><span class="row" style="gap:5px"><span class="hm on" style="width:8px"></span>On target</span><span class="row" style="gap:5px"><span class="hm over" style="width:8px"></span>' + (measure === 'protein' ? 'Under' : 'Over') + '</span><span class="row" style="gap:5px"><span class="hm none" style="width:8px"></span>Nothing logged</span></div></section>' +
+    '<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px" role="img" aria-label="Days on ' + name + ' target over the last 5 weeks">' + cells + '</div>' +
+    '<div class="row cap" style="gap:14px;flex-wrap:wrap"><span class="row" style="gap:5px"><span class="hm on" style="width:8px"></span>On target</span><span class="row" style="gap:5px"><span class="hm over" style="width:8px"></span>' + (goal ? 'Under' : 'Over') + '</span><span class="row" style="gap:5px"><span class="hm none" style="width:8px"></span>Nothing logged</span></div></section>' +
     '<section class="raised r24" style="padding:14px 16px;display:flex;flex-direction:column;gap:8px"><div class="between"><h2 class="sec15">Day-to-day swing</h2><span class="cap">last 13 days</span></div>' +
     '<svg width="100%" viewBox="0 0 ' + W + ' ' + Hh + '" role="img" aria-label="Daily ' + u + ' against a band of 10 percent around the target. Median distance ' + fmt(med) + ' ' + u + '.">' +
     '<rect x="0" y="' + (Hh / 2 - bandH).toFixed(1) + '" width="' + W + '" height="' + (bandH * 2).toFixed(1) + '" rx="8" fill="#F5A524" fill-opacity=".1"/><line x1="0" y1="' + Hh / 2 + '" x2="' + W + '" y2="' + Hh / 2 + '" stroke="#A2A7B6" stroke-dasharray="4 4"/>' + pts + '</svg>' +
-    '<div style="font-size:13px;line-height:1.45;color:var(--soft)">' + (lg.length ? 'Most days sit within ' + fmt(Math.round(med / (measure === 'protein' ? 1 : 10)) * (measure === 'protein' ? 1 : 10)) + ' ' + u + ' of your target.' + (misses.length >= 2 ? (wkMiss / misses.length >= 0.5 ? ' The misses cluster on weekends.' : ' The misses are spread across the week.') : '') : 'Log a few days to see your swing.') + '</div></section></div>';
+    '<div style="font-size:13px;line-height:1.45;color:var(--soft)">' + (lg.length ? 'Most days sit within ' + fmt(Math.round(med / step) * step) + ' ' + u + ' of your target.' + (misses.length >= 2 ? (wkMiss / misses.length >= 0.5 ? ' The misses cluster on weekends.' : ' The misses are spread across the week.') : '') : 'Log a few days to see your swing.') + '</div></section></div>';
 };
 
 /* ---------- Weight ---------- */

@@ -123,11 +123,24 @@ function targetFor(day) {
 }
 const currentTarget = () => targetFor(today());
 /* on target = total kcal at or under target (calories); protein: within 10% or above */
+/* What "on target" means per nutrient, as the Today screen treats them: calories, carbs and fat are
+   budgets (at or under), protein and fiber are goals to reach (protein counts from 90%), sugar and
+   sodium are limits. A target of 0 means that nutrient isn't being tracked. */
+const MEASURE = {
+  kcal: {label: 'Calories', v: 'kcal', t: 'kcal', kind: 'max'},
+  protein: {label: 'Protein', v: 'protein_g', t: 'protein_g', kind: 'min', from: 0.9},
+  carbs: {label: 'Carbs', v: 'carbs_g', t: 'carbs_g', kind: 'max'},
+  fat: {label: 'Fat', v: 'fat_g', t: 'fat_g', kind: 'max'},
+  sugar: {label: 'Sugar', v: 'sugar_g', t: 'sugar_max_g', kind: 'max'},
+  fiber: {label: 'Fiber', v: 'fiber_g', t: 'fiber_min_g', kind: 'min'},
+  sodium: {label: 'Sodium', v: 'sodium_mg', t: 'sodium_max_mg', kind: 'max'}
+};
+/* 'on', 'over' (over a budget or limit, or short of a goal) or 'none' (nothing logged, or no target that day) */
 function dayStatus(day, measure) {
   if (!logged(day)) return 'none';
-  const t = totalsOn(day), tg = targetFor(day);
-  if (measure === 'protein') return t.protein_g >= num(tg.protein_g) * 0.9 ? 'on' : 'over';
-  return t.kcal <= num(tg.kcal) ? 'on' : 'over';
+  const M = MEASURE[measure] || MEASURE.kcal, v = totalsOn(day)[M.v], tg = num(targetFor(day)[M.t]);
+  if (!(tg > 0)) return 'none';
+  return (M.kind === 'min' ? v >= tg * (M.from || 1) : v <= tg) ? 'on' : 'over';
 }
 const within10 = day => { const t = totalsOn(day), tg = num(targetFor(day).kcal); return Math.abs(t.kcal - tg) <= tg * 0.1; };
 const macroKcal = x => num(x.protein_g) * 4 + num(x.carbs_g) * 4 + num(x.fat_g) * 9;
