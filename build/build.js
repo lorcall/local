@@ -21,4 +21,13 @@ fs.writeFileSync(path.join(root, 'preview.html'), index);
 const art = '<title>LoCal</title>\n<link rel="preconnect" href="https://fonts.googleapis.com">\n<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@200..700&display=swap" rel="stylesheet">\n' +
   styles.trim().replace('<style>', '<style>\n:root{color-scheme:dark}') + '\n<div id="app">' + bootHtml + '</div>\n<script>\n' + src + '\n</script>\n';
 fs.writeFileSync(path.join(__dirname, 'artifact', 'LoCal.html'), art);
+// Web build: the same bundle, plus the stylesheet as a real file. web/index.html loads
+// api.js before app.js, so 2-api.js picks WebAPI() instead of the Apps Script transport.
+const webDir = path.join(root, 'web');
+if (fs.existsSync(webDir)) {
+  fs.writeFileSync(path.join(webDir, 'app.js'), src);
+  fs.writeFileSync(path.join(webDir, 'styles.css'), styles.replace(/^[\s\S]*?<style>/, '').replace(/<\/style>[\s\S]*$/, '').trim() + '\n');
+  const webIndex = path.join(webDir, 'index.html');
+  fs.writeFileSync(webIndex, fs.readFileSync(webIndex, 'utf8').replace(/<!--boot-->[\s\S]*?<!--\/boot-->/, '<!--boot-->' + bootHtml + '<!--/boot-->'));
+}
 console.log('built', (src.length / 1024).toFixed(1) + ' KB js');

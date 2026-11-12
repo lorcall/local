@@ -1,0 +1,16 @@
+{
+  "name": "LoCal",
+  "short_name": "LoCal",
+  "description": "A calorie tracker that keeps your log in your own Google Drive.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#17181D",
+  "theme_color": "#23252D",
+  "icons": [
+    { "src": "../icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "../icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "../icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

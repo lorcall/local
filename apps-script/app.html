@@ -222,7 +222,10 @@ const API = IN_GAS ? {
   addWeight: w => gasCall('addWeight', w),
   saveSettings: s => gasCall('saveSettings', s),
   weeklySummary: n => gasCall('weeklySummary', n)
-} : DemoAPI();
+} : (typeof WebAPI === 'function' ? WebAPI() : DemoAPI());
+/* Three implementations behind one interface: Apps Script (google.script.run),
+   the static web build (WebAPI, defined in web/api.js and loaded before this
+   bundle), and the offline demo used by preview.html. */
 
 /* Applies a server write to local state too, so the UI never waits for a re-read. */
 function applyMeal(meal, entries) {
