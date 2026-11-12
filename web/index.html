@@ -55,13 +55,17 @@
      is the only way Safari reliably allows it. */
   // A script error inside the bundle leaves the boot screen up forever: a parse error
   // doesn't fire the script tag's onerror, so nothing would ever report it. Say it on screen.
-  window.addEventListener('error', function (ev) {
+  function showFailure(title, detail) {
     const el = document.querySelector('#app .boot > span');
     if (!el) return;
-    const where = ev.filename ? ev.filename.split('/').pop() : 'the app';
-    el.innerHTML = '<span style="color:#FF8E8E">' + where + ' failed to load.</span><br>' +
-      '<span style="font-size:13px">' + String(ev.message || '').slice(0, 200) + '</span>';
-  });
+    const safe = s => String(s || '').slice(0, 200).replace(/[&<>]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;'}[c]));
+    el.innerHTML = '<span style="color:#FF8E8E">' + safe(title) + '</span><br><span style="font-size:13px">' + safe(detail) + '</span>';
+  }
+  window.addEventListener('error', ev =>
+    showFailure((ev.filename ? ev.filename.split('/').pop().split('?')[0] : 'The app') + ' failed to load.', ev.message));
+  // boot() is async, so a throw inside it is a rejected promise, which 'error' never sees.
+  window.addEventListener('unhandledrejection', ev =>
+    showFailure('The app stopped while starting.', ev.reason && (ev.reason.message || ev.reason)));
 
   (function () {
     const app = () => document.getElementById('app');
