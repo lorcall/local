@@ -1,7 +1,7 @@
 // Logging flows of the web build, with Google and the AI proxy stubbed and a little history.
 //   photo: no meal/label switch; a label photo opens the label screen, a meal photo the review
 //   search: past meals and foods are findable and add in one tap; no match offers a new food
-//   layout: the scrollbar gutter is reserved
+//   layout: the app is centred on the window width
 const { chromium } = require('playwright');
 const http = require('http'), fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '..', '..');
@@ -102,7 +102,7 @@ const DATA = {
   check(!/Filipino|Dish group/.test(await text()), 'no dish group on the item editor');
 
   console.log('Layout');
-  check(await page.evaluate(() => getComputedStyle(document.documentElement).scrollbarGutter === 'stable'), 'scrollbar gutter reserved');
+  check(await page.evaluate(() => getComputedStyle(document.documentElement).scrollbarGutter !== 'stable' && Math.round(document.getElementById('app').getBoundingClientRect().left) === Math.max(0, Math.round(innerWidth / 2 - 215))), 'app centred on the window width, no reserved scrollbar strip (see web-layout.js)');
   check(errs.length === 0, 'no page errors' + (errs.length ? ': ' + errs.join(' | ') : ''));
   await browser.close(); server.close();
   console.log(failures ? '\n' + failures + ' FAILED' : '\nall passed');

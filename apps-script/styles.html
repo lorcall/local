@@ -7,6 +7,10 @@
   --a:#F5A524; --a2:#FFD08A; --oa:#1E1606;
   --p:#7BE5C4; --c:#F5A524; --f:#A495FF; --f2:#B9AEFF; --ov:#FF7A6B;
   --font:'Geologica',system-ui,-apple-system,'Segoe UI',sans-serif;
+  /* the page's two glows, pinned to the app column's corners (see body::before). Positions use vw,
+     the full window including any scrollbar, like the column itself, so nothing moves when one appears. */
+  --glow:radial-gradient(circle 380px at calc(50vw + min(50vw,215px) - 20px) 0,rgba(245,165,36,.16),rgba(245,165,36,0)),
+    radial-gradient(circle 345px at calc(50vw - min(50vw,215px)) 82%,rgba(164,149,255,.12),rgba(164,149,255,0));
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
@@ -14,12 +18,8 @@ html,body{margin:0;height:100%}
    computer the graphite runs edge to edge with no band either side. The glows stay pinned to
    the column's corners (on a phone that is the screen's corners, as before) and fade out
    into plain graphite, so wider screens just get more of the same surface. */
-/* Always keep the scrollbar's space, so moving from a short screen to a tall one doesn't nudge
-   the whole app sideways on computers that show classic scrollbars. */
-html{background:var(--g);scrollbar-gutter:stable}
-body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
-  background:radial-gradient(circle 380px at calc(50% + min(50vw,215px) - 20px) 0,rgba(245,165,36,.16),rgba(245,165,36,0)),
-    radial-gradient(circle 345px at calc(50% - min(50vw,215px)) 82%,rgba(164,149,255,.12),rgba(164,149,255,0)),var(--g)}
+html{background:var(--g)}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:var(--glow),var(--g)}
 body{font-family:var(--font);color:var(--tx);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
 button,input,textarea,select{font-family:inherit;font-size:inherit;color:inherit}
 button{cursor:pointer;border:0;background:none;padding:0}
@@ -31,7 +31,10 @@ h1,h2,h3,p{margin:0}
 .sr{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
 /* app frame */
-#app{position:relative;max-width:430px;min-width:320px;margin:0 auto;min-height:100vh;min-height:100dvh;overflow-x:hidden}
+/* Centred on the full window width (vw counts the scrollbar), not the space beside it: on computers
+   with classic scrollbars, opening a tall screen adds a scrollbar, and auto margins would shift the
+   whole app sideways. Reserving the scrollbar's strip instead left a plain seam beside the glow. */
+#app{position:relative;max-width:430px;min-width:320px;margin:0 0 0 max(0px,calc(50vw - 215px));min-height:100vh;min-height:100dvh;overflow-x:hidden}
 .scr{display:flex;flex-direction:column;gap:14px;padding:24px 20px 28px;min-height:100vh;min-height:100dvh}
 .scr.tabbed{padding-bottom:112px}
 .grow{flex-grow:1}
@@ -128,7 +131,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 @keyframes arcdraw{from{stroke-dasharray:0 1000}}
 
 /* tab bar */
-.tabbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));width:calc(min(100vw,430px) - 32px);height:70px;border-radius:26px;display:flex;align-items:center;justify-content:space-around;z-index:20}
+.tabbar{position:fixed;left:50vw;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));width:calc(min(100vw,430px) - 32px);height:70px;border-radius:26px;display:flex;align-items:center;justify-content:space-around;z-index:20}
 .nb{width:48px;height:48px;border-radius:16px;display:flex;align-items:center;justify-content:center;color:var(--mu)}
 /* tab bar matches the segmented control: a pressed track, the active tab raised and mango */
 .tabbar{background:var(--g);padding:0 6px;box-shadow:inset 4px 4px 8px var(--lo),inset -4px -4px 8px var(--hi)}
@@ -220,7 +223,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .shutter span{width:56px;height:56px;border-radius:50%;background:var(--a);box-shadow:0 0 18px -2px var(--a),inset 0 2px 0 rgba(255,255,255,.4),inset -3px -4px 8px rgba(0,0,0,.25)}
 
 /* overlays */
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(100px + env(safe-area-inset-bottom));z-index:60;padding:12px 18px;border-radius:16px;font-size:14px;max-width:calc(min(100vw,430px) - 40px);display:flex;gap:14px;align-items:center;animation:up .2s ease-out}
+.toast{position:fixed;left:50vw;transform:translateX(-50%);bottom:calc(100px + env(safe-area-inset-bottom));z-index:60;padding:12px 18px;border-radius:16px;font-size:14px;max-width:calc(min(100vw,430px) - 40px);display:flex;gap:14px;align-items:center;animation:up .2s ease-out}
 .toast.notab{bottom:auto;top:calc(16px + env(safe-area-inset-top));animation-name:down}
 @keyframes down{from{transform:translate(-50%,-16px);opacity:0}}
 .scrim{position:fixed;inset:0;background:rgba(10,10,14,.55);z-index:50;display:flex;align-items:flex-end;justify-content:center}
