@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 180" width="520" height="180">
+  <title>LoCal</title>
+  <rect width="520" height="180" rx="36" fill="#23252D"/>
+  <g font-family="Geologica, 'Segoe UI', Roboto, sans-serif" font-weight="300" font-size="120" letter-spacing="-5.4" fill="#ECEDF2">
+    <text x="58" y="128">L</text>
+    <text x="214" y="128">Cal</text>
+  </g>
+  <g transform="translate(128 60) scale(.57)">
+    <circle cx="60" cy="60" r="48" fill="none" stroke="#15161B" stroke-width="15"/>
+    <circle cx="60" cy="60" r="48" fill="none" stroke="#F5A524" stroke-width="15" stroke-linecap="round" stroke-dasharray="226.2 301.6" transform="rotate(135 60 60)"/>
+    <circle cx="94" cy="94" r="8" fill="#FFD08A"/>
+  </g>
+</svg>

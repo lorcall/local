@@ -1,0 +1,410 @@
+/* ---------- screens: start, goals, today and logging ---------- */
+const SCREENS = {};
+
+SCREENS.welcome = () => {
+  return '<div class="scr" style="align-items:center;padding:80px 24px 36px">' +
+    logoTile(150) +
+    wordmark(56, 'margin-top:36px') +
+    '<p style="margin-top:12px;font-size:16px;font-weight:300;color:var(--mu);text-align:center;line-height:1.5;max-width:280px">Snap a meal, see what\'s left for the day.</p>' +
+    '<div class="col" style="gap:14px;width:100%;margin-top:40px">' +
+    [['camera', 'Photograph a plate or a label to get calories and macros'], ['target', 'Check each day against your own target'], ['sheet', 'Every meal saves as a row in your Google Sheet']]
+      .map(([i, t]) => '<div class="raised-sm r18 row" style="padding:14px 16px;gap:14px">' + iconWell(i) + '<span style="font-size:14px;line-height:1.4">' + t + '</span></div>').join('') +
+    '</div><div class="grow" style="min-height:28px"></div>' +
+    '<button class="cta btn" data-a="connect">' + (S.ui.busy ? '<span class="spinglow"><span class="spin"></span></span>' : 'Connect Google account') + '</button>' +
+    '<p class="cap" style="margin-top:16px;text-align:center;line-height:1.5">LoCal uses one Sheet and one Drive folder in your account. Meal photos are sent to Gemini for the estimate. <a data-a="go" data-v="settings" href="#">How data is stored</a></p>' +
+    '</div>';
+};
+
+function logoTile(px, loading) {
+  const s = Math.round(px * 116 / 150), k = s / 120;
+  // loading: the dial's arc becomes the rotating trail, sized to sit exactly on the track (r 34, stroke 8)
+  const ring = loading ? '<span class="spinglow logospin"><span class="spin" style="--s:' + (2 * 38 * k).toFixed(1) + 'px;--t:' + (8 * k).toFixed(1) + 'px"></span></span>' : '';
+  return '<div style="position:relative;width:' + px + 'px;height:' + px + 'px;border-radius:' + Math.round(px * .253) + 'px;background:linear-gradient(145deg,#2A2D36,#1F2128);box-shadow:14px 14px 28px var(--lo),-12px -12px 24px var(--hi),inset 0 1px 0 rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;flex-shrink:0">' +
+    '<svg width="' + s + '" height="' + s + '" viewBox="0 0 120 120" role="img" aria-label="LoCal app icon"><defs><linearGradient id="lw" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#16171C"/><stop offset="1" stop-color="#30333D"/></linearGradient><filter id="lg" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>' +
+    '<circle cx="60" cy="60" r="47" fill="url(#lw)"/><circle cx="60" cy="60" r="43" fill="#23252D"/><circle cx="60" cy="60" r="34" fill="none" stroke="#17181D" stroke-width="8"/>' +
+    (loading ? '' : '<circle cx="60" cy="60" r="34" fill="none" stroke="#F5A524" stroke-width="8" stroke-linecap="round" stroke-dasharray="160.2 213.6" transform="rotate(135 60 60)" filter="url(#lg)"/>' +
+    '<circle cx="84" cy="84" r="5.5" fill="#FFD08A" filter="url(#lg)"/>') + '<circle cx="60" cy="60" r="18" fill="#FFFFFF" fill-opacity=".06" stroke="#FFFFFF" stroke-opacity=".16"/></svg>' + ring + '</div>';
+}
+function wordmark(fs, style) {
+  const d = Math.round(fs * 0.57);
+  return '<div role="img" aria-label="LoCal" style="display:flex;align-items:baseline;font-size:' + fs + 'px;font-weight:300;letter-spacing:-.045em;line-height:1;' + (style || '') + '"><span aria-hidden="true">L</span>' +
+    '<svg width="' + d + '" height="' + d + '" viewBox="0 0 120 120" aria-hidden="true" style="margin:0 2px;position:relative;top:1px"><circle cx="60" cy="60" r="48" fill="none" stroke="#15161B" stroke-width="15"/><circle cx="60" cy="60" r="48" fill="none" stroke="#F5A524" stroke-width="15" stroke-linecap="round" stroke-dasharray="226.2 301.6" transform="rotate(135 60 60)" style="filter:drop-shadow(0 0 3px #F5A524)"/><circle cx="94" cy="94" r="8" fill="#FFD08A"/></svg>' +
+    '<span aria-hidden="true">Cal</span></div>';
+}
+
+/* ---------- Goal calculator ---------- */
+function gcState() {
+  if (!S.ui.gc) {
+    const p = profile(), ws = weightSeries(), lastW = ws.length ? ws[ws.length - 1].kg : null;
+    S.ui.gc = Object.assign({age: 30, sex: 'Male', height: 170, weight: 70, activity: 'Light', goal: 'Lose', target_weight: 65, pace: 0.35}, p, lastW ? {weight: r1(lastW)} : {});
+  }
+  return S.ui.gc;
+}
+SCREENS.goals = () => {
+  const p = gcState(), g = goalCalc(p), keep = p.goal === 'Keep';
+  const fld = (id, label, val, step) => '<div class="col" style="gap:6px"><label for="' + id + '" class="lb">' + label + '</label><input id="' + id + '" class="fld" type="number" inputmode="decimal" step="' + (step || 1) + '" value="' + esc(val) + '" data-in="gc" data-k="' + id.slice(3) + '"></div>';
+  const paceFrac = (num(p.pace) - 0.1) / 0.65;
+  return '<div class="scr">' + backHeader('Goal calculator') +
+    '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px">' +
+    fld('gc-age', 'Age', p.age) +
+    '<div class="col" style="gap:6px"><span class="lb" id="gcsex">Sex</span>' + track('gcSex', ['Male', 'Female'], p.sex, 'Sex', {style: 'height:46px;border-radius:14px'}) + '</div>' +
+    fld('gc-height', 'Height, cm', p.height) + fld('gc-weight', 'Current weight, kg', p.weight, 0.1) + '</div>' +
+    '<div class="col" style="gap:8px"><span class="lb">How active are you?</span>' + chips('gcAct', ACTIVITY.map(a => a[0]), p.activity, 'How active are you?') + '</div>' +
+    '<div class="row" style="gap:14px;align-items:flex-end"><div class="col" style="flex:1.4;gap:8px"><span class="lb">Goal</span>' + chips('gcGoal', ['Lose', 'Keep', 'Gain'], p.goal, 'Goal') + '</div>' +
+    '<div class="col" style="flex:1;gap:6px"><label for="gc-target_weight" class="lb">Target, kg</label><input id="gc-target_weight" class="fld sm" type="number" inputmode="decimal" step="0.1" value="' + esc(p.target_weight) + '" data-in="gc" data-k="target_weight"' + (keep ? ' disabled style="opacity:.5"' : '') + '></div></div>' +
+    (keep ? '' : '<div class="col" style="gap:10px"><div class="between"><label for="gc-pace" class="lb">Pace</label><span data-part="gc-pv" style="font-size:14px">' + fmt(p.pace, 2) + ' kg a week</span></div>' +
+      '<div style="position:relative;height:28px;display:flex;align-items:center"><div class="pressed-sm" style="position:absolute;left:0;right:0;height:12px;border-radius:6px"></div>' +
+      '<div data-part="gc-pf" style="position:absolute;left:3px;width:calc(' + (paceFrac * 100).toFixed(1) + '% - 3px);height:6px;border-radius:3px;background:var(--a);box-shadow:0 0 10px var(--a)"></div>' +
+      '<div data-part="gc-pk" class="raised-sm" style="position:absolute;left:calc(' + (paceFrac * 100).toFixed(1) + '% - ' + (paceFrac * 28).toFixed(1) + 'px);width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;pointer-events:none"><span style="width:8px;height:8px;border-radius:50%;background:var(--a)"></span></div>' +
+      '<input id="gc-pace" type="range" min="0.1" max="0.75" step="0.05" value="' + p.pace + '" aria-valuetext="' + fmt(p.pace, 2) + ' kg a week" data-in="gcPace" style="position:absolute;inset:0;width:100%;opacity:0;margin:0;cursor:pointer"></div>' +
+      '<div class="between" style="font-size:11px;color:var(--mu)"><span>Gentle</span><span>Faster</span></div></div>') +
+    '<section data-part="gc-res" class="raised r26" style="padding:16px;display:flex;flex-direction:column;gap:14px" aria-live="polite"><div class="row" style="gap:16px">' +
+    ringDial(110, 0, g.kcal / Math.max(g.maintenance, g.kcal), '<div style="text-align:center"><div class="num" style="font-size:28px">' + fmt(g.kcal) + '</div><div style="font-size:11px;color:var(--mu)">kcal a day</div></div>', fmt(g.kcal) + ' kcal a day') +
+    '<div class="col grow" style="gap:6px;font-size:13px">' +
+    '<div class="between"><span class="mu">Maintenance</span><span>' + fmt(g.maintenance) + '</span></div>' +
+    '<div class="between"><span class="mu">' + (g.delta < 0 ? 'Daily deficit' : g.delta > 0 ? 'Daily surplus' : 'Daily change') + '</span><span>' + fmtSigned(g.delta) + '</span></div>' +
+    (keep ? '' : '<div class="between"><span class="mu">Reach ' + fmt(p.target_weight, 1) + ' kg in</span><span style="white-space:nowrap">about ' + plural(g.weeks, 'week') + '</span></div>') +
+    '</div></div><div class="row" style="gap:10px">' +
+    [['Protein', g.protein, COLOR.p], ['Carbs', g.carbs, COLOR.c], ['Fat', g.fat, '#B9AEFF']].map(([l, v, c]) => '<div class="pressed-sm r14" style="flex:1;padding:8px 10px"><div style="font-size:11px;color:' + c + '">' + l + '</div><div style="font-size:16px">' + fmt(v) + ' g</div></div>').join('') +
+    '</div></section>' +
+    '<button class="cta btn" data-a="useTargets">Use these targets</button>' +
+    '<p class="cap" style="text-align:center;line-height:1.5">Estimated with the Mifflin-St Jeor formula. A starting point, not medical advice.</p></div>';
+};
+
+/* ---------- Daily targets ---------- */
+function tgState() {
+  if (!S.ui.tg) S.ui.tg = Object.assign({mode: 'Grams'}, currentTarget(), {
+    fiber_on: num(currentTarget().fiber_min_g) > 0, sugar_on: num(currentTarget().sugar_max_g) > 0, sodium_on: num(currentTarget().sodium_max_mg) > 0,
+    fiber_min_g: num(currentTarget().fiber_min_g) || 25, sugar_max_g: num(currentTarget().sugar_max_g) || 50, sodium_max_mg: num(currentTarget().sodium_max_mg) || 2300});
+  return S.ui.tg;
+}
+SCREENS.targets = () => {
+  const t = tgState(), k = num(t.kcal), mk = macroKcal(t), pct = (g, f) => k ? Math.round(g * f / k * 100) : 0;
+  const macro = (key, label, f, color) => {
+    const g = num(t[key]), pc = pct(g, f), val = t.mode === 'Grams' ? r0(g) : pc;
+    return '<div class="col" style="gap:6px"><div class="between" style="font-size:14px;align-items:center"><label for="tg-' + key + '">' + label + '</label>' +
+      '<span class="row" style="gap:8px"><input id="tg-' + key + '" class="fld" type="number" inputmode="numeric" value="' + val + '" data-in="tgMacro" data-k="' + key + '" data-f="' + f + '" style="width:76px;height:36px;text-align:right;font-size:15px;padding:0 10px">' +
+      '<span data-part="tgp-' + key + '" style="min-width:48px">' + (t.mode === 'Grams' ? 'g <span class="mu">' + pc + '%</span>' : '% <span class="mu">' + fmt(g) + ' g</span>') + '</span></span></div>' +
+      '<div class="mbar" data-part="tgb-' + key + '"><div style="width:' + clamp(pc / 60 * 100, 2, 100) + '%;background:' + color + ';box-shadow:0 0 8px ' + color + '"></div></div></div>';
+  };
+  const lim = (key, on, label, unit) => '<div class="row" style="height:50px"><label for="tg-' + key + '" style="flex-grow:1;font-size:14px">' + label + '</label>' +
+    '<input id="tg-' + key + '" class="fld" type="number" inputmode="numeric" value="' + r0(t[key]) + '" data-in="tg" data-k="' + key + '" style="width:84px;height:34px;text-align:right;font-size:14px;padding:0 8px;' + (on ? '' : 'opacity:.45') + '"' + (on ? '' : ' disabled') + '>' +
+    '<span class="mu" style="font-size:14px;width:26px">' + unit + '</span>' + switchBtn(on, 'tgToggle', label, key) + '</div>';
+  const diff = Math.round(mk - k);
+  return '<div class="scr tabbed"><header class="between" style="align-items:center"><h1 class="title">Daily targets</h1>' +
+    '<button class="ib" data-a="go" data-v="settings" aria-label="Settings">' + icon('gear', 20) + '</button></header>' +
+    '<section class="raised r26 row" style="padding:16px 18px;gap:14px">' +
+    '<button class="ib m" data-a="tgKcal" data-v="-50" aria-label="Lower by 50" style="font-size:20px">−</button>' +
+    '<div class="grow" style="text-align:center"><div class="num" style="font-size:44px;letter-spacing:-.04em">' + fmt(k) + '</div><div class="cap13" style="margin-top:4px">kcal a day</div></div>' +
+    '<button class="ib m" data-a="tgKcal" data-v="50" aria-label="Raise by 50" style="font-size:20px">+</button></section>' +
+    '<div class="between" style="font-size:13px;margin-top:-4px;padding:0 4px"><span class="mu">' + (profile().maintenance ? 'From the goal calculator' : 'Set by you') + '</span><a href="#" data-a="go" data-v="goals">Recalculate</a></div>' +
+    '<div class="between" style="align-items:center"><h2 class="sec">Macros</h2>' + track('tgMode', ['Grams', 'Percent'], t.mode, 'Enter macros as', {tight: true, style: 'border-radius:14px'}) + '</div>' +
+    '<div class="col" style="gap:14px">' + macro('protein_g', 'Protein', 4, COLOR.p) + macro('carbs_g', 'Carbs', 4, COLOR.c) + macro('fat_g', 'Fat', 9, COLOR.f) + '</div>' +
+    '<p class="cap" data-part="tgsum">These add up to ' + fmt(mk) + ' kcal (4 per gram of protein and carbs, 9 per gram of fat)' + (Math.abs(diff) < 5 ? ', matching your calorie target.' : ', ' + fmt(Math.abs(diff)) + (diff < 0 ? ' under' : ' over') + ' your calorie target.') + '</p>' +
+    '<div class="raised r22 col" style="padding:6px 16px">' + lim('fiber_min_g', t.fiber_on, 'Fiber, at least', 'g') + '<div class="sep"></div>' + lim('sugar_max_g', t.sugar_on, 'Sugar, at most', 'g') + '<div class="sep"></div>' + lim('sodium_max_mg', t.sodium_on, 'Sodium, at most', 'mg') + '</div>' +
+    '<p class="cap">Changes apply from today. Past days are still compared with the target they had.</p>' +
+    '<button class="cta btn" data-a="saveTargets" style="height:54px">' + (S.ui.busy ? '<span class="spinglow"><span class="spin"></span></span>' : 'Save targets') + '</button>' +
+    '</div>' + tabBar('targets');
+};
+
+/* ---------- Settings and data ---------- */
+SCREENS.settings = () => {
+  const m = S.meta, h13 = t => '<h2 class="h13">' + t + '</h2>';
+  const sel = (key, opts, val, label) => '<select class="pill" data-in="setting" data-k="' + key + '" aria-label="' + label + '">' + opts.map(o => '<option' + (o === val ? ' selected' : '') + '>' + o + '</option>').join('') + '</select>';
+  const link = (url, text) => url ? '<a href="' + esc(url) + '" target="_blank" rel="noopener" style="font-size:13px">' + text + '</a>' : '<span class="cap">' + (m.demo ? 'After deploying' : '') + '</span>';
+  return '<div class="scr" style="gap:12px">' + backHeader('Settings and data') + demoBadge() +
+    h13('Where your data lives') +
+    '<section class="raised r22 col" style="padding:6px 16px 14px">' +
+    '<div class="row" style="min-height:50px;font-size:14px"><span class="mdot" style="background:' + (m.demo ? 'var(--mu)' : 'var(--p)') + ';box-shadow:0 0 8px ' + (m.demo ? 'transparent' : 'var(--p)') + '"></span><span class="grow">' + (m.demo ? 'Preview, not connected' : 'Google account connected') + '</span></div>' +
+    '<div class="sep"></div><div class="row" style="min-height:50px;font-size:14px"><span class="grow">Sheet: LoCal log</span>' + link(m.sheetUrl, 'Open in Sheets') + '</div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:6px">' + ['Entries', 'Meals', 'Favorites', 'Targets', 'Weight', 'Settings'].map(t => '<span class="tag" style="color:var(--mu);font-size:12px;padding:5px 9px;border-radius:10px">' + t + '</span>').join('') + '</div>' +
+    '<div class="row" style="min-height:50px;font-size:14px;margin-top:6px"><span class="grow">Photos: Drive folder LoCal photos</span>' + link(m.folderUrl, 'Open') + '</div></section>' +
+    h13('Photo analysis') +
+    '<section class="raised r22 col" style="padding:6px 16px">' +
+    '<div class="row" style="min-height:50px;font-size:14px"><span class="grow">Model</span><span class="mu">' + esc(m.model || 'Gemini Flash, free tier') + '</span></div><div class="sep"></div>' +
+    '<div class="row" style="min-height:50px;font-size:14px"><span class="grow">API key</span><span class="' + (m.hasKey || m.demo ? 'mu' : 'ov') + '">' + (m.demo ? 'Not used in the preview' : m.hasKey ? 'Stored in Apps Script' : 'Missing. Add GEMINI_API_KEY') + '</span></div><div class="sep"></div>' +
+    '<div class="row" style="min-height:50px;font-size:14px"><span class="grow">AI analyses today</span><span>' + fmt(m.analysesToday) + '</span></div></section>' +
+    '<p class="cap" style="padding:0 4px">Google sets the free limits and can change them. Quick add, favorites and copied meals don\'t use the AI.</p>' +
+    h13('Preferences') +
+    '<section class="raised r22 col" style="padding:6px 16px">' +
+    '<div class="row" style="min-height:50px;font-size:14px"><span class="grow">Units</span><span class="pressed-sm pill">kg and cm</span></div><div class="sep"></div>' +
+    '<div class="row" style="min-height:50px;font-size:14px"><span class="grow">Rice serving</span>' + sel('rice_serving', ['1 cup, 160 g', '1 cup, 200 g', '1 scoop, 120 g'], setting('rice_serving', '1 cup, 160 g'), 'Rice serving') + '</div><div class="sep"></div>' +
+    '<div class="row" style="min-height:50px;font-size:14px"><span class="grow">Week starts on</span>' + sel('week_start', ['Monday', 'Sunday'], setting('week_start', 'Monday'), 'Week starts on') + '</div></section>' +
+    '<button class="raised-sm btn2" data-a="csv">Download all data as CSV</button>' +
+    '<p class="cap" style="padding:0 4px;line-height:1.5">Meal photos go to Google\'s Gemini API for the estimate. On the free tier, Google may use them to improve its products. Everything else stays in your account.</p></div>';
+};
+
+/* ---------- Today ---------- */
+SCREENS.today = () => {
+  const t0 = today(), d = viewDay(), t = totalsOn(d), tg = targetFor(d), meals = mealsOn(d).slice().sort((a, b) => String(a.time).localeCompare(String(b.time)));
+  const types = meals.map(m => m.meal_type);
+  const next = ['Breakfast', 'Lunch', 'Dinner'].find(x => !types.includes(x));
+  const anim = S.firstToday && d === t0; S.firstToday = false;
+  const canNext = d < addDays(t0, 7);
+  // what's over the day's target, for the warning line
+  const overs = [];
+  if (t.kcal > num(tg.kcal)) overs.push(fmt(t.kcal - num(tg.kcal)) + ' kcal');
+  [['carbs', t.carbs_g, tg.carbs_g, 'g'], ['fat', t.fat_g, tg.fat_g, 'g'], ['sugar', t.sugar_g, tg.sugar_max_g, 'g'], ['sodium', t.sodium_mg, tg.sodium_max_mg, 'mg']]
+    .forEach(([l, v, lim, u]) => { if (num(lim) > 0 && v > num(lim)) overs.push(l + ' +' + fmt(v - num(lim)) + ' ' + u); });
+  const micro = [['Sugar', t.sugar_g, tg.sugar_max_g, 'g', false], ['Fiber', t.fiber_g, tg.fiber_min_g, 'g', true], ['Sodium', t.sodium_mg, tg.sodium_max_mg, 'mg', false]].filter(x => num(x[2]) > 0);
+  const arrow = (dir, ok) => '<button class="ib ib40" data-a="day" data-v="' + dir + '" aria-label="' + (dir < 0 ? 'Previous day' : 'Next day') + '"' + (ok ? '' : ' disabled style="opacity:.35"') + '>' + icon(dir < 0 ? 'back' : 'next', 16, 2) + '</button>';
+  return '<div class="scr tabbed" style="gap:16px">' + demoBadge() +
+    '<header class="col" style="gap:10px"><div class="between" style="align-items:center">' + wordmark(22, 'color:var(--tx)') +
+    '<button class="ib m" data-a="tab" data-v="history" aria-label="Pick a date">' + icon('calendar', 20) + '</button></div>' +
+    '<div class="between" style="align-items:flex-end"><div><div class="cap13" style="font-size:14px">' + (d === t0 ? 'Today, ' : d === addDays(t0, -1) ? 'Yesterday, ' : d === addDays(t0, 1) ? 'Tomorrow, ' : '') + dayName(d) + '</div><h1 class="title">' + monthDay(d) + (parseDay(d).getFullYear() !== new Date().getFullYear() ? ', ' + parseDay(d).getFullYear() : '') + '</h1></div>' +
+    (d !== t0 ? '<button class="raised-sm" data-a="day" data-v="today" style="height:36px;padding:0 14px;border-radius:12px;font-size:13px;color:var(--a);font-weight:500">Back to today</button>' : '') + '</div></header>' +
+    '<div class="dayswipe" data-dayswipe style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;touch-action:pan-y">' + arrow(-1, true) +
+    '<div class="dialmove">' + calorieDial(r0(t.kcal), num(tg.kcal), {animate: anim, past: d < t0}) + '</div>' + arrow(1, canNext) + '</div>' +
+    '<div class="cap13" style="text-align:center;margin-top:-6px">' + fmt(t.kcal) + ' eaten of ' + fmt(tg.kcal) + ' kcal</div>' +
+    (overs.length ? '<div class="warn row" role="status" style="gap:10px;padding:10px 14px"><span class="ov" style="flex-shrink:0;display:flex">' + icon('warn', 18, 2) + '</span><span><span class="ov" style="font-weight:500">Over target:</span> ' + esc(overs.join(', ')) + '</span></div>' : '') +
+    '<div class="row">' + macroDial('Protein', r0(t.protein_g), num(tg.protein_g), COLOR.p) + macroDial('Carbs', r0(t.carbs_g), num(tg.carbs_g), COLOR.c) + macroDial('Fat', r0(t.fat_g), num(tg.fat_g), COLOR.f) + '</div>' +
+    (micro.length ? '<div class="row" style="gap:10px">' + micro.map(x => microDial(x[0], r0(x[1]), num(x[2]), x[3], x[4])).join('') + '</div>' : '') +
+    '<section class="col" style="gap:12px"><div class="between"><h2 class="sec">Meals</h2>' + (meals.length ? '<a href="#" data-a="go" data-v="day" data-d="' + d + '" style="font-size:13px">Day summary</a>' : '') + '</div>' +
+    meals.map(mealRow).join('') +
+    (next ? '<div class="pressed-sm r18 row" style="padding:8px 8px 8px 14px"><span class="mdot empty"></span><div class="grow"><div style="font-size:15px;font-weight:500">' + next + '</div><div class="cap">Nothing logged yet</div></div>' +
+      '<button class="cta btn-sm" data-a="logType" data-v="' + next + '">Log ' + lc1(next) + '</button></div>' : '') +
+    (meals.length ? '<p class="cap" style="text-align:center">Swipe a meal left to edit, copy or delete it. Swipe the dial for other days.</p>' : '<p class="cap" style="text-align:center">Swipe the dial or use the arrows for other days.</p>') +
+    '</section></div>' + tabBar('today');
+};
+
+/* date and time pickers, shared by logging, review and the label screen */
+function whenRow(prefix, date, time) {
+  return '<div class="row" style="gap:10px"><label class="col grow" style="gap:4px;min-width:0"><span class="lb">Date</span><input id="' + prefix + '-date" type="date" class="fld sm" data-in="' + prefix + 'Date" value="' + esc(date) + '" style="font-size:15px"></label>' +
+    '<label class="col" style="gap:4px;width:42%"><span class="lb">Time</span><input id="' + prefix + '-time" type="time" class="fld sm" data-in="' + prefix + 'Time" value="' + esc(time) + '" style="font-size:15px"></label></div>';
+}
+
+/* ---------- Log a meal ---------- */
+function logState() {
+  if (!S.log) {
+    const d = viewDay(), type = d === today() ? mealForNow() : 'Lunch';
+    S.log = {mode: 'meal', meal_type: type, date: d, time: d === today() ? nowHM() : TYPE_TIME[type], timeAuto: d !== today(), note: '', text: '', img: '', full: null, thumb: '', photo_url: '', busy: false, error: ''};
+  }
+  return S.log;
+}
+SCREENS.log = () => {
+  const L = logState(), label = L.mode === 'label';
+  const corners = '<div aria-hidden="true" style="position:absolute;left:66px;right:66px;top:86px;height:210px;max-width:258px;margin:0 auto">' +
+    ['left:0;top:0;border-left-width:3px;border-top-width:3px;border-radius:12px 0 0 0', 'right:0;top:0;border-right-width:3px;border-top-width:3px;border-radius:0 12px 0 0', 'left:0;bottom:0;border-left-width:3px;border-bottom-width:3px;border-radius:0 0 0 12px', 'right:0;bottom:0;border-right-width:3px;border-bottom-width:3px;border-radius:0 0 12px 0'].map(s => '<div class="corner" style="' + s + '"></div>').join('') + '</div>';
+  const cta = L.busy ? '<button class="cta btn" disabled aria-live="polite"><span class="spinglow"><span class="spin"></span></span><span style="margin-left:10px">' + (label ? 'Reading the label' : 'Analyzing photo') + '</span></button>'
+    : '<button class="cta btn" data-a="analyze">' + (L.img ? (label ? 'Read the label' : 'Analyze photo') : (label ? 'Photograph the label' : 'Take a photo')) + '</button>';
+  return '<div class="col" style="min-height:100vh;min-height:100dvh">' +
+    '<div class="cam">' + (L.img ? '<img class="shot" src="' + L.img + '" alt="Your ' + (label ? 'label' : 'meal') + ' photo">' :
+      '<button data-a="shoot" class="col" style="align-items:center;gap:10px;color:rgba(255,255,255,.75);font-size:14px">' + icon(label ? 'label' : 'camera', 40, 1.4) + '<span>' + (label ? 'Photograph the nutrition label' : 'Photograph your plate') + '</span></button>') +
+    corners +
+    '<header style="position:absolute;left:18px;right:18px;top:22px;display:flex;justify-content:space-between;align-items:center">' +
+    '<button class="gb" data-a="closeLog" aria-label="Close" style="width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff">' + icon('close', 18, 2) + '</button>' +
+    '<div class="gb" role="radiogroup" aria-label="What are you photographing?" style="display:flex;padding:4px;border-radius:22px">' +
+    ['meal', 'label'].map(v => '<button role="radio" aria-checked="' + (L.mode === v) + '" data-a="logMode" data-v="' + v + '" style="height:34px;padding:0 14px;border-radius:18px;font-size:13px;' + (L.mode === v ? 'background:var(--a);color:var(--oa);font-weight:600' : 'color:#fff') + '">' + cap1(v) + '</button>').join('') +
+    '</div></header></div>' +
+    '<div class="sheet">' +
+    '<div style="display:flex;justify-content:center;gap:28px;margin-top:-34px">' +
+    '<button class="raised-md" data-a="pick" aria-label="Choose from gallery" style="width:56px;height:56px;margin-top:10px;border-radius:50%;display:flex;align-items:center;justify-content:center">' + icon('gallery', 20) + '</button>' +
+    '<button class="shutter" data-a="shoot" aria-label="' + (L.img ? 'Retake photo' : 'Take photo') + '"><span></span></button>' +
+    '<button class="raised-md" data-a="logMode" data-v="' + (label ? 'meal' : 'label') + '" data-shoot="1" aria-label="' + (label ? 'Photograph a meal instead' : 'Scan a nutrition label') + '" style="width:56px;height:56px;margin-top:10px;border-radius:50%;display:flex;align-items:center;justify-content:center' + (label ? ';color:var(--a)' : '') + '">' + icon(label ? 'plate' : 'label', 20) + '</button></div>' +
+    '<div class="between"><h1 class="title22">' + (label ? 'Scan a label' : 'Log a meal') + '</h1><span class="cap13">' + esc(dayLabel(L.date)) + ', ' + time12(L.time) + '</span></div>' +
+    chips('logType', MEAL_TYPES, L.meal_type, 'Meal') + whenRow('log', L.date, L.time) +
+    (label ? '<p class="cap">The AI reads the printed numbers per serving, so this is the most accurate way to log packaged food.</p>' :
+      '<div class="col" style="gap:8px"><label for="lm-note" style="font-size:14px;font-weight:500">Note for the AI <span style="font-weight:300;color:var(--mu)">optional</span></label>' +
+      '<textarea id="lm-note" rows="2" class="fld" data-in="logNote" placeholder="Sinigang na baboy, one bowl. Rice is one cup.">' + esc(L.note) + '</textarea>' +
+      '<span class="cap">Tell it what the photo can\'t show: the meat, the portion, no sugar.</span></div>') +
+    (L.error ? '<div class="warn" role="alert"><div class="ov" style="font-weight:500">' + esc(L.error) + '</div><div class="mu" style="margin-top:2px">Your photo and note are kept.</div>' +
+      '<div class="row" style="margin-top:10px"><button class="raised-sm btn-sm mango" data-a="analyze" style="flex:1">Try again</button><button class="raised-sm btn-sm" data-a="go" data-v="quick" style="flex:1;font-weight:500">Add without a photo</button></div></div>' : '') +
+    cta +
+    '<div class="between" style="align-items:center;flex-wrap:wrap;gap:8px 12px"><a href="#" data-a="go" data-v="describe" style="font-size:13px">Describe it in words</a><a href="#" data-a="go" data-v="quick" style="font-size:13px">Favorites and past meals</a></div>' +
+    '<input type="file" id="camIn" accept="image/*" capture="environment" data-in="photo" class="sr" tabindex="-1" aria-hidden="true">' +
+    '<input type="file" id="galIn" accept="image/*" data-in="photo" class="sr" tabindex="-1" aria-hidden="true">' +
+    '</div></div>';
+};
+
+/* ---------- Review the AI result (also edits a saved meal) ---------- */
+SCREENS.review = () => {
+  const D = S.draft; if (!D) return SCREENS.today();
+  const m = D.meal, t = mealTotals(D.items), tl = lc1(m.meal_type);
+  const others = mealsOn(m.date).filter(x => x.meal_id !== m.meal_id);
+  const dayAfter = sum(others, x => mealKcal(x)) + t.kcal, tg = num(targetFor(m.date).kcal), left = tg - dayAfter;
+  const sh = macroShares(t);
+  const isNew = D.mode === 'new';
+  const card = (e, i) => {
+    const low = e.confidence === 'low';
+    const head = '<div class="between"><button data-a="editItem" data-v="' + i + '" style="font-size:15px;font-weight:500;text-align:left">' + esc(e.name || 'Unnamed item') + '</button><span style="font-size:15px;white-space:nowrap">' + (has(e.kcal) ? fmt(e.kcal) + ' kcal' : '<span class="ov">Set kcal</span>') + '</span></div>';
+    if (low) return '<div class="icard low">' + head + '<div class="ov" style="font-size:13px;font-weight:500">Low confidence: ' + esc(e.reason || 'check this item') + '</div>' +
+      '<div class="cap13">' + (num(e.sodium_mg) >= 300 ? 'Sodium of ' + fmt(e.sodium_mg) + ' mg is a guess. ' : '') + 'Check it before saving. <a href="#" data-a="editItem" data-v="' + i + '">Check it</a></div></div>';
+    return '<div class="icard raised-md">' + head + '<div class="row" style="gap:10px">' +
+      '<button class="pressed-sm sel" data-a="editItem" data-v="' + i + '" aria-label="Serving: ' + esc(amountLabel(Object.assign({}, e, {quantity: 1}))) + '. Edit">' + esc(servingLabel(e)) + icon('down', 16, 2, ' style="color:var(--mu)"') + '</button>' +
+      stepper(num(e.quantity) || 1, 'itemQty', 'of ' + (e.name || 'item'), {min: 0.5}).replace(/data-a="itemQty"/g, 'data-a="itemQty" data-i="' + i + '"') + '</div></div>';
+  };
+  const photo = isNew && D.source === 'photo' && S.log && S.log.img ? {src: S.log.img} : hasPhoto(m) ? {m} : null;
+  const photoRow = photo ? '<button class="raised-md r20 row" data-a="viewPhoto" style="padding:10px;gap:12px;text-align:left;width:100%">' +
+    (photo.src ? '<div class="th" role="img" aria-label="Meal photo" style="width:56px;height:56px;background-image:url(\'' + photo.src + '\')"></div>' : thumbEl(m, 56)) +
+    '<span class="grow"><span style="display:block;font-size:15px">Meal photo</span><span class="cap" style="display:block">' + (m.note ? 'Note: ' + esc(m.note) : 'Tap to see it larger') + '</span></span><span class="mango" style="display:flex;padding-right:6px">' + icon('expand', 18) + '</span></button>' : '';
+  const when = '<section class="col" style="gap:10px"><h2 class="sec15">When</h2>' + chips('draftType', MEAL_TYPES, m.meal_type, 'Meal') + whenRow('draft', m.date, m.time) + '</section>';
+  return '<div class="scr">' + backHeader(isNew ? 'Review ' + tl : 'Edit ' + tl, {sub: (isNew && m.date === today() ? '' : dayLabel(m.date) + ', ' + time12(m.time)),
+    right: (isNew && D.source === 'photo' && S.log && S.log.img) ? '<button class="ib m" data-a="reanalyze" aria-label="Analyze again">' + icon('refresh', 18, 2) + '</button>' : ''}) +
+    (D.demo ? '<div class="demo">Preview: a sample result. No photo was sent to the AI.</div>' : '') +
+    photoRow +
+    '<section class="raised r28" style="padding:16px;display:flex;flex-direction:column;gap:14px"><div class="row" style="gap:16px">' +
+    '<div class="dial well" style="width:118px;height:118px;flex-direction:column">' + macroRing(t, 118, 47, 7, 8, true, 'Meal calories by macro: protein ' + Math.round(sh.p * 100) + ' percent, carbs ' + Math.round(sh.c * 100) + ' percent, fat ' + Math.round(sh.f * 100) + ' percent') +
+    '<div class="num" style="font-size:34px;letter-spacing:-.04em">' + fmt(t.kcal) + '</div><div class="cap">kcal</div></div>' +
+    '<div class="col grow" style="gap:7px;font-size:14px">' +
+    [['Protein', t.protein_g, COLOR.p], ['Carbs', t.carbs_g, COLOR.c], ['Fat', t.fat_g, COLOR.f]].map(([l, v, c]) => '<div class="row" style="gap:8px"><span style="width:8px;height:8px;border-radius:50%;background:' + c + '"></span><span class="grow">' + l + '</span><span>' + fmt(v) + ' g</span></div>').join('') +
+    '<div class="cap"' + (left < 0 ? ' style="color:var(--ov)"' : '') + '>After ' + tl + ': ' + fmt(Math.abs(left)) + ' kcal ' + (left < 0 ? 'over' : 'left') + '</div></div></div>' +
+    (D.ai ? '<div class="glass-soft r16 row" style="padding:10px 12px;gap:12px">' + confDots(D.ai.confidence) +
+      '<div style="font-size:13px;color:var(--mu);line-height:1.35"><span style="color:var(--tx)">' + CONF_TEXT[D.ai.confidence in CONF_TEXT ? D.ai.confidence : 'medium'] + '.</span> ' + esc(D.ai.reason || '') + '</div></div>' : '') +
+    '</section>' +
+    '<div class="between" style="align-items:center"><h2 class="sec">' + plural(D.items.length, 'item') + '</h2><button class="raised-sm" data-a="addItem" style="height:40px;padding:0 14px;border-radius:14px;font-size:13px;font-weight:600;color:var(--a)">Add an item</button></div>' +
+    D.items.map(card).join('') +
+    (D.items.length ? '<div class="cap" style="display:flex;justify-content:space-between;gap:8px;padding:0 4px;flex-wrap:wrap"><span>Sugar ' + fmt(t.sugar_g) + ' g</span><span>Fiber ' + fmt(t.fiber_g) + ' g</span><span>Sodium ' + fmt(t.sodium_mg) + ' mg</span><span>estimates</span></div>' : '<p class="cap" style="text-align:center">No items. Add one to save this meal.</p>') +
+    when +
+    (isNew ? '' : '<div class="col" style="gap:6px"><label for="rv-note" class="lb">Note</label><input id="rv-note" class="fld" data-in="draftNote" value="' + esc(m.note || '') + '" placeholder="Optional"></div>') +
+    '<div class="grow"></div>' +
+    '<div class="row">' + (isNew ? '' : '<button class="raised-sm" data-a="deleteMeal" data-v="' + esc(m.meal_id) + '" style="height:56px;padding:0 18px;border-radius:20px;font-size:15px;color:var(--ov);white-space:nowrap">Delete meal</button>') +
+    '<button class="cta btn grow" data-a="saveDraft"' + (D.items.length && !S.ui.busy ? '' : ' disabled') + '>' + (S.ui.busy ? '<span class="spinglow"><span class="spin"></span></span>' : isNew ? 'Save to ' + tl : 'Save changes') + '</button></div></div>';
+};
+
+/* ---------- Edit an item (also adds or edits a saved dish) ---------- */
+SCREENS.edit = () => {
+  const E = S.edit; if (!E) return SCREENS.review();
+  const it = E.item, dish = E.ctx === 'dish', u = it.serving_unit || 'serving', g = num(it.grams_per_unit), q = num(it.quantity) || 1;
+  const units = UNITS.includes(u) ? UNITS : UNITS.concat([u]);
+  const origG = num(E.orig.grams_per_unit) * (num(E.orig.quantity) || 1), nowG = g * q;
+  const chk = macroCheck(it);
+  const cell = (k, span) => {
+    const c = {protein_g: COLOR.p, carbs_g: COLOR.c, fat_g: '#B9AEFF'}[k];
+    const lab = '<div class="vl"' + (c ? ' style="color:' + c + '"' : '') + '>' + VALUE_LABEL[k] + '</div>';
+    if (E.manual) return '<label class="v"' + (span ? ' style="grid-column:span 2"' : '') + '>' + lab + '<span class="row" style="gap:4px"><input type="number" inputmode="decimal" step="any" value="' + (has(it[k]) ? r1(it[k]) : '') + '" data-in="itemVal" data-k="' + k + '" aria-label="' + VALUE_LABEL[k] + ', ' + VALUE_UNIT[k] + '"' + (span ? ' style="font-size:22px;font-weight:250"' : '') + '><span class="cap">' + VALUE_UNIT[k] + '</span></span></label>';
+    return '<div class="v"' + (span ? ' style="grid-column:span 2"' : '') + '>' + lab + '<div class="vv"' + (span ? ' style="font-size:24px;font-weight:250"' : '') + '>' + (has(it[k]) ? fmt(it[k], k === 'kcal' || k === 'sodium_mg' ? 0 : 1) + ' ' + VALUE_UNIT[k] : '—') + '</div></div>';
+  };
+  const nameChanged = E.orig.name && it.name !== E.orig.name;
+  const forLabel = u === 'g' || g ? fmt(nowG) + ' g' : fmt(q, 2) + ' ' + unitWord(u, q);
+  return '<div class="scr">' + backHeader(dish ? (E.isNew ? 'Add a dish' : 'Edit dish') : (E.idx < 0 ? 'Add an item' : 'Edit item')) +
+    '<div class="col" style="gap:6px"><label for="ei-name" class="lb">Food</label><input id="ei-name" class="fld" data-in="itemName" value="' + esc(it.name || '') + '" placeholder="For example: pancit bihon" autocomplete="off">' +
+    '<span class="cap" data-part="ei-cap">' + (nameChanged ? 'Changed from ' + esc(lc1(E.orig.name)) + '. Get new values for this item only.' : '') + '</span></div>' +
+    '<div class="row" style="gap:10px"><button data-part="ei-ask" class="raised-sm" data-a="askAI" style="flex:1;height:44px;border-radius:14px;font-size:14px;color:var(--a);font-weight:500"' + (it.name && !E.busy ? '' : ' disabled') + '>' + (E.busy ? '<span class="spinglow"><span class="spin"></span></span>' : (E.orig.name ? 'Ask the AI again' : 'Ask the AI')) + '</button>' +
+    '<button class="' + (E.manual ? 'pressed-sm' : 'raised-sm') + '" data-a="manual" aria-pressed="' + !!E.manual + '" style="flex:1;height:44px;border-radius:14px;font-size:14px;' + (E.manual ? 'color:var(--a)' : '') + '">Enter my own</button></div>' +
+    '<div class="col" style="gap:8px"><span class="lb">Serving</span>' + chips('itemUnit', units.map(x => [x, UNIT_LABEL[x] || cap1(x)]), u, 'Serving', {h: 38}) +
+    '<div class="row" style="gap:12px"><label for="ei-g" style="font-size:14px;flex-shrink:0">' + (u === 'g' ? 'Portion' : '1 ' + esc(u) + ' is') + '</label>' +
+    '<span class="row" style="gap:6px"><input id="ei-g" class="fld" type="number" inputmode="decimal" value="' + (g || '') + '" placeholder="—" data-in="itemGrams" style="width:84px;text-align:right"><span class="mu">g</span></span>' +
+    '<span class="grow"></span>' + stepper(q, 'editQty', 'servings', {min: 0.5}) + '</div></div>' +
+    '<section class="raised r24" style="padding:14px;display:flex;flex-direction:column;gap:10px"><div class="between" data-part="ei-vh"><h2 class="sec15">Values for ' + forLabel + '</h2>' +
+    (origG && nowG && Math.abs(origG - nowG) > 0.5 ? '<span class="cap">Rescaled from ' + fmt(origG) + ' g</span>' : '') + '</div>' +
+    '<div data-part="ei-grid" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">' + cell('kcal', true) + VALUES.slice(1).map(k => cell(k)).join('') + '</div>' +
+    '<div data-part="ei-chk" aria-live="polite">' + (has(it.kcal) ? '<div class="row" style="gap:8px;font-size:12px;color:var(--mu);align-items:flex-start"><span style="width:8px;height:8px;margin-top:4px;border-radius:50%;flex-shrink:0;background:' + (chk.ok ? 'var(--p);box-shadow:0 0 6px var(--p)' : 'var(--ov);box-shadow:0 0 6px var(--ov)') + '"></span>' +
+      (chk.ok ? '<span>The macros add up to ' + fmt(chk.mk) + ' kcal, close to ' + fmt(chk.k) + '. The numbers check out.</span>'
+        : '<span><span class="ov">The macros add up to ' + fmt(chk.mk) + ' kcal, but calories say ' + fmt(chk.k) + '.</span> <a href="#" data-a="useMacroKcal">Use calories from macros</a></span>') + '</div>' : '') + '</div>' +
+    '</section>' +
+    '<div class="row" style="gap:12px"><label for="ei-cat" class="lb" style="flex-shrink:0;font-size:14px;color:var(--tx)">Category</label><select id="ei-cat" class="fld sm" data-in="itemCat">' + CATEGORIES.map(c => '<option value="' + c + '"' + (c === (it.category || 'other') ? ' selected' : '') + '>' + CATEGORY_LABEL[c] + '</option>').join('') + '</select></div>' +
+    (dish ? '<div class="row" style="gap:12px"><label for="ei-grp" class="lb" style="flex-shrink:0;font-size:14px;color:var(--tx)">Dish group</label><select id="ei-grp" class="fld sm" data-in="itemGroup">' + DISH_GROUPS.slice(1).map(c => '<option' + (c === (it.dish_group || 'Ulam') ? ' selected' : '') + '>' + c + '</option>').join('') + '</select></div>'
+      : '<div class="col"><div class="row" style="height:48px"><span class="grow" style="font-size:14px">Mark as edited by me</span>' + switchBtn(E.edited, 'tglEdited', 'Mark as edited by me') + '</div>' +
+      '<div class="row" style="height:48px"><span class="grow" style="font-size:14px">Use as my default for this dish</span>' + switchBtn(E.asDefault, 'tglDefault', 'Use as my default for this dish') + '</div></div>') +
+    '<div class="grow"></div><div class="row"><button class="raised-sm" data-a="removeItem" style="height:56px;padding:0 18px;border-radius:20px;font-size:15px;color:var(--ov)">' + (E.idx < 0 || dish ? 'Cancel' : 'Remove') + '</button>' +
+    '<button data-part="ei-done" class="cta btn grow" data-a="doneItem"' + (it.name && has(it.kcal) ? '' : ' disabled') + '>' + (dish ? 'Save dish' : 'Done') + '</button></div></div>';
+};
+
+/* ---------- Nutrition label ---------- */
+SCREENS.label = () => {
+  const Lb = S.label; if (!Lb) return SCREENS.log();
+  const r = Lb.result, ps = Object.assign({}, r.per_serving), s = num(Lb.servings) || 1;
+  Object.keys(Lb.manual).forEach(k => { if (has(Lb.manual[k])) ps[k] = num(Lb.manual[k]); });
+  const unread = r.unread_fields || [];
+  const tot = {}; VALUES.forEach(k => tot[k] = num(ps[k]) * s);
+  const tr = k => {
+    if (unread.includes(k)) return '<div class="sep" style="margin:4px 0"></div><div class="between" style="align-items:center;padding:4px 0 6px"><div><label for="ls-' + k + '" style="font-size:14px">' + VALUE_LABEL[k] + '</label><div class="cap ov">Cut off in the photo. Enter it.</div></div>' +
+      '<input id="ls-' + k + '" class="fld bad" type="number" inputmode="decimal" placeholder="' + VALUE_UNIT[k] + '" value="' + esc(Lb.manual[k] == null ? '' : Lb.manual[k]) + '" data-in="labelVal" data-k="' + k + '" style="width:96px;height:42px;font-size:15px;padding:0 12px"></div>';
+    return '<div class="between" style="height:34px;align-items:center;font-size:14px"><span>' + VALUE_LABEL[k] + '</span><span>' + (has(ps[k]) ? fmt(ps[k], 1) + ' ' + VALUE_UNIT[k] : '—') + '</span></div>';
+  };
+  const ordered = VALUES.filter(k => !unread.includes(k)).concat(VALUES.filter(k => unread.includes(k)));
+  return '<div class="scr">' + backHeader('From the label') +
+    (Lb.demo ? '<div class="demo">Preview: a sample label. No photo was sent to the AI.</div>' : '') +
+    '<div class="row" style="gap:14px"><div class="pressed" style="width:84px;height:104px;flex-shrink:0;border-radius:18px;overflow:hidden;display:flex;align-items:center;justify-content:center">' +
+    (Lb.img ? '<img src="' + Lb.img + '" alt="Photo of the nutrition label" style="width:100%;height:100%;object-fit:cover">' : icon('label', 32, 1.4)) + '</div>' +
+    '<div class="col" style="gap:6px;min-width:0"><label class="sr" for="ls-name">Product name</label><input id="ls-name" data-in="labelName" value="' + esc(Lb.name) + '" style="font-size:17px;font-weight:500;border:0;background:none;padding:0;color:var(--tx);width:100%">' +
+    '<div class="cap13">Read from the printed label, not estimated</div><div class="row" style="gap:6px;font-size:12px">' + confDots(r.confidence || 'high', true) + CONF_TEXT[r.confidence in CONF_TEXT ? r.confidence : 'high'] + '</div></div></div>' +
+    '<section class="raised r24" style="padding:10px 16px;display:flex;flex-direction:column">' +
+    '<div class="between" style="height:34px;align-items:center;font-size:12px;color:var(--mu)"><span>Per serving' + (num(r.serving_g) ? ', ' + fmt(r.serving_g) + ' g' : '') + '</span><span>' + (num(r.servings_per_pack) ? fmt(r.servings_per_pack, 1) + ' servings in the pack' : '') + '</span></div><div class="sep"></div>' +
+    ordered.map(tr).join('') + '</section>' +
+    chips('labelType', MEAL_TYPES, Lb.meal_type, 'Meal') + whenRow('log', logState().date, logState().time) +
+    '<div class="row"><span class="grow" style="font-size:15px">Servings you ate</span>' + stepper(s, 'labelServ', 'servings', {large: true, boxed: true, min: 0.5}) + '</div>' +
+    '<div data-part="ls-tot" class="pressed-sm r20 between" style="padding:14px 16px;align-items:center" aria-live="polite"><div><div class="num" style="font-size:30px">' + fmt(tot.kcal) + ' kcal</div><div class="cap">' + esc(Lb.meal_type) + ', ' + plural(s, 'serving') + '</div></div>' +
+    '<div class="cap" style="text-align:right;line-height:1.6">Protein ' + fmt(tot.protein_g, 1) + ' g<br>Carbs ' + fmt(tot.carbs_g, 1) + ' g<br>Fat ' + fmt(tot.fat_g, 1) + ' g</div></div>' +
+    '<div class="grow"></div>' +
+    '<button data-part="ls-save" class="cta btn" data-a="saveLabel"' + (S.ui.busy || !has(ps.kcal) ? ' disabled' : '') + '>' + (S.ui.busy ? '<span class="spinglow"><span class="spin"></span></span>' : 'Save to ' + lc1(Lb.meal_type)) + '</button></div>';
+};
+
+/* ---------- Quick add and favorites ---------- */
+function rankedSuggestions() {
+  const h = new Date().getHours();
+  return S.data.favorites.filter(f => has(f.kcal)).map(f => {
+    const near = has(f.usual_hour) && Math.abs(num(f.usual_hour) - h) <= 2;
+    return {f, score: (f.pinned === true || f.pinned === 'TRUE' ? 1e6 : 0) + num(f.use_count) * (near ? 3 : 1) + (near ? 5 : 0)};
+  }).sort((a, b) => b.score - a.score).map(x => x.f);
+}
+const isPinned = f => f.pinned === true || f.pinned === 'TRUE';
+function foodRow(f) {
+  const id = esc(f.food_id);
+  return '<div class="lrow"><button class="grow" data-a="foodMenu" data-v="' + id + '" style="text-align:left;min-width:0"><span style="display:block;font-size:15px">' + esc(f.name) + ' ' + (isPinned(f) ? '<span class="tag">Pinned</span>' : '') + (f.user_corrected === true || f.user_corrected === 'TRUE' ? ' <span class="tag">Your version</span>' : '') + '</span>' +
+    '<span class="cap" style="display:block">' + esc(servingLabel(f)) + '</span></button>' +
+    '<span style="font-size:14px;color:' + (has(f.kcal) ? 'var(--mu)' : 'var(--a)') + '">' + (has(f.kcal) ? fmt(f.kcal) : 'Set kcal') + '</span>' +
+    '<button class="add" data-a="addFood" data-v="' + id + '" aria-label="Add ' + esc(lc1(f.name)) + '">+</button></div>';
+}
+function rowList(list) { return '<section class="raised r22" style="padding:4px 0;display:flex;flex-direction:column">' + list.map(foodRow).join('<div class="sep" style="margin:0 14px"></div>') + '</section>'; }
+function pastMeals(n) {
+  const t = today(), seen = new Set(), out = [];
+  const meals = S.data.meals.filter(m => m.date < t && itemsOf(m.meal_id).length).sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+  for (const m of meals) { const k = mealName(m); if (seen.has(k)) continue; seen.add(k); out.push(m); if (out.length >= n) break; }
+  return out;
+}
+SCREENS.quick = () => {
+  const qa = S.ui.qa = S.ui.qa || {tab: 'Suggested', q: ''};
+  const L = logState(), q = qa.q.trim().toLowerCase();
+  let list, head;
+  if (q) { list = S.data.favorites.filter(f => f.name.toLowerCase().includes(q)).sort((a, b) => num(b.use_count) - num(a.use_count)); head = list.length ? plural(list.length, 'match', 'matches') : 'Nothing saved with that name.'; }
+  else if (qa.tab === 'Favorites') { list = S.data.favorites.slice().sort((a, b) => (isPinned(b) - isPinned(a)) || a.name.localeCompare(b.name)); head = 'Pinned first, then A to Z'; }
+  else if (qa.tab === 'Recent') {
+    const used = S.data.favorites.filter(f => f.last_used).sort((a, b) => String(b.last_used).localeCompare(String(a.last_used)));
+    list = used.slice(0, 8); head = list.length ? 'Last added from these lists' : 'Foods you add from favorites show up here.';
+  } else { list = rankedSuggestions().slice(0, 5); head = 'You usually have these around ' + hourLabel(new Date().getHours()); }
+  const past = q ? [] : pastMeals(2);
+  const pastLabel = m => (relDay(m.date) === 'Yesterday' ? 'Yesterday' : relDay(m.date)) + '\'s ' + lc1(m.meal_type);
+  return '<div class="scr">' + backHeader('Add without a photo') +
+    '<div style="position:relative"><label for="qa-s" class="sr">Search foods</label><span style="position:absolute;left:16px;top:15px;color:var(--mu)">' + icon('search', 18, 2) + '</span>' +
+    '<input id="qa-s" class="fld" data-in="qaSearch" value="' + esc(qa.q) + '" placeholder="Search your foods and Filipino dishes" style="height:48px;border-radius:16px;font-size:15px;padding-left:44px;box-shadow:inset 4px 4px 8px var(--lo),inset -4px -4px 8px var(--hi)" autocomplete="off"></div>' +
+    '<div data-part="qa-list" class="col" style="gap:14px">' +
+    chips('logType', MEAL_TYPES, L.meal_type, 'Add to meal', {h: 36}) + whenRow('log', L.date, L.time) +
+    (q ? '' : track('qaTab', ['Suggested', 'Favorites', 'Recent'], qa.tab, 'Food lists', {tabs: true})) +
+    '<h2 class="h13" style="padding:0">' + esc(head) + '</h2>' + (list.length ? rowList(list) : '') +
+    (past.length ? '<h2 class="h13" style="padding:0;margin-top:4px">Copy a past meal</h2>' + past.map(m =>
+      '<div class="raised-md r20 row" style="padding:12px 12px 12px 16px"><div class="grow" style="min-width:0"><div class="cap">' + esc(pastLabel(m)) + '</div><div style="font-size:15px">' + esc(mealName(m)) + '</div><div class="cap">' + fmt(mealKcal(m)) + ' kcal</div></div>' +
+      '<div class="col" style="gap:6px;align-items:flex-end"><button class="add w" data-a="copyPast" data-v="' + esc(m.meal_id) + '">Add</button><button data-a="copyChange" data-v="' + esc(m.meal_id) + '" style="font-size:12px;color:var(--a)">Change amount</button></div></div>').join('') : '') +
+    '</div><div class="grow"></div><button class="raised-sm btn2" data-a="go" data-v="describe">Describe a meal for the AI</button>' +
+    '<button class="raised-sm btn2" data-a="go" data-v="dishes" style="color:var(--tx)">Browse Filipino dishes</button>' +
+    '<p class="cap" style="text-align:center">Adding from these lists doesn\'t use the AI.</p></div>';
+};
+
+/* ---------- Filipino dishes ---------- */
+SCREENS.dishes = () => {
+  const grp = S.ui.dg || 'All';
+  const list = S.data.favorites.filter(f => f.is_local_dish === true || f.is_local_dish === 'TRUE').filter(f => grp === 'All' || f.dish_group === grp)
+    .sort((a, b) => ((b.user_corrected === true) - (a.user_corrected === true)) || num(b.use_count) - num(a.use_count) || a.name.localeCompare(b.name));
+  const rice = setting('rice_serving', '1 cup, 160 g'), rg = riceServing(), rk = Math.round(rg * 205 / 160);
+  return '<div class="scr">' + backHeader('Filipino dishes') + chips('dishGroup', DISH_GROUPS, grp, 'Category', {scroll: true}) +
+    '<section class="pressed-sm r20 row" style="padding:14px 16px;gap:14px"><svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true"><path d="M6 22h32a16 16 0 0 1-32 0z" fill="#ECEDF2" opacity=".9"/><path d="M10 22c2-5 6-8 12-8s10 3 12 8" fill="#ECEDF2" opacity=".55"/></svg>' +
+    '<div class="grow"><div style="font-size:15px">Rice is counted in ' + (/scoop/.test(rice) ? 'scoops' : 'cups') + '</div><div class="cap">' + esc(rice.replace(/, /, ' cooked is ')) + ' and ' + fmt(rk) + ' kcal. Half and extra rice are one tap.</div></div></section>' +
+    (list.length ? rowList(list) : '<p class="cap" style="text-align:center">No dishes in this group yet.</p>') +
+    '<div class="grow"></div><p class="cap" style="line-height:1.5">Typical portions. When you correct a dish, your values become the default and the AI sees them too.</p>' +
+    '<button class="cta btn" data-a="newDish" style="height:54px">Add a dish</button></div>';
+};
+
+/* ---------- Describe a meal (AI estimate without a photo) ---------- */
+SCREENS.describe = () => {
+  const L = logState();
+  return '<div class="scr">' + backHeader('Describe a meal') +
+    chips('logType', MEAL_TYPES, L.meal_type, 'Meal') + whenRow('log', L.date, L.time) +
+    '<div class="col" style="gap:8px"><label for="ds-text" style="font-size:14px;font-weight:500">What did you eat?</label>' +
+    '<textarea id="ds-text" rows="5" class="fld" data-in="logText" placeholder="1 bowl sinigang na baboy, 1 cup rice, a glass of iced tea">' + esc(L.text) + '</textarea>' +
+    '<span class="cap">Name each food with an amount: cups, pieces, a bowl, a plate, grams. Brand names help for drinks and snacks.</span></div>' +
+    (L.error && L.errorFrom === 'text' ? '<div class="warn" role="alert"><div class="ov" style="font-weight:500">' + esc(L.error) + '</div><div class="mu" style="margin-top:2px">Your description is kept.</div></div>' : '') +
+    '<div class="grow"></div>' +
+    (L.busy ? '<button class="cta btn" disabled aria-live="polite"><span class="spinglow"><span class="spin"></span></span><span style="margin-left:10px">Estimating</span></button>'
+      : '<button class="cta btn" data-a="describe"' + (L.text.trim() ? '' : ' disabled') + ' data-part="ds-go">Estimate calories</button>') +
+    '<p class="cap" style="text-align:center">Uses one AI analysis, the same as a photo. You review every item before it\'s saved.</p></div>';
+};
