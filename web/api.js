@@ -23,6 +23,23 @@ const CONFIG = {
   PROXY_URL: 'https://script.google.com/macros/s/AKfycbyUHWXJ3jWn8mweIOyHi2UY_UdBhCbw64QaAYZgzM08tjKKemlVmswbDgskYWl885MR/exec'
 };
 
+/** Shows progress on the boot screen. A stalled step should say which step it is. */
+function status(msg) {
+  try {
+    const el = document.querySelector('#app .boot span');
+    if (el) el.textContent = msg;
+  } catch (e) { /* the app may have rendered already */ }
+}
+
+/** Rejects rather than hanging. Without this a request that never answers spins forever. */
+function withTimeout(promise, ms, what) {
+  let t;
+  return Promise.race([
+    promise.finally(() => clearTimeout(t)),
+    new Promise((_, rej) => { t = setTimeout(() => rej(new Error(what + ' timed out after ' + Math.round(ms / 1000) + 's.')), ms); })
+  ]);
+}
+
 const DRIVE = 'https://www.googleapis.com/drive/v3';
 const DRIVE_UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
 const SHEETS = 'https://sheets.googleapis.com/v4/spreadsheets';
@@ -70,7 +87,7 @@ const gisReady = () => new Promise((resolve, reject) => {
     if (!tokenClient) {
       tokenClient = google.accounts.oauth2.initTokenClient({client_id: CONFIG.CLIENT_ID, scope: SCOPES, callback: () => {}});
     }
-    return new Promise((resolve, reject) => {
+    return withTimeout(new Promise((resolve, reject) => {
       tokenClient.callback = r => {
         if (r.error) return reject(new Error(r.error === 'access_denied' ? 'LoCal needs permission to keep your log in your own Drive.' : String(r.error)));
         token = r.access_token;
@@ -79,7 +96,7 @@ const gisReady = () => new Promise((resolve, reject) => {
       };
       try { tokenClient.requestAccessToken({prompt: interactive ? 'consent' : ''}); }
       catch (e) { reject(e); }
-    });
+    }), interactive ? 120000 : 20000, 'Google sign-in');
   }
 
   const haveToken = () => token && Date.now() < tokenExp;
@@ -98,7 +115,7 @@ function WebAPI() {
   async function call(url, opt = {}, retry = true) {
     const t = await auth(false);
     const headers = Object.assign({Authorization: 'Bearer ' + t}, opt.headers || {});
-    const res = await fetch(url, Object.assign({}, opt, {headers}));
+    const res = await withTimeout(fetch(url, Object.assign({}, opt, {headers})), 25000, 'Google ' + (url.indexOf('sheets') > -1 ? 'Sheets' : 'Drive'));
     if (res.status === 401 && retry) { token = null; await signIn(false); return call(url, opt, false); }
     if (!res.ok) {
       let detail = '';
@@ -143,9 +160,11 @@ function WebAPI() {
     const saved = loadIds();
     ids = {sheet: saved.sheet || '', photos: saved.photos || '', app: saved.app || ''};
 
+    status('Looking for your LoCal App folder');
     if (!(await alive(ids.app))) ids.app = await findByName(APP_FOLDER, 'application/vnd.google-apps.folder');
     if (!ids.app) ids.app = (await createFolder(APP_FOLDER)).id;
 
+    status('Looking for your log');
     if (!(await alive(ids.sheet))) ids.sheet = await findByName(SHEET_NAME, 'application/vnd.google-apps.spreadsheet');
     if (!ids.sheet) {
       const ss = await json(SHEETS, {properties: {title: SHEET_NAME}});
@@ -159,6 +178,7 @@ function WebAPI() {
     if (!ids.photos) ids.photos = (await createFolder(PHOTO_FOLDER, ids.app)).id;
 
     saveIds();
+    status('Setting up the tabs');
     await ensureTabs();
   }
 
@@ -327,10 +347,10 @@ function WebAPI() {
     if (!CONFIG.PROXY_URL) throw new Error('NO_KEY');
     const t = await auth(false);
     // text/plain avoids a CORS preflight, which Apps Script does not answer.
-    const res = await fetch(CONFIG.PROXY_URL, {
+    const res = await withTimeout(fetch(CONFIG.PROXY_URL, {
       method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'},
       body: JSON.stringify({action, token: t, payload})
-    });
+    }), 90000, 'The AI service');
     if (!res.ok) throw new Error('The AI service didn\'t answer (' + res.status + '). Try again in a moment.');
     const j = await res.json();
     if (j.error) throw new Error(j.error);
@@ -358,9 +378,13 @@ function WebAPI() {
   return {
     /** Called once at start. Signs in, finds or makes the files, reads everything. */
     async bootstrap() {
+      status('Checking your sign-in');
       await auth(false);
+      status('Finding your LoCal files');
       await ensureFiles();
-      return {data: await readAll(), meta: meta()};
+      status('Reading your log');
+      const data = await readAll();
+      return {data, meta: meta()};
     },
     async setup(seed) {
       await ensureFiles();
