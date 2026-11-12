@@ -12,6 +12,8 @@ function render() {
   if (same) window.scrollTo(0, y); else { window.scrollTo(0, 0); const h = app().querySelector('h1'); if (h && !fid) { h.setAttribute('tabindex', '-1'); h.focus({preventScroll: true}); } }
   if (fid && same) { const el = document.getElementById(fid); if (el) { el.focus({preventScroll: true}); try { if (sel) el.setSelectionRange(sel[0], sel[1]); } catch (e) { /* ignore */ } } }
   lastRoute = name;
+  // a scrolling chip row keeps its selected chip in view, centred where it can be
+  app().querySelectorAll('.chips.scroll').forEach(c => { const on = c.querySelector('[aria-checked="true"]'); if (on) c.scrollLeft = on.offsetLeft - (c.clientWidth - on.offsetWidth) / 2; });
   flushThumbs();
 }
 /* Swap only computed regions, so a field being typed in keeps focus and the keyboard stays up. */
