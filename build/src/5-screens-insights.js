@@ -89,9 +89,11 @@ SCREENS.trends = () => {
     const style = d === t ? 'background:repeating-linear-gradient(135deg,#F5A524 0 3px,transparent 3px 8px);opacity:.55' : st === 'over' ? 'background:var(--ov);box-shadow:0 0 14px -2px var(--ov)' : 'background:var(--a);box-shadow:0 0 14px -2px var(--a)';
     return '<div class="trk' + (many ? ' thin' : '') + '" style="height:' + H + 'px" title="' + shortDay(d) + ': ' + fmt(k) + ' kcal"><div style="height:' + (k ? Math.max(4, h) : 0).toFixed(0) + 'px;' + style + '"></div></div>';
   }).join('');
-  // The target line steps with the target history: each day's segment sits at the target in effect
-  // that day (the Targets tab keeps every change with its date), joined by a short upright where it
-  // changed. Labels go on the current target, and on earlier ones that last long enough to read.
+  // The target line follows the target history: each day's segment sits at the target in effect
+  // that day (the Targets tab keeps every change with its date). Where it changed, a diagonal runs
+  // from the middle of the last bar on the old target to the middle of the first bar on the new one,
+  // and the flat segments stop at those middles. Labels go on the current target, and on earlier
+  // ones that last long enough to read.
   const G = many ? 3 : 12, n = days.length, tgs = days.map(d => num(targetFor(d).kcal)), yOf = k => (k / maxK) * (H - 6) + (many ? 2 : 3);
   const runs = [];
   tgs.forEach((k, i) => { if (!i || k !== tgs[i - 1]) runs.push({s: i, k}); });
@@ -103,11 +105,20 @@ SCREENS.trends = () => {
     labelAt[right ? r.e - 1 : r.s] = {text: (last ? 'Target ' : '') + fmt(r.k), right};
   });
   const tLab = 'position:absolute;font-size:11px;color:var(--mu);background:var(--g);padding:1px 6px;border-radius:6px;white-space:nowrap;';
+  const dash = 'border-top:1.5px dashed var(--mu);opacity:.8';
   const stepCell = (k, i) => {
-    const y = yOf(k), l = i === 0 ? -4 : -G / 2, r = i === n - 1 ? -4 : -G / 2, lab = labelAt[i];
-    let h = '<i style="position:absolute;left:' + l + 'px;right:' + r + 'px;bottom:' + y.toFixed(0) + 'px;border-top:1.5px dashed var(--mu);opacity:.8"></i>';
-    if (i && k !== tgs[i - 1]) { const y0 = yOf(tgs[i - 1]); h += '<i style="position:absolute;left:' + (-G / 2) + 'px;bottom:' + Math.min(y, y0).toFixed(0) + 'px;height:' + Math.abs(y - y0).toFixed(0) + 'px;border-left:1.5px dashed var(--mu);opacity:.8"></i>'; }
-    if (lab) h += '<span style="' + tLab + (lab.right ? 'right:' + r : 'left:' + l) + 'px;bottom:' + (y + 4).toFixed(0) + 'px">' + lab.text + '</span>';
+    const y = yOf(k), lab = labelAt[i];
+    const fromPrev = i > 0 && k !== tgs[i - 1], toNext = i < n - 1 && tgs[i + 1] !== k;
+    const l = fromPrev ? '50%' : (i === 0 ? -4 : -G / 2) + 'px', r = toNext ? '50%' : (i === n - 1 ? -4 : -G / 2) + 'px';
+    let h = fromPrev && toNext ? '' : '<i style="position:absolute;left:' + l + ';right:' + r + ';bottom:' + y.toFixed(1) + 'px;' + dash + '"></i>';
+    if (fromPrev) {
+      // spans from the previous bar's middle to this bar's middle: half a bar and one gap back, one bar and one gap wide
+      // (an svg ignores 'right' when both sides are set, so the width is explicit)
+      const y0 = yOf(tgs[i - 1]), lo = Math.min(y, y0), hgt = Math.max(1, Math.abs(y - y0)), down = y < y0;
+      h += '<svg aria-hidden="true" viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;left:calc(-50% - ' + G + 'px);width:calc(100% + ' + G + 'px);bottom:' + (lo + 0.75).toFixed(1) + 'px;height:' + hgt.toFixed(1) + 'px;overflow:visible;color:var(--mu);opacity:.8">' +
+        '<line x1="0" y1="' + (down ? 0 : 100) + '" x2="100" y2="' + (down ? 100 : 0) + '" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/></svg>';
+    }
+    if (lab) h += '<span style="' + tLab + (lab.right ? 'right:' + r : 'left:' + l) + ';bottom:' + (y + 4).toFixed(0) + 'px">' + lab.text + '</span>';
     return '<div style="flex:1;min-width:0;position:relative">' + h + '</div>';
   };
   const targetLine = '<div aria-hidden="true" style="position:absolute;top:0;bottom:0;left:4px;right:4px;display:flex;gap:' + G + 'px;pointer-events:none;z-index:1">' + tgs.map(stepCell).join('') + '</div>';

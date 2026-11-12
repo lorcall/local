@@ -42,8 +42,12 @@ const DATA = {Settings: [['key','value'],['onboarded','yes']], Meals: meals, Ent
     const line = document.querySelector('[role=img] > div[aria-hidden]');
     const cells = [...line.children];
     return {
-      bottoms: cells.map(c => c.querySelector('i').style.bottom),
-      uprights: cells.map(c => c.querySelectorAll('i').length > 1),
+      bottoms: cells.map(c => c.querySelector('i') ? c.querySelector('i').style.bottom : null),
+      ends: cells.map(c => c.querySelector('i') ? [c.querySelector('i').style.left, c.querySelector('i').style.right] : null),
+      diagonals: cells.map(c => !!c.querySelector('svg line')),
+      diag: (() => { const c = cells.find(x => x.querySelector('svg')); if (!c) return null; const sv = c.querySelector('svg'), ln = sv.querySelector('line');
+        const cb = c.getBoundingClientRect(), pb = c.previousElementSibling.getBoundingClientRect(), r = sv.getBoundingClientRect();
+        return {fromMid: Math.abs(r.left - (pb.left + pb.width / 2)), toMid: Math.abs(r.right - (cb.left + cb.width / 2)), down: ln.getAttribute('y1') === '0'}; })(),
       labels: [...line.querySelectorAll('span')].map(s => s.textContent),
       aria: document.querySelector('[role=img]').getAttribute('aria-label'),
       bars: [...document.querySelectorAll('[role=img] .trk > div')].map(b => /--ov/.test(b.getAttribute('style')) ? 'over' : /repeating/.test(b.getAttribute('style')) ? 'today' : 'on')
@@ -52,7 +56,9 @@ const DATA = {Settings: [['key','value'],['onboarded','yes']], Meals: meals, Ent
   const b = info.bottoms;
   check(b.length === 7, 'one target segment per day (7)');
   check(b[0] === b[2] && b[3] === b[6] && b[0] !== b[3], 'segments step down on the day the target changed (' + b.join(' ') + ')');
-  check(info.uprights.indexOf(true) === 3 && info.uprights.filter(Boolean).length === 1, 'one upright joins the step, on the change day');
+  check(info.diagonals.indexOf(true) === 3 && info.diagonals.filter(Boolean).length === 1, 'one diagonal, into the change day');
+  check(info.diag && info.diag.fromMid < 1 && info.diag.toMid < 1 && info.diag.down, 'it runs from the middle of the last old-target bar down to the middle of the first new one (off by ' + (info.diag ? info.diag.fromMid.toFixed(1) + ' and ' + info.diag.toMid.toFixed(1) + ' px' : 'missing') + ')');
+  check(info.ends[2][1] === '50%' && info.ends[3][0] === '50%', 'the flat segments stop at those middles');
   check(info.labels.join('|') === '1,750|Target 1,500', 'labels: earlier target, then the current one (' + info.labels.join(', ') + ')');
   check(/1,750 kcal from .*then 1,500 kcal from/.test(info.aria), 'the chart\'s description names both targets');
   check(info.bars.slice(0, 3).every(x => x === 'on') && info.bars.slice(3, 6).every(x => x === 'over'), '1,600 kcal reads on target before the cut and over after it (' + info.bars.join(' ') + ')');
