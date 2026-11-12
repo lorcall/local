@@ -1384,7 +1384,29 @@ SCREENS.trends = () => {
     const style = d === t ? 'background:repeating-linear-gradient(135deg,#F5A524 0 3px,transparent 3px 8px);opacity:.55' : st === 'over' ? 'background:var(--ov);box-shadow:0 0 14px -2px var(--ov)' : 'background:var(--a);box-shadow:0 0 14px -2px var(--a)';
     return '<div class="trk' + (many ? ' thin' : '') + '" style="height:' + H + 'px" title="' + shortDay(d) + ': ' + fmt(k) + ' kcal"><div style="height:' + (k ? Math.max(4, h) : 0).toFixed(0) + 'px;' + style + '"></div></div>';
   }).join('');
-  const lineB = (tgNow / maxK) * (H - 6) + 3;
+  // The target line steps with the target history: each day's segment sits at the target in effect
+  // that day (the Targets tab keeps every change with its date), joined by a short upright where it
+  // changed. Labels go on the current target, and on earlier ones that last long enough to read.
+  const G = many ? 3 : 12, n = days.length, tgs = days.map(d => num(targetFor(d).kcal)), yOf = k => (k / maxK) * (H - 6) + (many ? 2 : 3);
+  const runs = [];
+  tgs.forEach((k, i) => { if (!i || k !== tgs[i - 1]) runs.push({s: i, k}); });
+  runs.forEach((r, j) => { r.e = j + 1 < runs.length ? runs[j + 1].s : n; });
+  const labelAt = {};
+  runs.forEach((r, j) => {
+    const last = j === runs.length - 1; if (!last && r.e - r.s < 3) return;
+    const right = r.s > n / 2;   // a run starting late is labelled from its right end, so the text stays inside the chart
+    labelAt[right ? r.e - 1 : r.s] = {text: (last ? 'Target ' : '') + fmt(r.k), right};
+  });
+  const tLab = 'position:absolute;font-size:11px;color:var(--mu);background:var(--g);padding:1px 6px;border-radius:6px;white-space:nowrap;';
+  const stepCell = (k, i) => {
+    const y = yOf(k), l = i === 0 ? -4 : -G / 2, r = i === n - 1 ? -4 : -G / 2, lab = labelAt[i];
+    let h = '<i style="position:absolute;left:' + l + 'px;right:' + r + 'px;bottom:' + y.toFixed(0) + 'px;border-top:1.5px dashed var(--mu);opacity:.8"></i>';
+    if (i && k !== tgs[i - 1]) { const y0 = yOf(tgs[i - 1]); h += '<i style="position:absolute;left:' + (-G / 2) + 'px;bottom:' + Math.min(y, y0).toFixed(0) + 'px;height:' + Math.abs(y - y0).toFixed(0) + 'px;border-left:1.5px dashed var(--mu);opacity:.8"></i>'; }
+    if (lab) h += '<span style="' + tLab + (lab.right ? 'right:' + r : 'left:' + l) + 'px;bottom:' + (y + 4).toFixed(0) + 'px">' + lab.text + '</span>';
+    return '<div style="flex:1;min-width:0;position:relative">' + h + '</div>';
+  };
+  const targetLine = '<div aria-hidden="true" style="position:absolute;top:0;bottom:0;left:4px;right:4px;display:flex;gap:' + G + 'px;pointer-events:none;z-index:1">' + tgs.map(stepCell).join('') + '</div>';
+  const targetText = runs.length === 1 ? 'a target of ' + fmt(tgNow) + ' kcal' : 'your daily target, ' + runs.map(r => fmt(r.k) + ' kcal from ' + MON3[parseDay(days[r.s]).getMonth()] + ' ' + parseDay(days[r.s]).getDate()).join(', then ');
   const labels = days.map((d, i) => '<span style="flex:1;min-width:0;' + (d === t ? 'color:var(--a);font-weight:600' : '') + '">' + (!many ? WD3[parseDay(d).getDay()][0] : (i % 5 === 0 || d === t) ? parseDay(d).getDate() : '') + '</span>').join('');
   const diffs = done.map(d => ({d, x: totalsOn(d).kcal - num(targetFor(d).kcal)}));
   const closest = diffs.slice().sort((a, b) => Math.abs(a.x) - Math.abs(b.x))[0], furthest = diffs.slice().sort((a, b) => Math.abs(b.x) - Math.abs(a.x))[0];
@@ -1396,9 +1418,8 @@ SCREENS.trends = () => {
     '<section class="raised r26" data-hswipe="trendStep" style="padding:16px;overflow:hidden"><div class="swmove" style="display:flex;flex-direction:column;gap:12px"><div class="between">' +
     '<div><div class="num" style="font-size:30px">' + fmt(avgK) + '</div><div class="cap">average kcal a day</div></div>' +
     '<div style="text-align:right"><div class="num" style="font-size:30px">' + onT + ' of ' + done.length + '</div><div class="cap">days on target</div></div></div>' +
-    '<div role="img" aria-label="Daily calories for ' + days.length + ' days against a target of ' + fmt(tgNow) + ' kcal. ' + onT + ' of ' + done.length + ' completed days on target." style="position:relative;height:' + (H + 6) + 'px;display:flex;align-items:flex-end;gap:' + (many ? 3 : 12) + 'px;padding:0 4px">' +
-    '<div style="position:absolute;left:0;right:0;bottom:' + lineB.toFixed(0) + 'px;border-top:1.5px dashed var(--mu);opacity:.8;z-index:1;pointer-events:none"></div>' +
-    '<div style="position:absolute;left:0;bottom:' + (lineB + 4).toFixed(0) + 'px;font-size:11px;color:var(--mu);background:var(--g);padding:1px 6px 1px 0;border-radius:0 6px 6px 0;z-index:2">Target ' + fmt(tgNow) + '</div>' + bars + '</div>' +
+    '<div role="img" aria-label="Daily calories for ' + days.length + ' days against ' + targetText + '. ' + onT + ' of ' + done.length + ' completed days on target." style="position:relative;height:' + (H + 6) + 'px;display:flex;align-items:flex-end;gap:' + (many ? 3 : 12) + 'px;padding:0 4px">' +
+    targetLine + bars + '</div>' +
     '<div class="row" style="gap:' + (many ? 3 : 12) + 'px;padding:0 4px;font-size:12px;color:var(--mu);text-align:center" aria-hidden="true">' + labels + '</div>' +
     '<div class="row" style="gap:10px;font-size:12px"><div class="pressed-sm" style="flex:1;border-radius:12px;padding:8px 10px"><div class="mu">Closest day</div><div>' + dlab(closest) + '</div></div>' +
     '<div class="pressed-sm" style="flex:1;border-radius:12px;padding:8px 10px"><div class="mu">Furthest day</div><div' + (furthest && furthest.x > 0 ? ' class="ov"' : '') + '>' + dlab(furthest) + '</div></div></div></div></section>' +
