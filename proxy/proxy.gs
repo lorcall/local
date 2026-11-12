@@ -44,7 +44,7 @@ function doPost(e) {
       if (status === 'none') requestAccess_(who.email);
       return reply_({pending: true, error: status === 'denied'
         ? 'This account doesn\'t have access to LoCal.'
-        : 'Your request is with the owner. You\'ll get an email once it\'s approved.'});
+        : 'Your request has been sent to the owner. Try again once they\'ve approved it.'});
     }
 
     return reply_({result: run_(req.action, req.payload || {})});
@@ -219,14 +219,25 @@ function notifyOwner_(email) {
         '<p><a href="' + url + '">Review this request</a></p>' +
         '<p style="color:#888;font-size:12px">Opening the link shows a confirmation step, so nothing is approved just by following it.</p>'
     });
-  } catch (e) { /* a failed email must not fail the request */ }
+  } catch (e) { console.error('Approval request email to the owner failed: ' + e.message + '. Run testEmail once from the editor.'); }  // logged, never fatal
 }
 
 function notifyApproved_(email) {
   try {
     MailApp.sendEmail({to: email, subject: 'LoCal is ready for you',
       htmlBody: '<p>You\'ve been approved. Open LoCal again and it will work.</p>'});
-  } catch (e) { /* they will find out when it works */ }
+  } catch (e) { console.error('Approval email to ' + email + ' failed: ' + e.message); }
+}
+
+/**
+ * Run this once from the editor (choose testEmail, press Run). It sends you a test email, and if
+ * Apps Script hasn't been allowed to send email yet, the run asks for that permission first.
+ * After approving, deploy a new version so the web app uses the new permission.
+ */
+function testEmail() {
+  var to = owner_();
+  MailApp.sendEmail({to: to, subject: 'LoCal: test email', htmlBody: '<p>Approval requests will reach you at this address.</p>'});
+  Logger.log('Sent a test email to ' + to + '. Emails left today: ' + MailApp.getRemainingDailyQuota());
 }
 
 /* ---------- dispatch ---------- */
