@@ -55,6 +55,8 @@ const server = http.createServer((req, res) => {
   });
 
   await page.goto('http://localhost:8765/web/index.html', { waitUntil: 'load' });
+  await page.waitForTimeout(800);
+  if (await page.$('#go')) await page.click('#go');
   await page.waitForTimeout(6000);
   const shown = await page.evaluate(() => document.getElementById('app').innerText.replace(/\s+/g, ' ').trim().slice(0, 300));
   await page.screenshot({ path: 'shot.png' });

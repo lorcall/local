@@ -69,59 +69,139 @@ const SHEET_TABS = {
 const KEY_COL = {Meals: 'meal_id', Entries: 'entry_id', Favorites: 'food_id', Targets: 'effective_date', Weight: 'date', Settings: 'key'};
 
 /* ---------- auth (module scope) ----------
-   The shell signs in before it loads the app bundle: GIS needs a user gesture to open its
-   popup, and the bundle's boot() asks for data the moment it runs. Keeping the token here
-   means the shell and WebAPI share one session instead of each holding half of one.
-   Access tokens last about an hour and cannot be silently refreshed with any guarantee, so
-   every call goes through auth() and a 401 triggers exactly one re-auth attempt rather than
-   dropping the user at a sign-in wall mid-meal. */
-let token = null, tokenExp = 0, tokenClient = null;
+   Google gives a browser-only app an access token (about an hour) and no refresh token, and
+   getting a new one opens a popup, which Safari only allows straight from a tap. So:
+   - the token is kept in localStorage until it expires, so a refresh or a reopen within the
+     hour goes straight in instead of asking again;
+   - sign-in never forces the consent screen (prompt '' asks only the first time), and passes
+     the last account as a hint so Google can skip the account chooser;
+   - when the token runs out mid-session, a "Continue" button appears, because a tap is the
+     only thing Safari will open the renewal popup from. Calls wait for it rather than fail.
+   The shell signs in before loading the app bundle for the same reason: boot() asks for data
+   the moment it runs, which is too late to be "from a tap". */
+const TOKEN_KEY = 'local-web-token-v1';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+let token = null, tokenExp = 0, tokenClient = null, hint = '', pending = null, asking = null;
+
+(function restore() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(TOKEN_KEY) || 'null');
+    if (!saved) return;
+    hint = saved.hint || '';
+    if (saved.token && saved.exp > Date.now()) { token = saved.token; tokenExp = saved.exp; }
+  } catch (e) { /* storage blocked: sign in each visit */ }
+})();
+function persist() {
+  try { localStorage.setItem(TOKEN_KEY, JSON.stringify({token: token, exp: tokenExp, hint: hint})); } catch (e) { /* private mode */ }
+}
+function forget() { token = null; tokenExp = 0; persist(); }
+const haveToken = () => !!token && Date.now() < tokenExp;
 
 const gisReady = () => new Promise((resolve, reject) => {
-    if (window.google && google.accounts && google.accounts.oauth2) return resolve();
-    let waited = 0;
-    const t = setInterval(() => {
-      if (window.google && google.accounts && google.accounts.oauth2) { clearInterval(t); resolve(); }
-      else if ((waited += 100) > 10000) { clearInterval(t); reject(new Error('Google sign-in didn\'t load. Check your connection and reload.')); }
-    }, 100);
-  });
+  if (window.google && google.accounts && google.accounts.oauth2) return resolve();
+  let waited = 0;
+  const t = setInterval(() => {
+    if (window.google && google.accounts && google.accounts.oauth2) { clearInterval(t); resolve(); }
+    else if ((waited += 100) > 10000) { clearInterval(t); reject(new Error('Google sign-in didn\'t load. Check your connection and reload.')); }
+  }, 100);
+});
 
-  async function signIn(interactive) {
-    if (!CONFIG.CLIENT_ID) throw new Error('This copy of LoCal has no Google client ID set. See web/api.js.');
-    await gisReady();
-    if (!tokenClient) {
-      tokenClient = google.accounts.oauth2.initTokenClient({client_id: CONFIG.CLIENT_ID, scope: SCOPES, callback: () => {}});
-    }
-    return withTimeout(new Promise((resolve, reject) => {
-      tokenClient.callback = r => {
-        if (r.error) return reject(new Error(r.error === 'access_denied' ? 'LoCal needs permission to keep your log in your own Drive.' : String(r.error)));
-        token = r.access_token;
-        tokenExp = Date.now() + (Number(r.expires_in || 3600) - 120) * 1000; // renew early
-        resolve(token);
-      };
-      try { tokenClient.requestAccessToken({prompt: interactive ? 'consent' : ''}); }
-      catch (e) { reject(e); }
-    }), interactive ? 120000 : 20000, 'Google sign-in');
+/** Remembers which account signed in, so the next sign-in can skip the account chooser. */
+async function learnHint() {
+  try {
+    const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {headers: {Authorization: 'Bearer ' + token}});
+    if (r.ok) { const j = await r.json(); if (j.email) { hint = j.email; persist(); } }
+  } catch (e) { /* only a convenience */ }
+}
+
+/** Opens Google's sign-in. Call it from a tap: Safari blocks the popup otherwise. */
+async function signIn() {
+  if (!CONFIG.CLIENT_ID) throw new Error('This copy of LoCal has no Google client ID set. See web/api.js.');
+  await gisReady();
+  if (!tokenClient) {
+    // One client for the page; each request's outcome is routed to whichever sign-in is waiting.
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CONFIG.CLIENT_ID, scope: SCOPES, prompt: '', hint: hint, login_hint: hint,
+      callback: r => { if (pending) pending.ok(r); },
+      error_callback: e => { if (pending) pending.fail(e); }
+    });
   }
+  return withTimeout(new Promise((resolve, reject) => {
+    pending = {
+      ok: r => {
+        pending = null;
+        if (r.error) return reject(new Error(r.error === 'access_denied' ? 'LoCal needs permission to keep your log in your own Drive.' : String(r.error)));
+        const o = google.accounts.oauth2;
+        if (o.hasGrantedAllScopes && !o.hasGrantedAllScopes(r, DRIVE_SCOPE)) {
+          return reject(new Error('LoCal needs the Google Drive permission ticked to keep your log. Try again and leave it ticked.'));
+        }
+        token = r.access_token;
+        tokenExp = Date.now() + (Number(r.expires_in || 3600) - 120) * 1000; // renew a little early
+        persist();
+        learnHint();
+        resolve(token);
+      },
+      fail: e => {
+        pending = null;
+        const type = e && e.type;
+        reject(new Error(type === 'popup_failed_to_open' ? 'Your browser blocked the Google sign-in window. Allow pop-ups for this site and try again.'
+          : type === 'popup_closed' ? 'The sign-in window was closed before it finished.'
+          : 'Google sign-in didn\'t finish. Try again.'));
+      }
+    };
+    try { tokenClient.requestAccessToken({prompt: ''}); } catch (e) { pending = null; reject(e); }
+  }), 120000, 'Google sign-in');
+}
 
-  const haveToken = () => token && Date.now() < tokenExp;
-async function auth(interactive) { return haveToken() ? token : signIn(interactive); }
+/**
+ * A token for the next request. When the current one has run out, every waiting call shares
+ * one "Continue" prompt and carries on after the tap, instead of failing mid-save.
+ */
+async function auth() {
+  if (haveToken()) return token;
+  if (asking) return asking;
+  asking = new Promise(resolve => {
+    const box = document.createElement('div');
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    box.setAttribute('aria-labelledby', 'reauth-title');
+    box.style.cssText = 'position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:24px;' +
+      'background:rgba(23,24,29,.86);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)';
+    box.innerHTML = '<div style="max-width:340px;width:100%;text-align:center;color:#ECEDF2">' +
+      '<p id="reauth-title" style="margin:0 0 6px;font-size:18px;font-weight:500">Still there?</p>' +
+      '<p style="margin:0 0 18px;font-size:14px;line-height:1.5;color:#A2A7B6">Google signs browser apps out after about an hour. ' +
+      'Tap to carry on where you left off.</p>' +
+      '<button type="button" style="width:100%;min-height:52px;border:0;border-radius:16px;font-family:inherit;font-size:16px;font-weight:600;color:#2A1600;' +
+      'background:radial-gradient(120% 160% at 35% 20%,#FFC46E,#F08A0C 70%)">Continue</button>' +
+      '<p role="alert" style="margin:10px 0 0;min-height:18px;font-size:13px;color:#FF8E8E"></p></div>';
+    document.body.appendChild(box);
+    const btn = box.querySelector('button'), err = box.querySelector('[role=alert]');
+    btn.focus();
+    btn.onclick = async () => {
+      btn.disabled = true;
+      err.textContent = '';
+      try { await signIn(); box.remove(); asking = null; resolve(token); }
+      catch (e) { btn.disabled = false; err.textContent = (e && e.message) || 'Sign-in failed. Try again.'; }
+    };
+  });
+  return asking;
+}
 
-/** The shell uses these to gate the app behind a real sign-in tap. */
+/** The shell uses these to decide whether to show the sign-in screen at all. */
 window.LoCalAuth = {
-  signIn: () => signIn(false),
-  signInInteractive: () => signIn(true),
+  signIn: signIn,
   signedIn: haveToken,
+  returning: () => !!hint,
   configured: () => !!CONFIG.CLIENT_ID
 };
 
 function WebAPI() {
   /** One fetch wrapper for every Google call: adds the token, retries once past a 401. */
   async function call(url, opt = {}, retry = true) {
-    const t = await auth(false);
+    const t = await auth();
     const headers = Object.assign({Authorization: 'Bearer ' + t}, opt.headers || {});
     const res = await withTimeout(fetch(url, Object.assign({}, opt, {headers})), 25000, 'Google ' + (url.indexOf('sheets') > -1 ? 'Sheets' : 'Drive'));
-    if (res.status === 401 && retry) { token = null; await signIn(false); return call(url, opt, false); }
+    if (res.status === 401 && retry) { forget(); return call(url, opt, false); } // auth() asks for a tap
     if (!res.ok) {
       let detail = '';
       try { const j = await res.json(); detail = (j.error && (j.error.message || j.error.status)) || ''; } catch (e) { /* non-JSON error */ }
@@ -350,7 +430,7 @@ function WebAPI() {
   // the account is on its allowlist, and calls Gemini itself.
   async function proxy(action, payload) {
     if (!CONFIG.PROXY_URL) throw new Error('NO_KEY');
-    const t = await auth(false);
+    const t = await auth();
     // text/plain avoids a CORS preflight, which Apps Script does not answer.
     const res = await withTimeout(fetch(CONFIG.PROXY_URL, {
       method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'},
@@ -384,7 +464,7 @@ function WebAPI() {
     /** Called once at start. Signs in, finds or makes the files, reads everything. */
     async bootstrap() {
       status('Checking your sign-in');
-      await auth(false);
+      await auth();
       status('Finding your LoCal files');
       await ensureFiles();
       status('Reading your log');
@@ -438,7 +518,7 @@ function WebAPI() {
       const m = String(p && p.url || '').match(/[-\w]{25,}/);
       if (!m) return null;
       try {
-        const t = await auth(false);
+        const t = await auth();
         const res = await fetch(DRIVE + '/files/' + m[0] + '?alt=media', {headers: {Authorization: 'Bearer ' + t}});
         if (!res.ok) return null;
         const buf = await res.arrayBuffer();
