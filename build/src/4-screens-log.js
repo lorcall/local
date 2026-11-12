@@ -188,7 +188,7 @@ SCREENS.log = () => {
   const cta = L.busy ? '<button class="cta btn" disabled aria-live="polite"><span class="spinglow"><span class="spin"></span></span><span style="margin-left:10px">Analyzing photo</span></button>'
     : '<button class="cta btn" data-a="analyze">' + (L.img ? 'Analyze photo' : 'Take a photo') + '</button>';
   return '<div class="col" style="min-height:100vh;min-height:100dvh">' +
-    '<div class="cam' + (L.img ? '' : ' empty') + '">' + (L.img ? '<img class="shot" src="' + L.img + '" alt="Your photo">' :
+    '<div class="cam' + (L.img ? '' : ' empty') + '">' + (L.img ? '<img class="shot" src="' + safeImg(L.img) + '" alt="Your photo">' :
       '<button data-a="shoot" class="col" style="align-items:center;gap:10px;color:rgba(255,255,255,.75);font-size:14px;text-align:center">' + icon('camera', 40, 1.4) + '<span>Photograph your plate<br>or a nutrition label</span></button>') +
     corners +
     '<header style="position:absolute;left:18px;right:18px;top:22px;display:flex;align-items:center">' +
@@ -231,7 +231,7 @@ SCREENS.review = () => {
   };
   const photo = isNew && D.source === 'photo' && S.log && S.log.img ? {src: S.log.img} : hasPhoto(m) ? {m} : null;
   const photoRow = photo ? '<button class="raised-md r20 row" data-a="viewPhoto" style="padding:10px;gap:12px;text-align:left;width:100%">' +
-    (photo.src ? '<div class="th" role="img" aria-label="Meal photo" style="width:56px;height:56px;background-image:url(\'' + photo.src + '\')"></div>' : thumbEl(m, 56)) +
+    (photo.src ? '<div class="th" role="img" aria-label="Meal photo" style="width:56px;height:56px;background-image:url(\'' + safeImg(photo.src) + '\')"></div>' : thumbEl(m, 56)) +
     '<span class="grow"><span style="display:block;font-size:15px">Meal photo</span><span class="cap" style="display:block">' + (m.note ? 'Note: ' + esc(m.note) : 'Tap to see it larger') + '</span></span><span class="mango" style="display:flex;padding-right:6px">' + icon('expand', 18) + '</span></button>' : '';
   const when = '<section class="col" style="gap:10px"><h2 class="sec15">When</h2>' + chips('draftType', MEAL_TYPES, m.meal_type, 'Meal') + whenRow('draft', m.date, m.time) + '</section>';
   return '<div class="scr">' + backHeader(isNew ? 'Review ' + tl : 'Edit ' + tl, {sub: (isNew && m.date === today() ? '' : dayLabel(m.date) + ', ' + time12(m.time)),
@@ -243,7 +243,7 @@ SCREENS.review = () => {
     '<div class="num" style="font-size:34px;letter-spacing:-.04em">' + fmt(t.kcal) + '</div><div class="cap">kcal</div></div>' +
     '<div class="col grow" style="gap:7px;font-size:14px">' +
     [['Protein', t.protein_g, COLOR.p], ['Carbs', t.carbs_g, COLOR.c], ['Fat', t.fat_g, COLOR.f]].map(([l, v, c]) => '<div class="row" style="gap:8px"><span style="width:8px;height:8px;border-radius:50%;background:' + c + '"></span><span class="grow">' + l + '</span><span>' + fmt(v) + ' g</span></div>').join('') +
-    '<div class="cap"' + (left < 0 ? ' style="color:var(--ov)"' : '') + '>After ' + tl + ': ' + fmt(Math.abs(left)) + ' kcal ' + (left < 0 ? 'over' : 'left') + '</div></div></div>' +
+    '<div class="cap"' + (left < 0 ? ' style="color:var(--ov)"' : '') + '>After ' + esc(tl) + ': ' + fmt(Math.abs(left)) + ' kcal ' + (left < 0 ? 'over' : 'left') + '</div></div></div>' +
     (D.ai ? '<div class="glass-soft r16 row" style="padding:10px 12px;gap:12px">' + confDots(D.ai.confidence) +
       '<div style="font-size:13px;color:var(--mu);line-height:1.35"><span style="color:var(--tx)">' + CONF_TEXT[D.ai.confidence in CONF_TEXT ? D.ai.confidence : 'medium'] + '.</span> ' + esc(D.ai.reason || '') + '</div></div>' : '') +
     '</section>' +
@@ -311,7 +311,7 @@ SCREENS.label = () => {
   return '<div class="scr">' + backHeader('From the label') +
     (Lb.demo ? '<div class="demo">Preview: a sample label. No photo was sent to the AI.</div>' : '') +
     '<div class="row" style="gap:14px"><div class="pressed" style="width:84px;height:104px;flex-shrink:0;border-radius:18px;overflow:hidden;display:flex;align-items:center;justify-content:center">' +
-    (Lb.img ? '<img src="' + Lb.img + '" alt="Photo of the nutrition label" style="width:100%;height:100%;object-fit:cover">' : icon('label', 32, 1.4)) + '</div>' +
+    (Lb.img ? '<img src="' + safeImg(Lb.img) + '" alt="Photo of the nutrition label" style="width:100%;height:100%;object-fit:cover">' : icon('label', 32, 1.4)) + '</div>' +
     '<div class="col" style="gap:6px;min-width:0"><label class="sr" for="ls-name">Product name</label><input id="ls-name" data-in="labelName" value="' + esc(Lb.name) + '" style="font-size:17px;font-weight:500;border:0;background:none;padding:0;color:var(--tx);width:100%">' +
     '<div class="cap13">Read from the printed label, not estimated</div><div class="row" style="gap:6px;font-size:12px">' + confDots(r.confidence || 'high', true) + CONF_TEXT[r.confidence in CONF_TEXT ? r.confidence : 'high'] + '</div></div></div>' +
     '<section class="raised r24" style="padding:10px 16px;display:flex;flex-direction:column">' +
@@ -322,7 +322,7 @@ SCREENS.label = () => {
     '<div data-part="ls-tot" class="pressed-sm r20 between" style="padding:14px 16px;align-items:center" aria-live="polite"><div><div class="num" style="font-size:30px">' + fmt(tot.kcal) + ' kcal</div><div class="cap">' + esc(Lb.meal_type) + ', ' + plural(s, 'serving') + '</div></div>' +
     '<div class="cap" style="text-align:right;line-height:1.6">Protein ' + fmt(tot.protein_g, 1) + ' g<br>Carbs ' + fmt(tot.carbs_g, 1) + ' g<br>Fat ' + fmt(tot.fat_g, 1) + ' g</div></div>' +
     '<div class="grow"></div>' +
-    '<button data-part="ls-save" class="cta btn" data-a="saveLabel"' + (S.ui.busy || !has(ps.kcal) ? ' disabled' : '') + '>' + (S.ui.busy ? '<span class="spinglow"><span class="spin"></span></span>' : 'Save to ' + lc1(Lb.meal_type)) + '</button></div>';
+    '<button data-part="ls-save" class="cta btn" data-a="saveLabel"' + (S.ui.busy || !has(ps.kcal) ? ' disabled' : '') + '>' + (S.ui.busy ? '<span class="spinglow"><span class="spin"></span></span>' : 'Save to ' + esc(lc1(Lb.meal_type))) + '</button></div>';
 };
 
 /* ---------- Search what you've eaten before ---------- */

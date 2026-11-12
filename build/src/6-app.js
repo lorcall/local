@@ -33,7 +33,7 @@ function overlays() {
     '<button class="mi" data-a="menuClose" style="color:var(--mu)">Cancel</button></div></div>';
   if (S.viewer) h += '<div class="scrim" data-a="closeViewer" style="align-items:center;padding:20px;background:rgba(10,10,14,.88)"><div class="col" role="dialog" aria-modal="true" aria-label="Meal photo" data-stop="1" style="gap:14px;align-items:center;width:min(100%,430px)">' +
     '<div style="position:relative;width:100%;border-radius:24px;overflow:hidden;background:#15161B;box-shadow:0 20px 40px -10px rgba(0,0,0,.8)">' +
-    (S.viewer.src ? '<img src="' + S.viewer.src + '" alt="Meal photo" style="display:block;width:100%;max-height:70vh;object-fit:contain' + (S.viewer.loading ? ';filter:blur(6px);opacity:.7' : '') + '">' : '<div style="height:260px"></div>') +
+    (S.viewer.src ? '<img src="' + safeImg(S.viewer.src) + '" alt="Meal photo" style="display:block;width:100%;max-height:70vh;object-fit:contain' + (S.viewer.loading ? ';filter:blur(6px);opacity:.7' : '') + '">' : '<div style="height:260px"></div>') +
     (S.viewer.loading ? '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><span class="spinglow"><span class="spin" style="--s:40px;--t:5px"></span></span></div>' : '') + '</div>' +
     (S.viewer.msg ? '<p class="cap13" style="text-align:center">' + esc(S.viewer.msg) + '</p>' : '') +
     '<button class="raised-sm" data-a="closeViewer" style="height:46px;padding:0 22px;border-radius:16px;font-size:15px">Close</button></div></div>';
@@ -264,7 +264,7 @@ const A = {
     try {
       const r = m.photo_url ? await API.getPhoto({url: m.photo_url}) : null;
       if (!S.viewer) return;
-      if (r && r.data) { S.full[id] = 'data:' + (r.mime || 'image/jpeg') + ';base64,' + r.data; S.viewer = {src: S.full[id]}; }
+      if (r && r.data) { S.full[id] = safeImg('data:' + (IMG_MIME.test(r.mime || '') ? r.mime : 'image/jpeg') + ';base64,' + r.data); S.viewer = {src: S.full[id]}; }
       else S.viewer = {src: S.photos[id] || '', msg: S.meta.demo ? 'The preview keeps only a small copy. Your deployed app loads the full photo from Drive.' : 'The full photo isn\'t in your Drive folder any more. This is the small copy saved with the meal.'};
     } catch (e) { if (S.viewer) S.viewer = {src: S.photos[id] || '', msg: friendly(e)}; }
     render();

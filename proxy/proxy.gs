@@ -31,6 +31,12 @@ var TOKENINFO = 'https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=';
 var ACCESS_TAB = '';            // blank: use the spreadsheet's first tab, whatever it is called
 var ACCESS_COLS = ['email', 'status'];
 var CACHE_SECONDS = 300;
+// New access requests: at most this many new rows (and owner emails) a day, so someone with a pile
+// of Google accounts can't flood the sheet or the owner's inbox. Raise it if you invite a crowd.
+var MAX_NEW_REQUESTS_PER_DAY = 10;
+// What a photo may be, and how big. The app sends a 768 px JPEG of about 150 KB.
+var IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+var MAX_IMAGE_CHARS = 4 * 1024 * 1024;
 
 /* ---------- entry point ---------- */
 
@@ -64,16 +70,16 @@ function doGet(e) {
   if (p.confirm === '1') {
     setStatus_(p.email, 'approved');
     notifyApproved_(p.email);
-    return page_('Approved', p.email + ' can now use LoCal.');
+    return page_('Approved', html_(p.email) + ' can now use LoCal.');
   }
   if (p.confirm === 'no') {
     setStatus_(p.email, 'denied');
-    return page_('Declined', p.email + ' has been denied.');
+    return page_('Declined', html_(p.email) + ' has been denied.');
   }
   var base = ScriptApp.getService().getUrl() + '?email=' + encodeURIComponent(p.email) + '&sig=' + encodeURIComponent(p.sig);
-  return page_('Approve ' + p.email + '?',
+  return page_('Approve ' + html_(p.email) + '?',
     '<p>They asked to use LoCal. Approving lets them analyse meals with your Gemini key.</p>' +
-    '<p><a class="b" href="' + base + '&confirm=1">Approve</a> <a class="b no" href="' + base + '&confirm=no">Decline</a></p>');
+    '<p><a class="b" href="' + html_(base) + '&amp;confirm=1" target="_top">Approve</a> <a class="b no" href="' + html_(base) + '&amp;confirm=no" target="_top">Decline</a></p>');
 }
 
 /* ---------- identity ---------- */
@@ -85,6 +91,8 @@ function doGet(e) {
  */
 function verify_(token) {
   if (!token) throw new Error('Not signed in.');
+  // Garbage is turned away before it costs a call to Google (the daily fetch quota is shared).
+  if (typeof token !== 'string' || token.length < 20 || token.length > 4096 || !/^[\w.~+\/=-]+$/.test(token)) throw new Error('Not signed in.');
   var clientId = prop_('CLIENT_ID');
   if (!clientId) throw new Error('This proxy has no CLIENT_ID set.');
 
@@ -200,11 +208,22 @@ function addRow_(sh, c, email, status) {
   sh.getRange(row, c.status).setValue(status);
 }
 
+/** Counts today's new requests; false once the day's allowance is used. Runs under the script lock. */
+function underDailyCap_() {
+  var today = Utilities.formatDate(new Date(), 'UTC', 'yyyy-MM-dd');
+  var c = {}; try { c = JSON.parse(prop_('REQUESTS_TODAY') || '{}'); } catch (e) { c = {}; }
+  var n = c.day === today ? Number(c.n) || 0 : 0;
+  if (n >= MAX_NEW_REQUESTS_PER_DAY) return false;
+  setProp_('REQUESTS_TODAY', JSON.stringify({day: today, n: n + 1}));
+  return true;
+}
+
 function requestAccess_(email) {
   var lock = LockService.getScriptLock();
   try { lock.waitLock(10000); } catch (e) { return; }
   try {
     if (accessStatus_(email) !== 'none') return;
+    if (!underDailyCap_()) { console.warn('Access request from ' + email + ' not recorded: ' + MAX_NEW_REQUESTS_PER_DAY + ' new requests already today.'); return; }
     var sh = accessSheet_();
     addRow_(sh, accessCols_(sh), email, 'pending');
     notifyOwner_(email);
@@ -216,7 +235,11 @@ function requestAccess_(email) {
 function owner_() { return prop_('OWNER_EMAIL') || Session.getEffectiveUser().getEmail(); }
 
 function sign_(email) {
-  var secret = prop_('APPROVE_SECRET') || ScriptApp.getScriptId();
+  var secret = prop_('APPROVE_SECRET');
+  if (!secret) {   // made once, kept in Script Properties; never a value someone could guess
+    secret = Utilities.getUuid() + Utilities.getUuid();
+    setProp_('APPROVE_SECRET', secret);
+  }
   return Utilities.base64EncodeWebSafe(
     Utilities.computeHmacSha256Signature(String(email).toLowerCase(), secret)).slice(0, 32);
 }
@@ -227,8 +250,8 @@ function notifyOwner_(email) {
     MailApp.sendEmail({
       to: owner_(),
       subject: 'LoCal: ' + email + ' wants access',
-      htmlBody: '<p><b>' + email + '</b> signed in to LoCal and is waiting for you.</p>' +
-        '<p><a href="' + url + '">Review this request</a></p>' +
+      htmlBody: '<p><b>' + html_(email) + '</b> signed in to LoCal and is waiting for you.</p>' +
+        '<p><a href="' + html_(url) + '">Review this request</a></p>' +
         '<p style="color:#888;font-size:12px">Opening the link shows a confirmation step, so nothing is approved just by following it.</p>'
     });
   } catch (e) { console.error('Approval request email to the owner failed: ' + e.message + '. Run testEmail once from the editor.'); }  // logged, never fatal
@@ -254,18 +277,51 @@ function testEmail() {
 
 /* ---------- dispatch ---------- */
 
+/**
+ * Keeps every request to the size and shape the app sends. Approved accounts are trusted friends,
+ * but a stolen sign-in or a curious friend shouldn't be able to use your key as a general-purpose
+ * Gemini: text is clipped, photos must be photos, and nothing arrives that the app wouldn't send.
+ */
+function clip_(v, n) { return String(v == null ? '' : v).slice(0, n); }
+function cleanHints_(h) {
+  var d = h && Array.isArray(h.dishes) ? h.dishes : [];
+  return {dishes: d.slice(0, 40).map(function (x) { return clip_(x, 160); })};
+}
+
 function run_(action, p) {
+  if (!p || typeof p !== 'object') p = {};
   if (action === 'analyzePhoto') {
-    if (!p.image) throw new Error('No photo.');
+    if (typeof p.image !== 'string' || !p.image) throw new Error('No photo.');
+    if (p.image.length > MAX_IMAGE_CHARS) throw new Error('That photo is too large. Try again with a smaller one.');
+    if (!/^[A-Za-z0-9+\/=]+$/.test(p.image)) throw new Error('That photo couldn\'t be read.');
+    var mime = IMAGE_MIMES.indexOf(String(p.mime || 'image/jpeg').toLowerCase()) >= 0 ? String(p.mime || 'image/jpeg').toLowerCase() : 'image/jpeg';
+    p = {image: p.image, mime: mime, mode: p.mode, note: clip_(p.note, 500), hints: cleanHints_(p.hints)};
     // 'auto' (the current page) lets the model decide; 'label' and 'meal' keep older pages working.
     return p.mode === 'label' ? readLabel_(p) : p.mode === 'meal' ? estimateMeal_(p) : analyzeImage_(p);
   }
   if (action === 'analyzeText') {
     if (!String(p.text || '').trim()) throw new Error('NO_FOOD');
-    return estimateMeal_({description: String(p.text).slice(0, 1500), hints: p.hints});
+    return estimateMeal_({description: clip_(p.text, 1500), hints: cleanHints_(p.hints)});
   }
-  if (action === 'analyzeItem') return analyzeItem(p);
-  if (action === 'weeklySummary') return weeklySummary(p);
+  if (action === 'analyzeItem') {
+    return analyzeItem({name: clip_(p.name, 120), serving_unit: clip_(p.serving_unit, 30), grams_per_unit: Number(p.grams_per_unit) || 0,
+      quantity: Number(p.quantity) || 1, category: clip_(p.category, 30), note: clip_(p.note, 500)});
+  }
+  if (action === 'weeklySummary') {
+    // The week's numbers, in the shape the app sends: numbers, dates, and up to 7 days. Nothing else.
+    var num = function (v) { return typeof v === 'number' && isFinite(v) ? v : null; };
+    var day = function (v) { return /^\d{4}-\d{2}-\d{2}$/.test(String(v)) ? String(v) : null; };
+    var n = {};
+    Object.keys(p).slice(0, 40).forEach(function (k) {
+      if (num(p[k]) !== null) n[clip_(k, 40)] = p[k];
+      else if (day(p[k])) n[clip_(k, 40)] = p[k];
+    });
+    n.days = (Array.isArray(p.days) ? p.days : []).slice(0, 7).map(function (d) {
+      d = d || {};
+      return {date: day(d.date), weekday: clip_(d.weekday, 10), kcal: num(d.kcal), target: num(d.target), protein: num(d.protein), status: clip_(d.status, 10)};
+    });
+    return weeklySummary(n);
+  }
   throw new Error('Unknown action.');
 }
 
@@ -273,6 +329,8 @@ function run_(action, p) {
 
 function prop_(k) { return PropertiesService.getScriptProperties().getProperty(k); }
 function setProp_(k, v) { PropertiesService.getScriptProperties().setProperty(k, v); }
+
+function html_(s) { return String(s).replace(/[&<>"']/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]; }); }
 
 function reply_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);

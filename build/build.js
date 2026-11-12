@@ -38,7 +38,33 @@ if (fs.existsSync(webDir)) {
     .replace(/(href=")styles\.css(\?v=[a-f0-9]+)?(")/, '$1styles.css?v=' + stamp + '$3')
     .replace(/(src=")api\.js(\?v=[a-f0-9]+)?(")/, '$1api.js?v=' + stamp + '$3')
     .replace(/(s\.src = ')app\.js(\?v=[a-f0-9]+)?(')/, '$1app.js?v=' + stamp + '$3');
-  fs.writeFileSync(webIndex, html);
+  fs.writeFileSync(webIndex, withCsp(html));
   console.log('web stamped', stamp);
 }
 console.log('built', (src.length / 1024).toFixed(1) + ' KB js');
+
+/**
+ * The page's Content Security Policy. The browser then runs only our own files, Google's sign-in
+ * script and the one inline script below (by its hash), and only talks to Google. So even if some
+ * hostile text in a Sheet or an AI answer ever slipped past esc(), it could neither run nor send
+ * the sign-in token anywhere. GitHub Pages can't set headers, so it goes in a meta tag; the hash
+ * is recomputed on every build because the inline script carries the cache-busting stamp.
+ */
+function withCsp(html) {
+  const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m =>
+    "'sha256-" + require('crypto').createHash('sha256').update(m[1], 'utf8').digest('base64') + "'");
+  const policy = [
+    "default-src 'self'",
+    "script-src 'self' https://accounts.google.com/gsi/client " + inline.join(' '),
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com/gsi/style",
+    'font-src https://fonts.gstatic.com',
+    "img-src 'self' data: blob:",
+    "connect-src 'self' https://www.googleapis.com https://sheets.googleapis.com https://script.google.com https://script.googleusercontent.com https://accounts.google.com/gsi/",
+    'frame-src https://accounts.google.com/gsi/',
+    "object-src 'none'", "base-uri 'none'", "form-action 'none'"
+  ].join('; ');
+  const tag = '<meta http-equiv="Content-Security-Policy" content="' + policy + '">';
+  return /<meta http-equiv="Content-Security-Policy"[^>]*>/.test(html)
+    ? html.replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/, tag)
+    : html.replace(/(<meta charset="utf-8">)/, '$1\n  ' + tag);
+}

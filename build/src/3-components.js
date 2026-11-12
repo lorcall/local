@@ -194,7 +194,7 @@ let thumbQueue = new Set();
 function thumbEl(m, size, extra) {
   const id = m.meal_id, src = S.photos[id];
   if (src === undefined && (m.has_thumb || m.thumb)) { if (m.thumb) S.photos[id] = m.thumb; else thumbQueue.add(id); }
-  const url = S.photos[id];
+  const raw = S.photos[id], url = raw == null ? raw : (safeImg(raw) || false);
   return '<div class="th" data-thumb="' + esc(id) + '" role="img" aria-label="' + esc(m.meal_type) + ' photo" style="' + (size ? 'width:' + size + 'px;height:' + size + 'px;' : '') + (url ? 'background-image:url(\'' + url + '\')' : '') + (extra || '') + '">' +
     (url ? '' : (m.has_thumb || m.thumb) && url !== false ? '<span class="spinglow"><span class="spin" style="--s:16px;--t:2.5px"></span></span>' : icon(m.source === 'label' ? 'label' : m.source === 'text' ? 'text' : 'plate', 18)) + '</div>';
 }
@@ -204,7 +204,7 @@ function flushThumbs() {
   ids.forEach(id => { S.photos[id] = null; });
   API.getThumbs(ids).then(map => {
     ids.forEach(id => {
-      const u = (map || {})[id] || false; S.photos[id] = u;
+      const u = safeImg((map || {})[id]) || false; S.photos[id] = u;
       document.querySelectorAll('[data-thumb="' + CSS.escape(id) + '"]').forEach(el => {
         el.innerHTML = u ? '' : icon('plate', 18);
         if (u) el.style.backgroundImage = "url('" + u + "')";

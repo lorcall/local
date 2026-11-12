@@ -2,6 +2,11 @@
 'use strict';
 
 /* ---------- utilities ---------- */
+/* Pictures come from the user's Sheet (thumbnail cells) and from Drive, both of which someone else
+   could have edited, and they go into src and style attributes. Only a plain base64 image data URL
+   is drawn; anything else is treated as no picture. */
+const IMG_MIME = /^image\/(jpeg|jpg|png|webp|gif|heic|heif)$/i;
+const safeImg = u => typeof u === 'string' && /^data:image\/(jpeg|jpg|png|webp|gif|heic|heif);base64,[A-Za-z0-9+\/=]+$/i.test(u) ? u : '';
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
 const has = v => v !== '' && v != null && isFinite(parseFloat(v));
