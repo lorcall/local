@@ -29,6 +29,7 @@ async function setup(context, opts = {}) {
   let rejectOnce = !!opts.rejectOnce;
   await context.route('https://accounts.google.com/**', r => r.fulfill({status: 200, contentType: 'text/javascript', body: ''}));
   await context.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({status: 200, contentType: 'text/css', body: ''}));
+  await context.route(/script\.google\.com\/macros/, r => r.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({result: {approved: true, email: 'a@b.c'}})}));  // approval check
   await context.route(/googleapis\.com/, async route => {
     const u = route.request().url(), m = route.request().method();
     const j = (o, s = 200) => route.fulfill({status: s, contentType: 'application/json', body: JSON.stringify(o)});

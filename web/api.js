@@ -187,6 +187,37 @@ async function auth() {
   return asking;
 }
 
+/* ---------- approval (module scope) ----------
+   Checked once at sign-in, against the proxy's LoCal Users sheet. A new account is added there as
+   pending and the owner is emailed; it sees a waiting screen until approved. Once approved, this
+   device remembers it so the app opens without waiting, and checks the sheet again in the
+   background each launch: removing someone stops them at their next launch. Every AI request is
+   still checked by the proxy as well. */
+const ACCESS_KEY = 'local-web-access-v1';
+async function accessCall() {
+  const t = await auth();
+  const res = await withTimeout(fetch(CONFIG.PROXY_URL, {method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'},
+    body: JSON.stringify({action: 'access', token: t})}), 30000, 'The approval check');
+  if (!res.ok) throw new Error('The approval check didn\'t answer (' + res.status + '). Try again in a moment.');
+  const j = await res.json();
+  const ok = !!(j.result && j.result.approved);
+  try { if (ok) localStorage.setItem(ACCESS_KEY, JSON.stringify({email: j.result.email || '', at: Date.now()})); else localStorage.removeItem(ACCESS_KEY); } catch (e) { /* private mode */ }
+  if (ok && j.result.email && !hint) { hint = j.result.email; persist(); }
+  return ok ? {approved: true} : {approved: false, denied: !!j.denied, message: j.error || ''};
+}
+window.LoCalAccess = {
+  async check() {
+    if (!CONFIG.PROXY_URL) return {approved: true};
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(ACCESS_KEY) || 'null'); } catch (e) { /* none */ }
+    if (saved && (!hint || !saved.email || saved.email === hint)) {   // approved on this device for this account
+      accessCall().catch(() => {});   // re-check the sheet quietly; a revoked approval applies next launch
+      return {approved: true};
+    }
+    return accessCall();
+  }
+};
+
 /** The shell uses these to decide whether to show the sign-in screen at all. */
 window.LoCalAuth = {
   signIn: signIn,

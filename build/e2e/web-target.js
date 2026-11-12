@@ -26,6 +26,7 @@ const DATA = {Settings: [['key','value'],['onboarded','yes']], Meals: meals, Ent
   });
   await ctx.route('https://accounts.google.com/**', r => r.fulfill({status: 200, contentType: 'text/javascript', body: ''}));
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({status: 200, contentType: 'text/css', body: ''}));
+  await ctx.route(/script\.google\.com\/macros/, r => r.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({result: {approved: true, email: 'a@b.c'}})}));  // approval check
   await ctx.route(/googleapis\.com/, route => {
     const u = decodeURIComponent(route.request().url()), j = o => route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify(o)});
     if (u.includes('/drive/v3/files?q=')) return j({files: [{id: 'e'}]});

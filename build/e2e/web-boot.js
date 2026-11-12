@@ -33,6 +33,7 @@ const server = http.createServer((req, res) => {
 
   // Stub Drive + Sheets with a brand-new user: nothing exists yet.
   const calls = [];
+  await page.route(/script\.google\.com\/macros/, r => r.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({result: {approved: true, email: 'a@b.c'}})}));  // approval check
   await page.route(/googleapis\.com/, async route => {
     const req = route.request(), u = req.url(), m = req.method();
     calls.push(m + ' ' + u.replace(/https:\/\/[^/]+/, '').slice(0, 110));

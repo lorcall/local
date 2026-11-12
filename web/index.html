@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geologica:wght@200..700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=8f917242">
+  <link rel="stylesheet" href="styles.css?v=ec0cfaf7">
   <style>
     /* The stylesheet already accounts for the bottom inset on the tab bar, toasts and menus,
        so only the top needs adding here, and only once installed: in Safari the browser's own
@@ -51,7 +51,7 @@
   <div id="app"><!--boot--><div class="boot"><div style="position:relative;width:96px;height:96px;border-radius:24px;background:linear-gradient(145deg,#2A2D36,#1F2128);box-shadow:14px 14px 28px var(--lo),-12px -12px 24px var(--hi),inset 0 1px 0 rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="74" height="74" viewBox="0 0 120 120" role="img" aria-label="LoCal app icon"><defs><linearGradient id="lw" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#16171C"/><stop offset="1" stop-color="#30333D"/></linearGradient><filter id="lg" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><circle cx="60" cy="60" r="47" fill="url(#lw)"/><circle cx="60" cy="60" r="43" fill="#23252D"/><circle cx="60" cy="60" r="34" fill="none" stroke="#17181D" stroke-width="8"/><circle cx="60" cy="60" r="18" fill="#FFFFFF" fill-opacity=".06" stroke="#FFFFFF" stroke-opacity=".16"/></svg><span class="spinglow logospin"><span class="spin" style="--s:46.9px;--t:4.9px"></span></span></div><span>Opening your log</span></div><!--/boot--></div>
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="api.js?v=8f917242"></script>
+  <script src="api.js?v=ec0cfaf7"></script>
   <script>
   /* The app bundle boots itself and asks for data straight away, so it is only loaded once a
      token exists. Signing in first also means the Google popup opens from a real tap, which
@@ -100,9 +100,22 @@
     function loadApp() {
       app().innerHTML = '<div class="boot"><span>Opening your log</span></div>';
       const s = document.createElement('script');
-      s.src = 'app.js?v=8f917242';
+      s.src = 'app.js?v=ec0cfaf7';
       s.onerror = () => gate('The app didn\'t load. Check your connection and try again.', '', () => location.reload(), 'Reload');
       document.body.appendChild(s);
+    }
+
+    /* Approval happens once, at sign-in: unapproved accounts wait here, before anything is opened
+       or created in their Drive. */
+    async function admit() {
+      app().innerHTML = '<div class="boot"><span>Checking your access</span></div>';
+      let r;
+      try { r = await LoCalAccess.check(); }
+      catch (e) { return gate('LoCal couldn\'t check your access. ' + ((e && e.message) || ''), '', admit, 'Try again'); }
+      if (r.approved) return loadApp();
+      if (r.denied) return gate('This Google account doesn\'t have access to LoCal.', 'Ask the owner if you think it should.');
+      gate('Your request to use LoCal has been sent to the owner.',
+        'Approval is a one-time step. Once you\'re approved, tap Check again.', admit, 'Check again');
     }
 
     async function start() {
@@ -111,14 +124,14 @@
           'It needs a Google OAuth client ID in <code>web/api.js</code> before it can open your Drive.');
       }
       // A token from earlier in the hour: straight in, no screen at all.
-      if (LoCalAuth.signedIn()) return loadApp();
+      if (LoCalAuth.signedIn()) return admit();
       // Otherwise one tap. Signing in silently isn't possible here: it needs a popup, and
       // Safari only opens popups from a tap, so trying first just added a wait.
       const back = LoCalAuth.returning();
       gate(back ? 'Welcome back. Tap to open your log.'
           : 'Your meals are saved to a spreadsheet in your own Google Drive. Sign in to open it.',
         'LoCal can only see the files it creates for you \u2014 nothing else in your Drive.',
-        async () => { await LoCalAuth.signIn(); loadApp(); },
+        async () => { await LoCalAuth.signIn(); await admit(); },
         back ? 'Continue' : 'Continue with Google');
     }
 

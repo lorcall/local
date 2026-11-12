@@ -55,6 +55,7 @@ const DATA = {
   let aiReply = null, aiSent = null;
   await ctx.route(/script\.google\.com\/macros/, async route => {
     aiSent = JSON.parse(route.request().postData() || '{}');
+    if (aiSent.action === 'access') return route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({result: {approved: true, email: 'a@b.c'}})});
     route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({result: aiReply})});
   });
   const page = await ctx.newPage();

@@ -41,12 +41,14 @@ function doPost(e) {
 
     var status = accessStatus_(who.email);
     if (status !== 'approved') {
-      if (status === 'none') requestAccess_(who.email);
-      return reply_({pending: true, error: status === 'denied'
+      if (status === 'none') requestAccess_(who.email);   // first sign-in: add a pending row and email the owner
+      return reply_({pending: true, denied: status === 'denied', error: status === 'denied'
         ? 'This account doesn\'t have access to LoCal.'
         : 'Your request has been sent to the owner. Try again once they\'ve approved it.'});
     }
 
+    // The app asks this once at sign-in, before it opens or creates anything in the user's Drive.
+    if (req.action === 'access') return reply_({result: {approved: true, email: who.email}});
     return reply_({result: run_(req.action, req.payload || {})});
   } catch (err) {
     return reply_({error: String(err && err.message || err)});
