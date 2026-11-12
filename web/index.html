@@ -64,6 +64,7 @@
         (onTap ? '<button id="go">' + (label || 'Continue with Google') + '</button>' : '') +
         '<div class="err" id="err"></div>' +
         (detail ? '<p class="fine">' + detail + '</p>' : '') +
+        '<p class="fine"><a href="privacy.html" style="color:#F5A524">Privacy</a></p>' +
         '</div></div>';
       const b = document.getElementById('go');
       if (b && onTap) b.onclick = async () => {
