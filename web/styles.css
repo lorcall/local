@@ -8,7 +8,15 @@
   --font:'Geologica',system-ui,-apple-system,'Segoe UI',sans-serif;
 }
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;background:#17181D}
+html,body{margin:0;height:100%}
+/* The ground and its two glows belong to the page, not the 430px column, so on a tablet or
+   computer the graphite runs edge to edge with no band either side. The glows stay pinned to
+   the column's corners (on a phone that is the screen's corners, as before) and fade out
+   into plain graphite, so wider screens just get more of the same surface. */
+html{background:var(--g)}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(circle 380px at calc(50% + min(50vw,215px) - 20px) 0,rgba(245,165,36,.16),rgba(245,165,36,0)),
+    radial-gradient(circle 345px at calc(50% - min(50vw,215px)) 82%,rgba(164,149,255,.12),rgba(164,149,255,0)),var(--g)}
 body{font-family:var(--font);color:var(--tx);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
 button,input,textarea,select{font-family:inherit;font-size:inherit;color:inherit}
 button{cursor:pointer;border:0;background:none;padding:0}
@@ -20,9 +28,7 @@ h1,h2,h3,p{margin:0}
 .sr{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
 /* app frame */
-#app{position:relative;max-width:430px;min-width:320px;margin:0 auto;min-height:100vh;min-height:100dvh;
-  background:radial-gradient(circle at 95% 0%,rgba(245,165,36,.16),transparent 38%),radial-gradient(circle at 0% 82%,rgba(164,149,255,.12),transparent 40%),var(--g);
-  background-attachment:local;overflow-x:hidden}
+#app{position:relative;max-width:430px;min-width:320px;margin:0 auto;min-height:100vh;min-height:100dvh;overflow-x:hidden}
 .scr{display:flex;flex-direction:column;gap:14px;padding:24px 20px 28px;min-height:100vh;min-height:100dvh}
 .scr.tabbed{padding-bottom:112px}
 .grow{flex-grow:1}
@@ -124,7 +130,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 /* tab bar matches the segmented control: a pressed track, the active tab raised and mango */
 .tabbar{background:var(--g);padding:0 6px;box-shadow:inset 4px 4px 8px var(--lo),inset -4px -4px 8px var(--hi)}
 /* content scrolling underneath fades into the ground, so the bar stays sunken without an outer shadow */
-.tabfade{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:min(100vw,430px);height:calc(126px + env(safe-area-inset-bottom));background:linear-gradient(to bottom,rgba(35,37,45,0),var(--g) 44px);z-index:19;pointer-events:none}
+.tabfade{position:fixed;left:0;right:0;bottom:0;height:calc(126px + env(safe-area-inset-bottom));background:linear-gradient(to bottom,rgba(35,37,45,0),var(--g) 44px);z-index:19;pointer-events:none}
 .nb{transition:box-shadow .12s ease,color .12s ease}
 .nb[aria-current=page]{color:var(--a);background:var(--g);box-shadow:4px 4px 8px var(--lo),-4px -4px 8px var(--hi)}
 .fab{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--a);color:var(--oa);box-shadow:0 0 22px -2px var(--a),inset 0 1px 0 rgba(255,255,255,.45),inset -3px -4px 8px rgba(0,0,0,.2)}
