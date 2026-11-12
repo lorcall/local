@@ -18,7 +18,8 @@
  *   GEMINI_API_KEY   required. From aistudio.google.com/apikey.
  *   CLIENT_ID        required. The same OAuth client ID the web app uses. Without this the
  *                    audience check cannot run and any Google token would be accepted.
- *   ACCESS_SHEET_ID  required. A Sheet with an "Access" tab: email | status | requested | note.
+ *   ACCESS_SHEET_ID  required. A Sheet whose first tab has "Email" and "Status" header columns
+ *                    (extra columns are fine, and the order does not matter).
  *   OWNER_EMAIL      optional. Where approval requests are sent. Defaults to the deployer.
  *   APPROVE_SECRET   optional. Set any random string; used to sign approval links.
  *
@@ -27,8 +28,8 @@
  */
 
 var TOKENINFO = 'https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=';
-var ACCESS_TAB = 'Access';
-var ACCESS_COLS = ['email', 'status', 'requested', 'note'];
+var ACCESS_TAB = '';            // blank: use the spreadsheet's first tab, whatever it is called
+var ACCESS_COLS = ['email', 'status'];
 var CACHE_SECONDS = 300;
 
 /* ---------- entry point ---------- */
@@ -105,16 +106,41 @@ function verify_(token) {
 
 /* ---------- the allowlist ---------- */
 
+/**
+ * The allowlist sheet. Uses the first tab unless ACCESS_TAB names one, so whatever the
+ * sheet's tab happens to be called works without configuring anything.
+ */
 function accessSheet_() {
   var id = prop_('ACCESS_SHEET_ID');
   if (!id) throw new Error('This proxy has no ACCESS_SHEET_ID set.');
-  var ss = SpreadsheetApp.openById(id), sh = ss.getSheetByName(ACCESS_TAB);
-  if (!sh) {
-    sh = ss.insertSheet(ACCESS_TAB);
-    sh.getRange(1, 1, 1, ACCESS_COLS.length).setValues([ACCESS_COLS]).setFontWeight('bold');
+  var ss = SpreadsheetApp.openById(id);
+  var sh = ACCESS_TAB ? ss.getSheetByName(ACCESS_TAB) : ss.getSheets()[0];
+  if (!sh) sh = ss.getSheets()[0];
+  if (sh.getLastRow() < 1) {
+    sh.getRange(1, 1, 1, ACCESS_COLS.length).setValues([['Email', 'Status']]).setFontWeight('bold');
     sh.setFrozenRows(1);
   }
   return sh;
+}
+
+/**
+ * Finds the email and status columns by their header text, so the sheet can be laid out
+ * however the owner likes and the headers can be capitalised or not.
+ */
+function accessCols_(sh) {
+  var width = Math.max(1, sh.getLastColumn());
+  var head = sh.getRange(1, 1, 1, width).getDisplayValues()[0].map(function (h) {
+    return String(h || '').trim().toLowerCase();
+  });
+  var find = function (names) {
+    for (var i = 0; i < head.length; i++) if (names.indexOf(head[i]) >= 0) return i + 1;
+    return 0;
+  };
+  var email = find(['email', 'e-mail', 'email address', 'address']);
+  var status = find(['status', 'state', 'approved']);
+  if (!email) throw new Error('The access sheet has no "Email" column in row 1.');
+  if (!status) throw new Error('The access sheet has no "Status" column in row 1.');
+  return {email: email, status: status, width: width};
 }
 
 /** 'approved', 'pending', 'denied' or 'none'. Cached briefly so a photo doesn't wait on a read. */
@@ -123,12 +149,12 @@ function accessStatus_(email) {
   var hit = cache.get(key);
   if (hit) return hit;
 
-  var sh = accessSheet_(), n = sh.getLastRow() - 1, status = 'none';
+  var sh = accessSheet_(), c = accessCols_(sh), n = sh.getLastRow() - 1, status = 'none';
   if (n > 0) {
-    var rows = sh.getRange(2, 1, n, 2).getDisplayValues();
+    var rows = sh.getRange(2, 1, n, c.width).getDisplayValues();
     for (var i = 0; i < rows.length; i++) {
-      if (String(rows[i][0]).trim().toLowerCase() === email) {
-        status = String(rows[i][1] || 'pending').trim().toLowerCase() || 'pending';
+      if (String(rows[i][c.email - 1]).trim().toLowerCase() === email) {
+        status = String(rows[i][c.status - 1] || 'pending').trim().toLowerCase() || 'pending';
         break;
       }
     }
@@ -139,20 +165,27 @@ function accessStatus_(email) {
 }
 
 function setStatus_(email, status) {
-  var sh = accessSheet_(), n = sh.getLastRow() - 1;
+  var sh = accessSheet_(), c = accessCols_(sh), n = sh.getLastRow() - 1;
   email = String(email).trim().toLowerCase();
   if (n > 0) {
-    var rows = sh.getRange(2, 1, n, 1).getDisplayValues();
+    var rows = sh.getRange(2, 1, n, c.width).getDisplayValues();
     for (var i = 0; i < rows.length; i++) {
-      if (String(rows[i][0]).trim().toLowerCase() === email) {
-        sh.getRange(i + 2, 2).setValue(status);
+      if (String(rows[i][c.email - 1]).trim().toLowerCase() === email) {
+        sh.getRange(i + 2, c.status).setValue(status);
         CacheService.getScriptCache().remove('acc_' + email);
         return;
       }
     }
   }
-  sh.appendRow([email, status, new Date().toISOString(), '']);
+  addRow_(sh, c, email, status);
   CacheService.getScriptCache().remove('acc_' + email);
+}
+
+/** Writes a row with the email and status in whichever columns they live in. */
+function addRow_(sh, c, email, status) {
+  var row = sh.getLastRow() + 1;
+  sh.getRange(row, c.email).setValue(email);
+  sh.getRange(row, c.status).setValue(status);
 }
 
 function requestAccess_(email) {
@@ -160,7 +193,8 @@ function requestAccess_(email) {
   try { lock.waitLock(10000); } catch (e) { return; }
   try {
     if (accessStatus_(email) !== 'none') return;
-    accessSheet_().appendRow([email, 'pending', new Date().toISOString(), '']);
+    var sh = accessSheet_();
+    addRow_(sh, accessCols_(sh), email, 'pending');
     notifyOwner_(email);
   } finally { lock.releaseLock(); }
 }
