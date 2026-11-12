@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geologica:wght@200..700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=c44e94ae">
+  <link rel="stylesheet" href="styles.css?v=546f3987">
   <style>
     /* The stylesheet already accounts for the bottom inset on the tab bar, toasts and menus,
        so only the top needs adding here, and only once installed: in Safari the browser's own
@@ -48,7 +48,7 @@
   <div id="app"><!--boot--><div class="boot"><div style="position:relative;width:96px;height:96px;border-radius:24px;background:linear-gradient(145deg,#2A2D36,#1F2128);box-shadow:14px 14px 28px var(--lo),-12px -12px 24px var(--hi),inset 0 1px 0 rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="74" height="74" viewBox="0 0 120 120" role="img" aria-label="LoCal app icon"><defs><linearGradient id="lw" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#16171C"/><stop offset="1" stop-color="#30333D"/></linearGradient><filter id="lg" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><circle cx="60" cy="60" r="47" fill="url(#lw)"/><circle cx="60" cy="60" r="43" fill="#23252D"/><circle cx="60" cy="60" r="34" fill="none" stroke="#17181D" stroke-width="8"/><circle cx="60" cy="60" r="18" fill="#FFFFFF" fill-opacity=".06" stroke="#FFFFFF" stroke-opacity=".16"/></svg><span class="spinglow logospin"><span class="spin" style="--s:46.9px;--t:4.9px"></span></span></div><span>Opening your log</span></div><!--/boot--></div>
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="api.js?v=c44e94ae"></script>
+  <script src="api.js?v=546f3987"></script>
   <script>
   /* The app bundle boots itself and asks for data straight away, so it is only loaded once a
      token exists. Signing in first also means the Google popup opens from a real tap, which
@@ -94,7 +94,7 @@
     function loadApp() {
       app().innerHTML = '<div class="boot"><span>Opening your log</span></div>';
       const s = document.createElement('script');
-      s.src = 'app.js?v=c44e94ae';
+      s.src = 'app.js?v=546f3987';
       s.onerror = () => gate('The app didn\'t load. Check your connection and try again.', '', () => location.reload(), 'Reload');
       document.body.appendChild(s);
     }

@@ -14,7 +14,7 @@ SCREENS.history = () => {
     cells += fut ? '<span class="day fut" aria-label="' + lab + '"><span>' + n + '</span><span class="dot"></span></span>'
       : '<button class="day' + (d === t ? ' today' : '') + '" data-a="go" data-v="day" data-d="' + d + '" aria-label="' + lab + '"><span>' + n + '</span><span class="dot ' + st + '"></span></button>';
   }
-  const prevM = ymd(new Date(y, mo - 2, 1)).slice(0, 7), nextM = ymd(new Date(y, mo, 1)).slice(0, 7), canNext = nextM <= t.slice(0, 7);
+  const prevM = ymd(new Date(y, mo - 2, 1)).slice(0, 7), nextM = ymd(new Date(y, mo, 1)).slice(0, 7), canNext = nextM <= t.slice(0, 7), canPrev = prevM >= firstDay().slice(0, 7);
   const end = ym === t.slice(0, 7) ? t : first.slice(0, 8) + pad(daysIn);
   const list = rangeDays(first, end).reverse().filter(logged).slice(0, 8);
   const dayRow = (d, i) => {
@@ -23,14 +23,14 @@ SCREENS.history = () => {
       '<span class="cap" style="display:block' + (st === 'over' ? ';color:var(--ov)' : '') + '">' + (st === 'over' ? fmt(tt.kcal - tg) + ' kcal over' : plural(tt.meals, 'meal') + ', on target') + '</span></span><span style="font-size:15px">' + fmt(tt.kcal) + '</span><span class="mu">' + icon('next', 16, 2) + '</span></button>';
   };
   return '<div class="scr tabbed" style="gap:16px"><header class="between" style="align-items:center"><h1 class="title">History</h1><div class="row" style="gap:8px">' +
-    '<button class="ib ib40" data-a="month" data-v="' + prevM + '" aria-label="Previous month">' + icon('back', 16, 2) + '</button>' +
+    '<button class="ib ib40" data-a="monthStep" data-v="-1" aria-label="Previous month"' + (canPrev ? '' : ' disabled style="color:var(--mu);opacity:.5"') + '>' + icon('back', 16, 2) + '</button>' +
     '<span style="font-size:15px;width:96px;text-align:center" aria-live="polite">' + MONTHS[mo - 1] + (y !== new Date().getFullYear() ? ' ' + y : '') + '</span>' +
-    '<button class="ib ib40" data-a="month" data-v="' + nextM + '" aria-label="Next month"' + (canNext ? '' : ' disabled style="color:var(--mu);opacity:.5"') + '>' + icon('next', 16, 2) + '</button></div></header>' +
-    '<section class="raised r26" style="padding:14px;display:flex;flex-direction:column;gap:6px">' +
+    '<button class="ib ib40" data-a="monthStep" data-v="1" aria-label="Next month"' + (canNext ? '' : ' disabled style="color:var(--mu);opacity:.5"') + '>' + icon('next', 16, 2) + '</button></div></header>' +
+    '<section class="raised r26" data-hswipe="monthStep" style="padding:14px;overflow:hidden"><div class="swmove" style="display:flex;flex-direction:column;gap:6px">' +
     '<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;font-size:11px;color:var(--mu);text-align:center" aria-hidden="true">' + heads.map(h => '<span>' + h + '</span>').join('') + '</div>' +
     '<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px">' + cells + '</div>' +
     '<div class="row" style="gap:14px;font-size:11px;color:var(--mu);margin-top:6px;padding:0 4px;flex-wrap:wrap">' +
-    '<span class="row" style="gap:5px"><span class="dot on"></span>On target</span><span class="row" style="gap:5px"><span class="dot over"></span>Over</span><span class="row" style="gap:5px"><span class="dot none"></span>Nothing logged</span></div></section>' +
+    '<span class="row" style="gap:5px"><span class="dot on"></span>On target</span><span class="row" style="gap:5px"><span class="dot over"></span>Over</span><span class="row" style="gap:5px"><span class="dot none"></span>Nothing logged</span></div></div></section>' +
     '<section class="col" style="gap:12px">' + (list.length ? list.map(dayRow).join('') : '<p class="cap" style="text-align:center">Nothing logged in ' + MONTHS[mo - 1] + '.</p>') + '</section>' +
     '</div>' + tabBar('history');
 };
@@ -60,15 +60,25 @@ SCREENS.day = () => {
 function trendRange() {
   const t = today(), r = S.ui.range || '7 days';
   if (r === 'Custom') { const c = S.ui.custom || {from: addDays(t, -13), to: t}; return {from: c.from, to: c.to, r}; }
-  return {from: addDays(t, r === '7 days' ? -6 : -29), to: t, r};
+  const n = r === '7 days' ? 7 : 30, to = addDays(t, -n * (S.ui.tOff || 0));
+  return {from: addDays(to, -(n - 1)), to, r, n};
+}
+/* Can the trend period move back or forward? Back stops before there is no data at all. */
+function trendCan(rg) {
+  const t = today(), first = firstDay();
+  return {prev: addDays(rg.from, -1) >= first, next: rg.to < t};
 }
 SCREENS.trends = () => {
   const {from, to, r} = trendRange(), t = today();
   const days = rangeDays(from, to), done = days.filter(d => logged(d) && d !== t);
   const loggedN = days.filter(logged).length;
+  const can = trendCan({from, to}), dis = ' disabled style="color:var(--mu);opacity:.5"';
   const head = '<header class="between" style="align-items:center"><h1 class="title">Trends</h1>' + track('range', ['7 days', '30 days', 'Custom'], r, 'Range', {tight: true}) + '</header>' +
+    '<div class="between" style="align-items:center"><button class="ib ib40" data-a="trendStep" data-v="-1" aria-label="Earlier period"' + (can.prev ? '' : dis) + '>' + icon('back', 16, 2) + '</button>' +
+    '<span style="font-size:15px" aria-live="polite">' + periodLabel(from, to) + '</span>' +
+    '<button class="ib ib40" data-a="trendStep" data-v="1" aria-label="Later period"' + (can.next ? '' : dis) + '>' + icon('next', 16, 2) + '</button></div>' +
     (r === 'Custom' ? '<div class="row" style="gap:10px"><label class="col grow" style="gap:4px"><span class="lb">From</span><input type="date" class="fld sm" data-in="custom" data-k="from" value="' + from + '" max="' + t + '"></label><label class="col grow" style="gap:4px"><span class="lb">To</span><input type="date" class="fld sm" data-in="custom" data-k="to" value="' + to + '" max="' + t + '"></label></div>' : '');
-  if (loggedN < 3) return '<div class="scr tabbed">' + head + '<section class="raised r26 col" style="padding:28px 20px;gap:14px;align-items:center;text-align:center">' + iconWell('bars') +
+  if (loggedN < 3) return '<div class="scr tabbed">' + head + '<section class="raised r26 col" data-hswipe="trendStep" style="padding:28px 20px;gap:14px;align-items:center;text-align:center">' + iconWell('bars') +
     '<h2 class="sec">Log 3 days to see trends</h2><p class="cap13">You have ' + plural(loggedN, 'day') + ' in this range. Averages and charts appear after three.</p><button class="cta btn-sm" data-a="go" data-v="log">Log a meal</button></section>' + tiles() + '</div>' + tabBar('trends');
   const avgK = avg(done.length ? done : days.filter(logged), d => totalsOn(d).kcal);
   const onT = done.filter(d => dayStatus(d) === 'on').length;
@@ -88,7 +98,7 @@ SCREENS.trends = () => {
   const sh = macroShares(tot), gs = macroShares(targetFor(to));
   const split = (l, a, g, c) => '<div><div class="between"><span>' + l + ' ' + Math.round(a * 100) + '%</span><span class="mu">' + Math.round(g * 100) + '%</span></div><div class="col" style="gap:2px"><div style="height:6px;border-radius:3px;width:' + clamp(a * 200, 2, 100) + '%;background:' + c + '"></div><div class="pressed-sm" style="height:6px;border-radius:3px;width:' + clamp(g * 200, 2, 100) + '%"></div></div></div>';
   return '<div class="scr tabbed">' + head +
-    '<section class="raised r26" style="padding:16px;display:flex;flex-direction:column;gap:12px"><div class="between">' +
+    '<section class="raised r26" data-hswipe="trendStep" style="padding:16px;overflow:hidden"><div class="swmove" style="display:flex;flex-direction:column;gap:12px"><div class="between">' +
     '<div><div class="num" style="font-size:30px">' + fmt(avgK) + '</div><div class="cap">average kcal a day</div></div>' +
     '<div style="text-align:right"><div class="num" style="font-size:30px">' + onT + ' of ' + done.length + '</div><div class="cap">days on target</div></div></div>' +
     '<div role="img" aria-label="Daily calories for ' + days.length + ' days against a target of ' + fmt(tgNow) + ' kcal. ' + onT + ' of ' + done.length + ' completed days on target." style="position:relative;height:' + (H + 6) + 'px;display:flex;align-items:flex-end;gap:' + (many ? 3 : 12) + 'px;padding:0 4px">' +
@@ -96,7 +106,7 @@ SCREENS.trends = () => {
     '<div style="position:absolute;left:0;bottom:' + (lineB + 4).toFixed(0) + 'px;font-size:11px;color:var(--mu);background:var(--g);padding:1px 6px 1px 0;border-radius:0 6px 6px 0;z-index:2">Target ' + fmt(tgNow) + '</div>' + bars + '</div>' +
     '<div class="row" style="gap:' + (many ? 3 : 12) + 'px;padding:0 4px;font-size:12px;color:var(--mu);text-align:center" aria-hidden="true">' + labels + '</div>' +
     '<div class="row" style="gap:10px;font-size:12px"><div class="pressed-sm" style="flex:1;border-radius:12px;padding:8px 10px"><div class="mu">Closest day</div><div>' + dlab(closest) + '</div></div>' +
-    '<div class="pressed-sm" style="flex:1;border-radius:12px;padding:8px 10px"><div class="mu">Furthest day</div><div' + (furthest && furthest.x > 0 ? ' class="ov"' : '') + '>' + dlab(furthest) + '</div></div></div></section>' +
+    '<div class="pressed-sm" style="flex:1;border-radius:12px;padding:8px 10px"><div class="mu">Furthest day</div><div' + (furthest && furthest.x > 0 ? ' class="ov"' : '') + '>' + dlab(furthest) + '</div></div></div></div></section>' +
     '<section class="raised r24 row" style="padding:14px 16px;gap:16px"><div class="dial raised-md" style="width:96px;height:96px">' + macroRing(tot, 86, 30, 12, 0, false) + '</div>' +
     '<div class="col grow" style="gap:8px;font-size:12px"><div class="between"><span style="font-size:14px">Macro split</span><span class="mu">you and goal</span></div>' +
     split('Protein', sh.p, gs.p, COLOR.p) + split('Carbs', sh.c, gs.c, COLOR.c) + split('Fat', sh.f, gs.f, COLOR.f) + '</div></section>' + tiles() + '</div>' + tabBar('trends');

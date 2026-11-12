@@ -45,6 +45,11 @@ function confirmBox(title, text, label, fn) { menu({title, text, items: [{label,
 
 function go(name, p = {}) { S.stack.push({name, p}); S.ui.openSwipe = null; pushHistory(); render(); }
 function replace(name, p = {}) { S.stack[S.stack.length - 1] = {name, p}; render(); }
+/* After stepping a period, slide the new one in from the side it came from. */
+function slideIn(act, dir) {
+  const el = document.querySelector('[data-hswipe="' + act + '"] .swmove'); if (!el) return;
+  el.classList.remove('swin-fwd', 'swin-back'); void el.offsetWidth; el.classList.add(dir > 0 ? 'swin-fwd' : 'swin-back');
+}
 function home(toastText) { S.stack = [{name: 'today', p: {}}]; S.ui.openSwipe = null; if (toastText) toast(toastText); else render(); }
 function back() {
   const cur = route().name;
@@ -245,6 +250,7 @@ const A = {
     let d = v === 'today' ? t : addDays(viewDay(), +v);
     if (d > addDays(t, 7)) return;
     S.ui.day = d === t ? null : d; S.ui.openSwipe = null; render();
+    if (v !== 'today') slideIn('day', +v);
   },
   async viewPhoto() {
     const D = S.draft; if (!D) return;
@@ -436,8 +442,22 @@ const A = {
     S.draft = {mode: 'new', source: 'copy', meal, items: copyItems(m.meal_id, meal.meal_id), ai: null}; go('review');
   },
 
-  month: el => { if (el.disabled) return; S.ui.month = el.dataset.v; render(); },
-  range: el => { S.ui.range = el.dataset.v; render(); },
+  monthStep: el => {
+    const dir = +el.dataset.v, t = today(), [y, mo] = (S.ui.month || t.slice(0, 7)).split('-').map(Number);
+    const m = ymd(new Date(y, mo - 1 + dir, 1)).slice(0, 7);
+    if (m > t.slice(0, 7) || m < firstDay().slice(0, 7)) return;
+    S.ui.month = m; render(); slideIn('monthStep', dir);
+  },
+  trendStep: el => {
+    const dir = +el.dataset.v, rg = trendRange(), can = trendCan(rg);
+    if (dir < 0 ? !can.prev : !can.next) return;
+    if (rg.r === 'Custom') {
+      const len = daysBetween(rg.from, rg.to) + 1, to = dir > 0 ? (addDays(rg.to, len) > today() ? today() : addDays(rg.to, len)) : addDays(rg.to, -len);
+      S.ui.custom = {from: addDays(to, -(len - 1)), to};
+    } else S.ui.tOff = (S.ui.tOff || 0) - dir;
+    render(); slideIn('trendStep', dir);
+  },
+  range: el => { S.ui.range = el.dataset.v; S.ui.tOff = 0; render(); },
   week: el => { if (el.disabled) return; S.ui.week = el.dataset.v; S.ui.sumErr = ''; render(); },
   measure: el => { S.ui.measure = el.dataset.v; render(); },
   cm: el => { S.ui.cm = el.dataset.v; render(); },
@@ -532,10 +552,13 @@ function bindEvents() {
     if (ev.key === 'Enter' && ev.target.matches('input.fld') && ev.target.dataset.in === 'wIn') A.saveWeight();
   });
   /* swipe a meal row left to reveal Edit, Copy and Delete */
+  /* Swipe zones: [data-hswipe="<action>"] runs that action with +1 for a swipe left (later) and
+     -1 for a swipe right (earlier). A swipe may start on a button, since calendar days are
+     buttons; a drag suppresses the click after it, so a plain tap still works. */
   let ds = null;
   document.addEventListener('pointerdown', ev => {
-    const z = ev.target.closest('[data-dayswipe]'); if (!z || ev.target.closest('button')) return;
-    ds = {x0: ev.clientX, y0: ev.clientY, dx: 0, drag: false, el: z.querySelector('.dialmove')};
+    const z = ev.target.closest('[data-hswipe]'); if (!z) return;
+    ds = {x0: ev.clientX, y0: ev.clientY, dx: 0, drag: false, act: z.dataset.hswipe, el: z.querySelector('.swmove')};
   });
   document.addEventListener('pointermove', ev => {
     if (!ds) return;
@@ -549,8 +572,17 @@ function bindEvents() {
     if (s.el) { s.el.style.transform = ''; s.el.style.opacity = ''; }
     if (!s.drag) return;
     S.ui.suppressClick = true; setTimeout(() => { S.ui.suppressClick = false; }, 250);
-    if (Math.abs(s.dx) > 50) A.day({dataset: {v: s.dx < 0 ? '1' : '-1'}});
+    if (Math.abs(s.dx) > 50 && A[s.act]) A[s.act]({dataset: {v: s.dx < 0 ? '1' : '-1'}});
   };
+  /* Trackpads and sideways mouse wheels: a horizontal scroll over a zone steps it once. */
+  let wx = 0, wLock = 0;
+  document.addEventListener('wheel', ev => {
+    const z = ev.target.closest('[data-hswipe]'); if (!z || Math.abs(ev.deltaX) <= Math.abs(ev.deltaY)) return;
+    ev.preventDefault();
+    if (Date.now() < wLock) return;
+    wx += ev.deltaX;
+    if (Math.abs(wx) > 60 && A[z.dataset.hswipe]) { const v = wx > 0 ? '1' : '-1'; wx = 0; wLock = Date.now() + 450; A[z.dataset.hswipe]({dataset: {v}}); }
+  }, {passive: false});
   document.addEventListener('pointerup', dsEnd);
   document.addEventListener('pointercancel', dsEnd);
   let sw = null;

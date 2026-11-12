@@ -156,6 +156,14 @@ function streakInfo(measure) {
   });
   return {cur, best: Math.max(best, cur), bestEnd};
 }
+/* The first day anything was logged; paging back stops there rather than into empty months. */
+const firstDay = () => S.data.meals.reduce((m, x) => x.date && x.date < m ? x.date : m, today());
+/* "Nov 7–13", or "Oct 15 – Nov 13" across months; the year only when it isn't this one. */
+function periodLabel(from, to) {
+  const a = parseDay(from), b = parseDay(to), y = new Date().getFullYear(), yr = d => d.getFullYear() !== y ? ', ' + d.getFullYear() : '';
+  if (a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear()) return MON3[a.getMonth()] + ' ' + a.getDate() + '\u2013' + b.getDate() + yr(b);
+  return MON3[a.getMonth()] + ' ' + a.getDate() + yr(a) + ' \u2013 ' + MON3[b.getMonth()] + ' ' + b.getDate() + yr(b);
+}
 function rangeDays(from, to) { const out = []; for (let d = from; d <= to; d = addDays(d, 1)) out.push(d); return out; }
 function weekBounds(day) {
   const d = parseDay(day), ws = weekStart();

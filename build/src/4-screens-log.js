@@ -152,8 +152,8 @@ SCREENS.today = () => {
     '<button class="ib m" data-a="tab" data-v="history" aria-label="Pick a date">' + icon('calendar', 20) + '</button></div>' +
     '<div class="between" style="align-items:flex-end"><div><div class="cap13" style="font-size:14px">' + (d === t0 ? 'Today, ' : d === addDays(t0, -1) ? 'Yesterday, ' : d === addDays(t0, 1) ? 'Tomorrow, ' : '') + dayName(d) + '</div><h1 class="title">' + monthDay(d) + (parseDay(d).getFullYear() !== new Date().getFullYear() ? ', ' + parseDay(d).getFullYear() : '') + '</h1></div>' +
     (d !== t0 ? '<button class="raised-sm" data-a="day" data-v="today" style="height:36px;padding:0 14px;border-radius:12px;font-size:13px;color:var(--a);font-weight:500">Back to today</button>' : '') + '</div></header>' +
-    '<div class="dayswipe" data-dayswipe style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;touch-action:pan-y">' + arrow(-1, true) +
-    '<div class="dialmove">' + calorieDial(r0(t.kcal), num(tg.kcal), {animate: anim, past: d < t0}) + '</div>' + arrow(1, canNext) + '</div>' +
+    '<div class="dayswipe" data-hswipe="day" style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;touch-action:pan-y">' + arrow(-1, true) +
+    '<div class="dialmove swmove">' + calorieDial(r0(t.kcal), num(tg.kcal), {animate: anim, past: d < t0}) + '</div>' + arrow(1, canNext) + '</div>' +
     '<div class="cap13" style="text-align:center;margin-top:-6px">' + fmt(t.kcal) + ' eaten of ' + fmt(tg.kcal) + ' kcal</div>' +
     (overs.length ? '<div class="warn row" role="status" style="gap:10px;padding:10px 14px"><span class="ov" style="flex-shrink:0;display:flex">' + icon('warn', 18, 2) + '</span><span><span class="ov" style="font-weight:500">Over target:</span> ' + esc(overs.join(', ')) + '</span></div>' : '') +
     '<div class="row">' + macroDial('Protein', r0(t.protein_g), num(tg.protein_g), COLOR.p) + macroDial('Carbs', r0(t.carbs_g), num(tg.carbs_g), COLOR.c) + macroDial('Fat', r0(t.fat_g), num(tg.fat_g), COLOR.f) + '</div>' +

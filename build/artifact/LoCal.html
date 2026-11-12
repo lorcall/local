@@ -202,6 +202,12 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .rk{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--a);box-shadow:inset 2px 2px 4px var(--lo),inset -2px -2px 4px var(--hi)}
 .bul{width:6px;height:6px;margin-top:8px;border-radius:50%;flex-shrink:0;background:var(--a);box-shadow:0 0 6px var(--a)}
 .dialmove{transition:transform .2s ease,opacity .2s ease}
+/* swipe zones: vertical scrolling stays with the page, sideways drags step the period */
+[data-hswipe]{touch-action:pan-y;-webkit-user-select:none;user-select:none}
+.swin-fwd{animation:swin-fwd .22s ease-out}
+.swin-back{animation:swin-back .22s ease-out}
+@keyframes swin-fwd{from{transform:translateX(28px);opacity:.35}}
+@keyframes swin-back{from{transform:translateX(-28px);opacity:.35}}
 .warn{border-radius:18px;padding:12px 14px;background:var(--g);box-shadow:inset 0 0 0 1.5px var(--ov),0 0 22px -8px var(--ov);font-size:13px;line-height:1.45}
 
 /* log a meal */
@@ -410,6 +416,14 @@ function streakInfo(measure) {
     else { run = 0; prev = null; }
   });
   return {cur, best: Math.max(best, cur), bestEnd};
+}
+/* The first day anything was logged; paging back stops there rather than into empty months. */
+const firstDay = () => S.data.meals.reduce((m, x) => x.date && x.date < m ? x.date : m, today());
+/* "Nov 7–13", or "Oct 15 – Nov 13" across months; the year only when it isn't this one. */
+function periodLabel(from, to) {
+  const a = parseDay(from), b = parseDay(to), y = new Date().getFullYear(), yr = d => d.getFullYear() !== y ? ', ' + d.getFullYear() : '';
+  if (a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear()) return MON3[a.getMonth()] + ' ' + a.getDate() + '\u2013' + b.getDate() + yr(b);
+  return MON3[a.getMonth()] + ' ' + a.getDate() + yr(a) + ' \u2013 ' + MON3[b.getMonth()] + ' ' + b.getDate() + yr(b);
 }
 function rangeDays(from, to) { const out = []; for (let d = from; d <= to; d = addDays(d, 1)) out.push(d); return out; }
 function weekBounds(day) {
@@ -1033,8 +1047,8 @@ SCREENS.today = () => {
     '<button class="ib m" data-a="tab" data-v="history" aria-label="Pick a date">' + icon('calendar', 20) + '</button></div>' +
     '<div class="between" style="align-items:flex-end"><div><div class="cap13" style="font-size:14px">' + (d === t0 ? 'Today, ' : d === addDays(t0, -1) ? 'Yesterday, ' : d === addDays(t0, 1) ? 'Tomorrow, ' : '') + dayName(d) + '</div><h1 class="title">' + monthDay(d) + (parseDay(d).getFullYear() !== new Date().getFullYear() ? ', ' + parseDay(d).getFullYear() : '') + '</h1></div>' +
     (d !== t0 ? '<button class="raised-sm" data-a="day" data-v="today" style="height:36px;padding:0 14px;border-radius:12px;font-size:13px;color:var(--a);font-weight:500">Back to today</button>' : '') + '</div></header>' +
-    '<div class="dayswipe" data-dayswipe style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;touch-action:pan-y">' + arrow(-1, true) +
-    '<div class="dialmove">' + calorieDial(r0(t.kcal), num(tg.kcal), {animate: anim, past: d < t0}) + '</div>' + arrow(1, canNext) + '</div>' +
+    '<div class="dayswipe" data-hswipe="day" style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;touch-action:pan-y">' + arrow(-1, true) +
+    '<div class="dialmove swmove">' + calorieDial(r0(t.kcal), num(tg.kcal), {animate: anim, past: d < t0}) + '</div>' + arrow(1, canNext) + '</div>' +
     '<div class="cap13" style="text-align:center;margin-top:-6px">' + fmt(t.kcal) + ' eaten of ' + fmt(tg.kcal) + ' kcal</div>' +
     (overs.length ? '<div class="warn row" role="status" style="gap:10px;padding:10px 14px"><span class="ov" style="flex-shrink:0;display:flex">' + icon('warn', 18, 2) + '</span><span><span class="ov" style="font-weight:500">Over target:</span> ' + esc(overs.join(', ')) + '</span></div>' : '') +
     '<div class="row">' + macroDial('Protein', r0(t.protein_g), num(tg.protein_g), COLOR.p) + macroDial('Carbs', r0(t.carbs_g), num(tg.carbs_g), COLOR.c) + macroDial('Fat', r0(t.fat_g), num(tg.fat_g), COLOR.f) + '</div>' +
@@ -1286,7 +1300,7 @@ SCREENS.history = () => {
     cells += fut ? '<span class="day fut" aria-label="' + lab + '"><span>' + n + '</span><span class="dot"></span></span>'
       : '<button class="day' + (d === t ? ' today' : '') + '" data-a="go" data-v="day" data-d="' + d + '" aria-label="' + lab + '"><span>' + n + '</span><span class="dot ' + st + '"></span></button>';
   }
-  const prevM = ymd(new Date(y, mo - 2, 1)).slice(0, 7), nextM = ymd(new Date(y, mo, 1)).slice(0, 7), canNext = nextM <= t.slice(0, 7);
+  const prevM = ymd(new Date(y, mo - 2, 1)).slice(0, 7), nextM = ymd(new Date(y, mo, 1)).slice(0, 7), canNext = nextM <= t.slice(0, 7), canPrev = prevM >= firstDay().slice(0, 7);
   const end = ym === t.slice(0, 7) ? t : first.slice(0, 8) + pad(daysIn);
   const list = rangeDays(first, end).reverse().filter(logged).slice(0, 8);
   const dayRow = (d, i) => {
@@ -1295,14 +1309,14 @@ SCREENS.history = () => {
       '<span class="cap" style="display:block' + (st === 'over' ? ';color:var(--ov)' : '') + '">' + (st === 'over' ? fmt(tt.kcal - tg) + ' kcal over' : plural(tt.meals, 'meal') + ', on target') + '</span></span><span style="font-size:15px">' + fmt(tt.kcal) + '</span><span class="mu">' + icon('next', 16, 2) + '</span></button>';
   };
   return '<div class="scr tabbed" style="gap:16px"><header class="between" style="align-items:center"><h1 class="title">History</h1><div class="row" style="gap:8px">' +
-    '<button class="ib ib40" data-a="month" data-v="' + prevM + '" aria-label="Previous month">' + icon('back', 16, 2) + '</button>' +
+    '<button class="ib ib40" data-a="monthStep" data-v="-1" aria-label="Previous month"' + (canPrev ? '' : ' disabled style="color:var(--mu);opacity:.5"') + '>' + icon('back', 16, 2) + '</button>' +
     '<span style="font-size:15px;width:96px;text-align:center" aria-live="polite">' + MONTHS[mo - 1] + (y !== new Date().getFullYear() ? ' ' + y : '') + '</span>' +
-    '<button class="ib ib40" data-a="month" data-v="' + nextM + '" aria-label="Next month"' + (canNext ? '' : ' disabled style="color:var(--mu);opacity:.5"') + '>' + icon('next', 16, 2) + '</button></div></header>' +
-    '<section class="raised r26" style="padding:14px;display:flex;flex-direction:column;gap:6px">' +
+    '<button class="ib ib40" data-a="monthStep" data-v="1" aria-label="Next month"' + (canNext ? '' : ' disabled style="color:var(--mu);opacity:.5"') + '>' + icon('next', 16, 2) + '</button></div></header>' +
+    '<section class="raised r26" data-hswipe="monthStep" style="padding:14px;overflow:hidden"><div class="swmove" style="display:flex;flex-direction:column;gap:6px">' +
     '<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;font-size:11px;color:var(--mu);text-align:center" aria-hidden="true">' + heads.map(h => '<span>' + h + '</span>').join('') + '</div>' +
     '<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px">' + cells + '</div>' +
     '<div class="row" style="gap:14px;font-size:11px;color:var(--mu);margin-top:6px;padding:0 4px;flex-wrap:wrap">' +
-    '<span class="row" style="gap:5px"><span class="dot on"></span>On target</span><span class="row" style="gap:5px"><span class="dot over"></span>Over</span><span class="row" style="gap:5px"><span class="dot none"></span>Nothing logged</span></div></section>' +
+    '<span class="row" style="gap:5px"><span class="dot on"></span>On target</span><span class="row" style="gap:5px"><span class="dot over"></span>Over</span><span class="row" style="gap:5px"><span class="dot none"></span>Nothing logged</span></div></div></section>' +
     '<section class="col" style="gap:12px">' + (list.length ? list.map(dayRow).join('') : '<p class="cap" style="text-align:center">Nothing logged in ' + MONTHS[mo - 1] + '.</p>') + '</section>' +
     '</div>' + tabBar('history');
 };
@@ -1332,15 +1346,25 @@ SCREENS.day = () => {
 function trendRange() {
   const t = today(), r = S.ui.range || '7 days';
   if (r === 'Custom') { const c = S.ui.custom || {from: addDays(t, -13), to: t}; return {from: c.from, to: c.to, r}; }
-  return {from: addDays(t, r === '7 days' ? -6 : -29), to: t, r};
+  const n = r === '7 days' ? 7 : 30, to = addDays(t, -n * (S.ui.tOff || 0));
+  return {from: addDays(to, -(n - 1)), to, r, n};
+}
+/* Can the trend period move back or forward? Back stops before there is no data at all. */
+function trendCan(rg) {
+  const t = today(), first = firstDay();
+  return {prev: addDays(rg.from, -1) >= first, next: rg.to < t};
 }
 SCREENS.trends = () => {
   const {from, to, r} = trendRange(), t = today();
   const days = rangeDays(from, to), done = days.filter(d => logged(d) && d !== t);
   const loggedN = days.filter(logged).length;
+  const can = trendCan({from, to}), dis = ' disabled style="color:var(--mu);opacity:.5"';
   const head = '<header class="between" style="align-items:center"><h1 class="title">Trends</h1>' + track('range', ['7 days', '30 days', 'Custom'], r, 'Range', {tight: true}) + '</header>' +
+    '<div class="between" style="align-items:center"><button class="ib ib40" data-a="trendStep" data-v="-1" aria-label="Earlier period"' + (can.prev ? '' : dis) + '>' + icon('back', 16, 2) + '</button>' +
+    '<span style="font-size:15px" aria-live="polite">' + periodLabel(from, to) + '</span>' +
+    '<button class="ib ib40" data-a="trendStep" data-v="1" aria-label="Later period"' + (can.next ? '' : dis) + '>' + icon('next', 16, 2) + '</button></div>' +
     (r === 'Custom' ? '<div class="row" style="gap:10px"><label class="col grow" style="gap:4px"><span class="lb">From</span><input type="date" class="fld sm" data-in="custom" data-k="from" value="' + from + '" max="' + t + '"></label><label class="col grow" style="gap:4px"><span class="lb">To</span><input type="date" class="fld sm" data-in="custom" data-k="to" value="' + to + '" max="' + t + '"></label></div>' : '');
-  if (loggedN < 3) return '<div class="scr tabbed">' + head + '<section class="raised r26 col" style="padding:28px 20px;gap:14px;align-items:center;text-align:center">' + iconWell('bars') +
+  if (loggedN < 3) return '<div class="scr tabbed">' + head + '<section class="raised r26 col" data-hswipe="trendStep" style="padding:28px 20px;gap:14px;align-items:center;text-align:center">' + iconWell('bars') +
     '<h2 class="sec">Log 3 days to see trends</h2><p class="cap13">You have ' + plural(loggedN, 'day') + ' in this range. Averages and charts appear after three.</p><button class="cta btn-sm" data-a="go" data-v="log">Log a meal</button></section>' + tiles() + '</div>' + tabBar('trends');
   const avgK = avg(done.length ? done : days.filter(logged), d => totalsOn(d).kcal);
   const onT = done.filter(d => dayStatus(d) === 'on').length;
@@ -1360,7 +1384,7 @@ SCREENS.trends = () => {
   const sh = macroShares(tot), gs = macroShares(targetFor(to));
   const split = (l, a, g, c) => '<div><div class="between"><span>' + l + ' ' + Math.round(a * 100) + '%</span><span class="mu">' + Math.round(g * 100) + '%</span></div><div class="col" style="gap:2px"><div style="height:6px;border-radius:3px;width:' + clamp(a * 200, 2, 100) + '%;background:' + c + '"></div><div class="pressed-sm" style="height:6px;border-radius:3px;width:' + clamp(g * 200, 2, 100) + '%"></div></div></div>';
   return '<div class="scr tabbed">' + head +
-    '<section class="raised r26" style="padding:16px;display:flex;flex-direction:column;gap:12px"><div class="between">' +
+    '<section class="raised r26" data-hswipe="trendStep" style="padding:16px;overflow:hidden"><div class="swmove" style="display:flex;flex-direction:column;gap:12px"><div class="between">' +
     '<div><div class="num" style="font-size:30px">' + fmt(avgK) + '</div><div class="cap">average kcal a day</div></div>' +
     '<div style="text-align:right"><div class="num" style="font-size:30px">' + onT + ' of ' + done.length + '</div><div class="cap">days on target</div></div></div>' +
     '<div role="img" aria-label="Daily calories for ' + days.length + ' days against a target of ' + fmt(tgNow) + ' kcal. ' + onT + ' of ' + done.length + ' completed days on target." style="position:relative;height:' + (H + 6) + 'px;display:flex;align-items:flex-end;gap:' + (many ? 3 : 12) + 'px;padding:0 4px">' +
@@ -1368,7 +1392,7 @@ SCREENS.trends = () => {
     '<div style="position:absolute;left:0;bottom:' + (lineB + 4).toFixed(0) + 'px;font-size:11px;color:var(--mu);background:var(--g);padding:1px 6px 1px 0;border-radius:0 6px 6px 0;z-index:2">Target ' + fmt(tgNow) + '</div>' + bars + '</div>' +
     '<div class="row" style="gap:' + (many ? 3 : 12) + 'px;padding:0 4px;font-size:12px;color:var(--mu);text-align:center" aria-hidden="true">' + labels + '</div>' +
     '<div class="row" style="gap:10px;font-size:12px"><div class="pressed-sm" style="flex:1;border-radius:12px;padding:8px 10px"><div class="mu">Closest day</div><div>' + dlab(closest) + '</div></div>' +
-    '<div class="pressed-sm" style="flex:1;border-radius:12px;padding:8px 10px"><div class="mu">Furthest day</div><div' + (furthest && furthest.x > 0 ? ' class="ov"' : '') + '>' + dlab(furthest) + '</div></div></div></section>' +
+    '<div class="pressed-sm" style="flex:1;border-radius:12px;padding:8px 10px"><div class="mu">Furthest day</div><div' + (furthest && furthest.x > 0 ? ' class="ov"' : '') + '>' + dlab(furthest) + '</div></div></div></div></section>' +
     '<section class="raised r24 row" style="padding:14px 16px;gap:16px"><div class="dial raised-md" style="width:96px;height:96px">' + macroRing(tot, 86, 30, 12, 0, false) + '</div>' +
     '<div class="col grow" style="gap:8px;font-size:12px"><div class="between"><span style="font-size:14px">Macro split</span><span class="mu">you and goal</span></div>' +
     split('Protein', sh.p, gs.p, COLOR.p) + split('Carbs', sh.c, gs.c, COLOR.c) + split('Fat', sh.f, gs.f, COLOR.f) + '</div></section>' + tiles() + '</div>' + tabBar('trends');
@@ -1574,6 +1598,11 @@ function confirmBox(title, text, label, fn) { menu({title, text, items: [{label,
 
 function go(name, p = {}) { S.stack.push({name, p}); S.ui.openSwipe = null; pushHistory(); render(); }
 function replace(name, p = {}) { S.stack[S.stack.length - 1] = {name, p}; render(); }
+/* After stepping a period, slide the new one in from the side it came from. */
+function slideIn(act, dir) {
+  const el = document.querySelector('[data-hswipe="' + act + '"] .swmove'); if (!el) return;
+  el.classList.remove('swin-fwd', 'swin-back'); void el.offsetWidth; el.classList.add(dir > 0 ? 'swin-fwd' : 'swin-back');
+}
 function home(toastText) { S.stack = [{name: 'today', p: {}}]; S.ui.openSwipe = null; if (toastText) toast(toastText); else render(); }
 function back() {
   const cur = route().name;
@@ -1774,6 +1803,7 @@ const A = {
     let d = v === 'today' ? t : addDays(viewDay(), +v);
     if (d > addDays(t, 7)) return;
     S.ui.day = d === t ? null : d; S.ui.openSwipe = null; render();
+    if (v !== 'today') slideIn('day', +v);
   },
   async viewPhoto() {
     const D = S.draft; if (!D) return;
@@ -1965,8 +1995,22 @@ const A = {
     S.draft = {mode: 'new', source: 'copy', meal, items: copyItems(m.meal_id, meal.meal_id), ai: null}; go('review');
   },
 
-  month: el => { if (el.disabled) return; S.ui.month = el.dataset.v; render(); },
-  range: el => { S.ui.range = el.dataset.v; render(); },
+  monthStep: el => {
+    const dir = +el.dataset.v, t = today(), [y, mo] = (S.ui.month || t.slice(0, 7)).split('-').map(Number);
+    const m = ymd(new Date(y, mo - 1 + dir, 1)).slice(0, 7);
+    if (m > t.slice(0, 7) || m < firstDay().slice(0, 7)) return;
+    S.ui.month = m; render(); slideIn('monthStep', dir);
+  },
+  trendStep: el => {
+    const dir = +el.dataset.v, rg = trendRange(), can = trendCan(rg);
+    if (dir < 0 ? !can.prev : !can.next) return;
+    if (rg.r === 'Custom') {
+      const len = daysBetween(rg.from, rg.to) + 1, to = dir > 0 ? (addDays(rg.to, len) > today() ? today() : addDays(rg.to, len)) : addDays(rg.to, -len);
+      S.ui.custom = {from: addDays(to, -(len - 1)), to};
+    } else S.ui.tOff = (S.ui.tOff || 0) - dir;
+    render(); slideIn('trendStep', dir);
+  },
+  range: el => { S.ui.range = el.dataset.v; S.ui.tOff = 0; render(); },
   week: el => { if (el.disabled) return; S.ui.week = el.dataset.v; S.ui.sumErr = ''; render(); },
   measure: el => { S.ui.measure = el.dataset.v; render(); },
   cm: el => { S.ui.cm = el.dataset.v; render(); },
@@ -2061,10 +2105,13 @@ function bindEvents() {
     if (ev.key === 'Enter' && ev.target.matches('input.fld') && ev.target.dataset.in === 'wIn') A.saveWeight();
   });
   /* swipe a meal row left to reveal Edit, Copy and Delete */
+  /* Swipe zones: [data-hswipe="<action>"] runs that action with +1 for a swipe left (later) and
+     -1 for a swipe right (earlier). A swipe may start on a button, since calendar days are
+     buttons; a drag suppresses the click after it, so a plain tap still works. */
   let ds = null;
   document.addEventListener('pointerdown', ev => {
-    const z = ev.target.closest('[data-dayswipe]'); if (!z || ev.target.closest('button')) return;
-    ds = {x0: ev.clientX, y0: ev.clientY, dx: 0, drag: false, el: z.querySelector('.dialmove')};
+    const z = ev.target.closest('[data-hswipe]'); if (!z) return;
+    ds = {x0: ev.clientX, y0: ev.clientY, dx: 0, drag: false, act: z.dataset.hswipe, el: z.querySelector('.swmove')};
   });
   document.addEventListener('pointermove', ev => {
     if (!ds) return;
@@ -2078,8 +2125,17 @@ function bindEvents() {
     if (s.el) { s.el.style.transform = ''; s.el.style.opacity = ''; }
     if (!s.drag) return;
     S.ui.suppressClick = true; setTimeout(() => { S.ui.suppressClick = false; }, 250);
-    if (Math.abs(s.dx) > 50) A.day({dataset: {v: s.dx < 0 ? '1' : '-1'}});
+    if (Math.abs(s.dx) > 50 && A[s.act]) A[s.act]({dataset: {v: s.dx < 0 ? '1' : '-1'}});
   };
+  /* Trackpads and sideways mouse wheels: a horizontal scroll over a zone steps it once. */
+  let wx = 0, wLock = 0;
+  document.addEventListener('wheel', ev => {
+    const z = ev.target.closest('[data-hswipe]'); if (!z || Math.abs(ev.deltaX) <= Math.abs(ev.deltaY)) return;
+    ev.preventDefault();
+    if (Date.now() < wLock) return;
+    wx += ev.deltaX;
+    if (Math.abs(wx) > 60 && A[z.dataset.hswipe]) { const v = wx > 0 ? '1' : '-1'; wx = 0; wLock = Date.now() + 450; A[z.dataset.hswipe]({dataset: {v}}); }
+  }, {passive: false});
   document.addEventListener('pointerup', dsEnd);
   document.addEventListener('pointercancel', dsEnd);
   let sw = null;
