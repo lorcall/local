@@ -14,7 +14,9 @@ html,body{margin:0;height:100%}
    computer the graphite runs edge to edge with no band either side. The glows stay pinned to
    the column's corners (on a phone that is the screen's corners, as before) and fade out
    into plain graphite, so wider screens just get more of the same surface. */
-html{background:var(--g)}
+/* Always keep the scrollbar's space, so moving from a short screen to a tall one doesn't nudge
+   the whole app sideways on computers that show classic scrollbars. */
+html{background:var(--g);scrollbar-gutter:stable}
 body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
   background:radial-gradient(circle 380px at calc(50% + min(50vw,215px) - 20px) 0,rgba(245,165,36,.16),rgba(245,165,36,0)),
     radial-gradient(circle 345px at calc(50% - min(50vw,215px)) 82%,rgba(164,149,255,.12),rgba(164,149,255,0)),var(--g)}

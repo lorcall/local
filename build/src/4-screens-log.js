@@ -124,11 +124,10 @@ SCREENS.settings = () => {
     '<div class="row" style="min-height:50px;font-size:14px"><span class="grow">Model</span><span class="mu">' + esc(m.model || 'Gemini Flash, free tier') + '</span></div><div class="sep"></div>' +
     '<div class="row" style="min-height:50px;font-size:14px"><span class="grow">API key</span><span class="' + (m.hasKey || m.demo ? 'mu' : 'ov') + '">' + (m.demo ? 'Not used in the preview' : m.hasKey ? 'Stored in Apps Script' : 'Missing. Add GEMINI_API_KEY') + '</span></div><div class="sep"></div>' +
     '<div class="row" style="min-height:50px;font-size:14px"><span class="grow">AI analyses today</span><span>' + fmt(m.analysesToday) + '</span></div></section>' +
-    '<p class="cap" style="padding:0 4px">Google sets the free limits and can change them. Quick add, favorites and copied meals don\'t use the AI.</p>' +
+    '<p class="cap" style="padding:0 4px">Google sets the free limits and can change them. Meals and foods you add again from search don\'t use the AI.</p>' +
     h13('Preferences') +
     '<section class="raised r22 col" style="padding:6px 16px">' +
     '<div class="row" style="min-height:50px;font-size:14px"><span class="grow">Units</span><span class="pressed-sm pill">kg and cm</span></div><div class="sep"></div>' +
-    '<div class="row" style="min-height:50px;font-size:14px"><span class="grow">Rice serving</span>' + sel('rice_serving', ['1 cup, 160 g', '1 cup, 200 g', '1 scoop, 120 g'], setting('rice_serving', '1 cup, 160 g'), 'Rice serving') + '</div><div class="sep"></div>' +
     '<div class="row" style="min-height:50px;font-size:14px"><span class="grow">Week starts on</span>' + sel('week_start', ['Monday', 'Sunday'], setting('week_start', 'Monday'), 'Week starts on') + '</div></section>' +
     '<button class="raised-sm btn2" data-a="csv">Download all data as CSV</button>' +
     '<p class="cap" style="padding:0 4px;line-height:1.5">Meal photos go to Google\'s Gemini API for the estimate. On the free tier, Google may use them to improve its products. Everything else stays in your account.</p></div>';
@@ -182,35 +181,32 @@ function logState() {
   return S.log;
 }
 SCREENS.log = () => {
-  const L = logState(), label = L.mode === 'label';
+  const L = logState();
   const corners = '<div aria-hidden="true" style="position:absolute;left:66px;right:66px;top:86px;height:210px;max-width:258px;margin:0 auto">' +
     ['left:0;top:0;border-left-width:3px;border-top-width:3px;border-radius:12px 0 0 0', 'right:0;top:0;border-right-width:3px;border-top-width:3px;border-radius:0 12px 0 0', 'left:0;bottom:0;border-left-width:3px;border-bottom-width:3px;border-radius:0 0 0 12px', 'right:0;bottom:0;border-right-width:3px;border-bottom-width:3px;border-radius:0 0 12px 0'].map(s => '<div class="corner" style="' + s + '"></div>').join('') + '</div>';
-  const cta = L.busy ? '<button class="cta btn" disabled aria-live="polite"><span class="spinglow"><span class="spin"></span></span><span style="margin-left:10px">' + (label ? 'Reading the label' : 'Analyzing photo') + '</span></button>'
-    : '<button class="cta btn" data-a="analyze">' + (L.img ? (label ? 'Read the label' : 'Analyze photo') : (label ? 'Photograph the label' : 'Take a photo')) + '</button>';
+  // One photo, either kind: the AI decides whether it's food or a nutrition label, so there is no mode to pick.
+  const cta = L.busy ? '<button class="cta btn" disabled aria-live="polite"><span class="spinglow"><span class="spin"></span></span><span style="margin-left:10px">Analyzing photo</span></button>'
+    : '<button class="cta btn" data-a="analyze">' + (L.img ? 'Analyze photo' : 'Take a photo') + '</button>';
   return '<div class="col" style="min-height:100vh;min-height:100dvh">' +
-    '<div class="cam">' + (L.img ? '<img class="shot" src="' + L.img + '" alt="Your ' + (label ? 'label' : 'meal') + ' photo">' :
-      '<button data-a="shoot" class="col" style="align-items:center;gap:10px;color:rgba(255,255,255,.75);font-size:14px">' + icon(label ? 'label' : 'camera', 40, 1.4) + '<span>' + (label ? 'Photograph the nutrition label' : 'Photograph your plate') + '</span></button>') +
+    '<div class="cam">' + (L.img ? '<img class="shot" src="' + L.img + '" alt="Your photo">' :
+      '<button data-a="shoot" class="col" style="align-items:center;gap:10px;color:rgba(255,255,255,.75);font-size:14px;text-align:center">' + icon('camera', 40, 1.4) + '<span>Photograph your plate<br>or a nutrition label</span></button>') +
     corners +
-    '<header style="position:absolute;left:18px;right:18px;top:22px;display:flex;justify-content:space-between;align-items:center">' +
-    '<button class="gb" data-a="closeLog" aria-label="Close" style="width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff">' + icon('close', 18, 2) + '</button>' +
-    '<div class="gb" role="radiogroup" aria-label="What are you photographing?" style="display:flex;padding:4px;border-radius:22px">' +
-    ['meal', 'label'].map(v => '<button role="radio" aria-checked="' + (L.mode === v) + '" data-a="logMode" data-v="' + v + '" style="height:34px;padding:0 14px;border-radius:18px;font-size:13px;' + (L.mode === v ? 'background:var(--a);color:var(--oa);font-weight:600' : 'color:#fff') + '">' + cap1(v) + '</button>').join('') +
-    '</div></header></div>' +
+    '<header style="position:absolute;left:18px;right:18px;top:22px;display:flex;align-items:center">' +
+    '<button class="gb" data-a="closeLog" aria-label="Close" style="width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff">' + icon('close', 18, 2) + '</button></header></div>' +
     '<div class="sheet">' +
     '<div style="display:flex;justify-content:center;gap:28px;margin-top:-34px">' +
     '<button class="raised-md" data-a="pick" aria-label="Choose from gallery" style="width:56px;height:56px;margin-top:10px;border-radius:50%;display:flex;align-items:center;justify-content:center">' + icon('gallery', 20) + '</button>' +
     '<button class="shutter" data-a="shoot" aria-label="' + (L.img ? 'Retake photo' : 'Take photo') + '"><span></span></button>' +
-    '<button class="raised-md" data-a="logMode" data-v="' + (label ? 'meal' : 'label') + '" data-shoot="1" aria-label="' + (label ? 'Photograph a meal instead' : 'Scan a nutrition label') + '" style="width:56px;height:56px;margin-top:10px;border-radius:50%;display:flex;align-items:center;justify-content:center' + (label ? ';color:var(--a)' : '') + '">' + icon(label ? 'plate' : 'label', 20) + '</button></div>' +
-    '<div class="between"><h1 class="title22">' + (label ? 'Scan a label' : 'Log a meal') + '</h1><span class="cap13">' + esc(dayLabel(L.date)) + ', ' + time12(L.time) + '</span></div>' +
+    '<button class="raised-md" data-a="go" data-v="search" aria-label="Search past meals" style="width:56px;height:56px;margin-top:10px;border-radius:50%;display:flex;align-items:center;justify-content:center">' + icon('search', 20) + '</button></div>' +
+    '<div class="between"><h1 class="title22">Log a meal</h1><span class="cap13">' + esc(dayLabel(L.date)) + ', ' + time12(L.time) + '</span></div>' +
     chips('logType', MEAL_TYPES, L.meal_type, 'Meal') + whenRow('log', L.date, L.time) +
-    (label ? '<p class="cap">The AI reads the printed numbers per serving, so this is the most accurate way to log packaged food.</p>' :
-      '<div class="col" style="gap:8px"><label for="lm-note" style="font-size:14px;font-weight:500">Note for the AI <span style="font-weight:300;color:var(--mu)">optional</span></label>' +
-      '<textarea id="lm-note" rows="2" class="fld" data-in="logNote" placeholder="Sinigang na baboy, one bowl. Rice is one cup.">' + esc(L.note) + '</textarea>' +
-      '<span class="cap">Tell it what the photo can\'t show: the meat, the portion, no sugar.</span></div>') +
+    '<div class="col" style="gap:8px"><label for="lm-note" style="font-size:14px;font-weight:500">Note for the AI <span style="font-weight:300;color:var(--mu)">optional</span></label>' +
+    '<textarea id="lm-note" rows="2" class="fld" data-in="logNote" placeholder="Guide the AI: what\'s in it, how much, how it was cooked, what to leave out">' + esc(L.note) + '</textarea>' +
+    '<span class="cap">The AI reads this like an instruction and trusts it over the photo.</span></div>' +
     (L.error ? '<div class="warn" role="alert"><div class="ov" style="font-weight:500">' + esc(L.error) + '</div><div class="mu" style="margin-top:2px">Your photo and note are kept.</div>' +
-      '<div class="row" style="margin-top:10px"><button class="raised-sm btn-sm mango" data-a="analyze" style="flex:1">Try again</button><button class="raised-sm btn-sm" data-a="go" data-v="quick" style="flex:1;font-weight:500">Add without a photo</button></div></div>' : '') +
+      '<div class="row" style="margin-top:10px"><button class="raised-sm btn-sm mango" data-a="analyze" style="flex:1">Try again</button><button class="raised-sm btn-sm" data-a="go" data-v="search" style="flex:1;font-weight:500">Search past meals</button></div></div>' : '') +
     cta +
-    '<div class="between" style="align-items:center;flex-wrap:wrap;gap:8px 12px"><a href="#" data-a="go" data-v="describe" style="font-size:13px">Describe it in words</a><a href="#" data-a="go" data-v="quick" style="font-size:13px">Favorites and past meals</a></div>' +
+    '<div class="between" style="align-items:center;flex-wrap:wrap;gap:8px 12px"><a href="#" data-a="go" data-v="describe" style="font-size:13px">Describe it in words</a><a href="#" data-a="go" data-v="search" style="font-size:13px">Search past meals</a></div>' +
     '<input type="file" id="camIn" accept="image/*" capture="environment" data-in="photo" class="sr" tabindex="-1" aria-hidden="true">' +
     '<input type="file" id="galIn" accept="image/*" data-in="photo" class="sr" tabindex="-1" aria-hidden="true">' +
     '</div></div>';
@@ -264,7 +260,7 @@ SCREENS.review = () => {
 /* ---------- Edit an item (also adds or edits a saved dish) ---------- */
 SCREENS.edit = () => {
   const E = S.edit; if (!E) return SCREENS.review();
-  const it = E.item, dish = E.ctx === 'dish', u = it.serving_unit || 'serving', g = num(it.grams_per_unit), q = num(it.quantity) || 1;
+  const it = E.item, u = it.serving_unit || 'serving', g = num(it.grams_per_unit), q = num(it.quantity) || 1;
   const units = UNITS.includes(u) ? UNITS : UNITS.concat([u]);
   const origG = num(E.orig.grams_per_unit) * (num(E.orig.quantity) || 1), nowG = g * q;
   const chk = macroCheck(it);
@@ -276,8 +272,8 @@ SCREENS.edit = () => {
   };
   const nameChanged = E.orig.name && it.name !== E.orig.name;
   const forLabel = u === 'g' || g ? fmt(nowG) + ' g' : fmt(q, 2) + ' ' + unitWord(u, q);
-  return '<div class="scr">' + backHeader(dish ? (E.isNew ? 'Add a dish' : 'Edit dish') : (E.idx < 0 ? 'Add an item' : 'Edit item')) +
-    '<div class="col" style="gap:6px"><label for="ei-name" class="lb">Food</label><input id="ei-name" class="fld" data-in="itemName" value="' + esc(it.name || '') + '" placeholder="For example: pancit bihon" autocomplete="off">' +
+  return '<div class="scr">' + backHeader(E.idx < 0 ? 'Add an item' : 'Edit item') +
+    '<div class="col" style="gap:6px"><label for="ei-name" class="lb">Food</label><input id="ei-name" class="fld" data-in="itemName" value="' + esc(it.name || '') + '" placeholder="For example: grilled chicken" autocomplete="off">' +
     '<span class="cap" data-part="ei-cap">' + (nameChanged ? 'Changed from ' + esc(lc1(E.orig.name)) + '. Get new values for this item only.' : '') + '</span></div>' +
     '<div class="row" style="gap:10px"><button data-part="ei-ask" class="raised-sm" data-a="askAI" style="flex:1;height:44px;border-radius:14px;font-size:14px;color:var(--a);font-weight:500"' + (it.name && !E.busy ? '' : ' disabled') + '>' + (E.busy ? '<span class="spinglow"><span class="spin"></span></span>' : (E.orig.name ? 'Ask the AI again' : 'Ask the AI')) + '</button>' +
     '<button class="' + (E.manual ? 'pressed-sm' : 'raised-sm') + '" data-a="manual" aria-pressed="' + !!E.manual + '" style="flex:1;height:44px;border-radius:14px;font-size:14px;' + (E.manual ? 'color:var(--a)' : '') + '">Enter my own</button></div>' +
@@ -293,11 +289,10 @@ SCREENS.edit = () => {
         : '<span><span class="ov">The macros add up to ' + fmt(chk.mk) + ' kcal, but calories say ' + fmt(chk.k) + '.</span> <a href="#" data-a="useMacroKcal">Use calories from macros</a></span>') + '</div>' : '') + '</div>' +
     '</section>' +
     '<div class="row" style="gap:12px"><label for="ei-cat" class="lb" style="flex-shrink:0;font-size:14px;color:var(--tx)">Category</label><select id="ei-cat" class="fld sm" data-in="itemCat">' + CATEGORIES.map(c => '<option value="' + c + '"' + (c === (it.category || 'other') ? ' selected' : '') + '>' + CATEGORY_LABEL[c] + '</option>').join('') + '</select></div>' +
-    (dish ? '<div class="row" style="gap:12px"><label for="ei-grp" class="lb" style="flex-shrink:0;font-size:14px;color:var(--tx)">Dish group</label><select id="ei-grp" class="fld sm" data-in="itemGroup">' + DISH_GROUPS.slice(1).map(c => '<option' + (c === (it.dish_group || 'Ulam') ? ' selected' : '') + '>' + c + '</option>').join('') + '</select></div>'
-      : '<div class="col"><div class="row" style="height:48px"><span class="grow" style="font-size:14px">Mark as edited by me</span>' + switchBtn(E.edited, 'tglEdited', 'Mark as edited by me') + '</div>' +
+    ('<div class="col"><div class="row" style="height:48px"><span class="grow" style="font-size:14px">Mark as edited by me</span>' + switchBtn(E.edited, 'tglEdited', 'Mark as edited by me') + '</div>' +
       '<div class="row" style="height:48px"><span class="grow" style="font-size:14px">Use as my default for this dish</span>' + switchBtn(E.asDefault, 'tglDefault', 'Use as my default for this dish') + '</div></div>') +
-    '<div class="grow"></div><div class="row"><button class="raised-sm" data-a="removeItem" style="height:56px;padding:0 18px;border-radius:20px;font-size:15px;color:var(--ov)">' + (E.idx < 0 || dish ? 'Cancel' : 'Remove') + '</button>' +
-    '<button data-part="ei-done" class="cta btn grow" data-a="doneItem"' + (it.name && has(it.kcal) ? '' : ' disabled') + '>' + (dish ? 'Save dish' : 'Done') + '</button></div></div>';
+    '<div class="grow"></div><div class="row"><button class="raised-sm" data-a="removeItem" style="height:56px;padding:0 18px;border-radius:20px;font-size:15px;color:var(--ov)">' + (E.idx < 0 ? 'Cancel' : 'Remove') + '</button>' +
+    '<button data-part="ei-done" class="cta btn grow" data-a="doneItem"' + (it.name && has(it.kcal) ? '' : ' disabled') + '>' + 'Done' + '</button></div></div>';
 };
 
 /* ---------- Nutrition label ---------- */
@@ -330,68 +325,53 @@ SCREENS.label = () => {
     '<button data-part="ls-save" class="cta btn" data-a="saveLabel"' + (S.ui.busy || !has(ps.kcal) ? ' disabled' : '') + '>' + (S.ui.busy ? '<span class="spinglow"><span class="spin"></span></span>' : 'Save to ' + lc1(Lb.meal_type)) + '</button></div>';
 };
 
-/* ---------- Quick add and favorites ---------- */
-function rankedSuggestions() {
-  const h = new Date().getHours();
-  return S.data.favorites.filter(f => has(f.kcal)).map(f => {
-    const near = has(f.usual_hour) && Math.abs(num(f.usual_hour) - h) <= 2;
-    return {f, score: (f.pinned === true || f.pinned === 'TRUE' ? 1e6 : 0) + num(f.use_count) * (near ? 3 : 1) + (near ? 5 : 0)};
-  }).sort((a, b) => b.score - a.score).map(x => x.f);
+/* ---------- Search what you've eaten before ---------- */
+/* Built from what's actually been logged, newest first: whole meals (one per distinct
+   combination of foods) and single foods (with how often they were had). */
+function pastIndex() {
+  const meals = [], seen = new Set(), foods = new Map();
+  const byTime = S.data.meals.filter(m => itemsOf(m.meal_id).length).sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+  for (const m of byTime) {
+    const name = mealName(m), k = name.toLowerCase();
+    if (!seen.has(k)) { seen.add(k); meals.push({m, name, hay: (name + ' ' + (m.note || '') + ' ' + m.meal_type).toLowerCase()}); }
+    for (const e of itemsOf(m.meal_id)) {
+      const fk = String(e.name || '').trim().toLowerCase(); if (!fk) continue;
+      const f = foods.get(fk);
+      if (f) f.count++; else foods.set(fk, {e, date: m.date, count: 1, hay: fk});  // first seen is the most recent
+    }
+  }
+  return {meals, foods: [...foods.values()]};
 }
-const isPinned = f => f.pinned === true || f.pinned === 'TRUE';
-function foodRow(f) {
-  const id = esc(f.food_id);
-  return '<div class="lrow"><button class="grow" data-a="foodMenu" data-v="' + id + '" style="text-align:left;min-width:0"><span style="display:block;font-size:15px">' + esc(f.name) + ' ' + (isPinned(f) ? '<span class="tag">Pinned</span>' : '') + (f.user_corrected === true || f.user_corrected === 'TRUE' ? ' <span class="tag">Your version</span>' : '') + '</span>' +
-    '<span class="cap" style="display:block">' + esc(servingLabel(f)) + '</span></button>' +
-    '<span style="font-size:14px;color:' + (has(f.kcal) ? 'var(--mu)' : 'var(--a)') + '">' + (has(f.kcal) ? fmt(f.kcal) : 'Set kcal') + '</span>' +
-    '<button class="add" data-a="addFood" data-v="' + id + '" aria-label="Add ' + esc(lc1(f.name)) + '">+</button></div>';
-}
-function rowList(list) { return '<section class="raised r22" style="padding:4px 0;display:flex;flex-direction:column">' + list.map(foodRow).join('<div class="sep" style="margin:0 14px"></div>') + '</section>'; }
-function pastMeals(n) {
-  const t = today(), seen = new Set(), out = [];
-  const meals = S.data.meals.filter(m => m.date < t && itemsOf(m.meal_id).length).sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
-  for (const m of meals) { const k = mealName(m); if (seen.has(k)) continue; seen.add(k); out.push(m); if (out.length >= n) break; }
-  return out;
-}
-SCREENS.quick = () => {
-  const qa = S.ui.qa = S.ui.qa || {tab: 'Suggested', q: ''};
-  const L = logState(), q = qa.q.trim().toLowerCase();
-  let list, head;
-  if (q) { list = S.data.favorites.filter(f => f.name.toLowerCase().includes(q)).sort((a, b) => num(b.use_count) - num(a.use_count)); head = list.length ? plural(list.length, 'match', 'matches') : 'Nothing saved with that name.'; }
-  else if (qa.tab === 'Favorites') { list = S.data.favorites.slice().sort((a, b) => (isPinned(b) - isPinned(a)) || a.name.localeCompare(b.name)); head = 'Pinned first, then A to Z'; }
-  else if (qa.tab === 'Recent') {
-    const used = S.data.favorites.filter(f => f.last_used).sort((a, b) => String(b.last_used).localeCompare(String(a.last_used)));
-    list = used.slice(0, 8); head = list.length ? 'Last added from these lists' : 'Foods you add from favorites show up here.';
-  } else { list = rankedSuggestions().slice(0, 5); head = 'You usually have these around ' + hourLabel(new Date().getHours()); }
-  const past = q ? [] : pastMeals(2);
-  const pastLabel = m => (relDay(m.date) === 'Yesterday' ? 'Yesterday' : relDay(m.date)) + '\'s ' + lc1(m.meal_type);
-  return '<div class="scr">' + backHeader('Add without a photo') +
-    '<div style="position:relative"><label for="qa-s" class="sr">Search foods</label><span style="position:absolute;left:16px;top:15px;color:var(--mu)">' + icon('search', 18, 2) + '</span>' +
-    '<input id="qa-s" class="fld" data-in="qaSearch" value="' + esc(qa.q) + '" placeholder="Search your foods and Filipino dishes" style="height:48px;border-radius:16px;font-size:15px;padding-left:44px;box-shadow:inset 4px 4px 8px var(--lo),inset -4px -4px 8px var(--hi)" autocomplete="off"></div>' +
-    '<div data-part="qa-list" class="col" style="gap:14px">' +
+const matchAll = (hay, words) => words.every(w => hay.includes(w));
+SCREENS.search = () => {
+  const sq = S.ui.sq = S.ui.sq || {q: ''};
+  const L = logState(), q = sq.q.trim(), words = q.toLowerCase().split(/\s+/).filter(Boolean), P = pastIndex();
+  const often = list => list.slice().sort((a, b) => b.count - a.count || b.date.localeCompare(a.date));
+  const meals = words.length ? P.meals.filter(x => matchAll(x.hay, words)).slice(0, 8) : P.meals.slice(0, 5);
+  const foods = (words.length ? often(P.foods.filter(x => matchAll(x.hay, words))) : often(P.foods)).slice(0, words.length ? 12 : 8);
+  const mealCard = x => '<div class="raised-md r20 row" style="padding:12px 12px 12px 16px"><div class="grow" style="min-width:0"><div class="cap">' + esc(relDay(x.m.date) + ', ' + lc1(x.m.meal_type)) + '</div>' +
+    '<div style="font-size:15px">' + esc(x.name) + '</div><div class="cap">' + fmt(mealKcal(x.m)) + ' kcal</div></div>' +
+    '<div class="col" style="gap:6px;align-items:flex-end"><button class="add w" data-a="copyPast" data-v="' + esc(x.m.meal_id) + '" aria-label="Add ' + esc(x.name) + '">Add</button>' +
+    '<button data-a="copyChange" data-v="' + esc(x.m.meal_id) + '" style="font-size:12px;color:var(--a)">Change amount</button></div></div>';
+  const foodRow = x => '<div class="lrow"><button class="grow" data-a="pastItemChange" data-v="' + esc(x.e.entry_id) + '" style="text-align:left;min-width:0">' +
+    '<span style="display:block;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(x.e.name) + '</span>' +
+    '<span class="cap" style="display:block">' + esc(amountLabel(x.e)) + ', had ' + (x.count === 1 ? 'once' : plural(x.count, 'time')) + '</span></button>' +
+    '<span style="font-size:14px;color:var(--mu)">' + fmt(x.e.kcal) + '</span>' +
+    '<button class="add" data-a="addPastItem" data-v="' + esc(x.e.entry_id) + '" aria-label="Add ' + esc(lc1(x.e.name)) + '">+</button></div>';
+  const head = t => '<h2 class="h13" style="padding:0">' + t + '</h2>';
+  let body;
+  if (!P.meals.length) body = '<p class="cap" style="text-align:center;padding:12px 0">Meals you log show up here, so you can add them again in one tap.</p>';
+  else if (words.length && !meals.length && !foods.length) body = '<p class="cap" style="text-align:center;padding:8px 0 0">Nothing you\'ve logged matches “' + esc(q) + '”.</p>' +
+    '<button class="raised-sm btn2" data-a="newFood" style="color:var(--a)">Add “' + esc(q) + '” as a new food</button>';
+  else body = (meals.length ? head(words.length ? 'Meals' : 'Recent meals') + meals.map(mealCard).join('') : '') +
+    (foods.length ? head(words.length ? 'Foods' : 'Foods you have most') + '<section class="raised r22" style="padding:4px 0;display:flex;flex-direction:column">' + foods.map(foodRow).join('<div class="sep" style="margin:0 14px"></div>') + '</section>' : '');
+  return '<div class="scr">' + backHeader('Search past meals') +
+    '<div style="position:relative"><label for="sq-s" class="sr">Search what you\'ve eaten before</label><span style="position:absolute;left:16px;top:15px;color:var(--mu)">' + icon('search', 18, 2) + '</span>' +
+    '<input id="sq-s" type="search" enterkeyhint="search" class="fld" data-in="sqSearch" value="' + esc(sq.q) + '" placeholder="Search what you\'ve eaten before" style="height:48px;border-radius:16px;font-size:15px;padding-left:44px;box-shadow:inset 4px 4px 8px var(--lo),inset -4px -4px 8px var(--hi)" autocomplete="off"></div>' +
     chips('logType', MEAL_TYPES, L.meal_type, 'Add to meal', {h: 36}) + whenRow('log', L.date, L.time) +
-    (q ? '' : track('qaTab', ['Suggested', 'Favorites', 'Recent'], qa.tab, 'Food lists', {tabs: true})) +
-    '<h2 class="h13" style="padding:0">' + esc(head) + '</h2>' + (list.length ? rowList(list) : '') +
-    (past.length ? '<h2 class="h13" style="padding:0;margin-top:4px">Copy a past meal</h2>' + past.map(m =>
-      '<div class="raised-md r20 row" style="padding:12px 12px 12px 16px"><div class="grow" style="min-width:0"><div class="cap">' + esc(pastLabel(m)) + '</div><div style="font-size:15px">' + esc(mealName(m)) + '</div><div class="cap">' + fmt(mealKcal(m)) + ' kcal</div></div>' +
-      '<div class="col" style="gap:6px;align-items:flex-end"><button class="add w" data-a="copyPast" data-v="' + esc(m.meal_id) + '">Add</button><button data-a="copyChange" data-v="' + esc(m.meal_id) + '" style="font-size:12px;color:var(--a)">Change amount</button></div></div>').join('') : '') +
-    '</div><div class="grow"></div><button class="raised-sm btn2" data-a="go" data-v="describe">Describe a meal for the AI</button>' +
-    '<button class="raised-sm btn2" data-a="go" data-v="dishes" style="color:var(--tx)">Browse Filipino dishes</button>' +
-    '<p class="cap" style="text-align:center">Adding from these lists doesn\'t use the AI.</p></div>';
-};
-
-/* ---------- Filipino dishes ---------- */
-SCREENS.dishes = () => {
-  const grp = S.ui.dg || 'All';
-  const list = S.data.favorites.filter(f => f.is_local_dish === true || f.is_local_dish === 'TRUE').filter(f => grp === 'All' || f.dish_group === grp)
-    .sort((a, b) => ((b.user_corrected === true) - (a.user_corrected === true)) || num(b.use_count) - num(a.use_count) || a.name.localeCompare(b.name));
-  const rice = setting('rice_serving', '1 cup, 160 g'), rg = riceServing(), rk = Math.round(rg * 205 / 160);
-  return '<div class="scr">' + backHeader('Filipino dishes') + chips('dishGroup', DISH_GROUPS, grp, 'Category', {scroll: true}) +
-    '<section class="pressed-sm r20 row" style="padding:14px 16px;gap:14px"><svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true"><path d="M6 22h32a16 16 0 0 1-32 0z" fill="#ECEDF2" opacity=".9"/><path d="M10 22c2-5 6-8 12-8s10 3 12 8" fill="#ECEDF2" opacity=".55"/></svg>' +
-    '<div class="grow"><div style="font-size:15px">Rice is counted in ' + (/scoop/.test(rice) ? 'scoops' : 'cups') + '</div><div class="cap">' + esc(rice.replace(/, /, ' cooked is ')) + ' and ' + fmt(rk) + ' kcal. Half and extra rice are one tap.</div></div></section>' +
-    (list.length ? rowList(list) : '<p class="cap" style="text-align:center">No dishes in this group yet.</p>') +
-    '<div class="grow"></div><p class="cap" style="line-height:1.5">Typical portions. When you correct a dish, your values become the default and the AI sees them too.</p>' +
-    '<button class="cta btn" data-a="newDish" style="height:54px">Add a dish</button></div>';
+    '<div data-part="sq-list" class="col" style="gap:14px">' + body + '</div>' +
+    '<div class="grow"></div><button class="raised-sm btn2" data-a="go" data-v="describe">Describe a meal for the AI</button>' +
+    '<p class="cap" style="text-align:center">Adding something you\'ve had before doesn\'t use the AI.</p></div>';
 };
 
 /* ---------- Describe a meal (AI estimate without a photo) ---------- */
@@ -400,7 +380,7 @@ SCREENS.describe = () => {
   return '<div class="scr">' + backHeader('Describe a meal') +
     chips('logType', MEAL_TYPES, L.meal_type, 'Meal') + whenRow('log', L.date, L.time) +
     '<div class="col" style="gap:8px"><label for="ds-text" style="font-size:14px;font-weight:500">What did you eat?</label>' +
-    '<textarea id="ds-text" rows="5" class="fld" data-in="logText" placeholder="1 bowl sinigang na baboy, 1 cup rice, a glass of iced tea">' + esc(L.text) + '</textarea>' +
+    '<textarea id="ds-text" rows="5" class="fld" data-in="logText" placeholder="A bowl of beef stew, 1 cup of rice, a glass of iced tea">' + esc(L.text) + '</textarea>' +
     '<span class="cap">Name each food with an amount: cups, pieces, a bowl, a plate, grams. Brand names help for drinks and snacks.</span></div>' +
     (L.error && L.errorFrom === 'text' ? '<div class="warn" role="alert"><div class="ov" style="font-weight:500">' + esc(L.error) + '</div><div class="mu" style="margin-top:2px">Your description is kept.</div></div>' : '') +
     '<div class="grow"></div>' +

@@ -234,7 +234,8 @@ function notifyApproved_(email) {
 function run_(action, p) {
   if (action === 'analyzePhoto') {
     if (!p.image) throw new Error('No photo.');
-    return p.mode === 'label' ? readLabel_(p) : estimateMeal_(p);
+    // 'auto' (the current page) lets the model decide; 'label' and 'meal' keep older pages working.
+    return p.mode === 'label' ? readLabel_(p) : p.mode === 'meal' ? estimateMeal_(p) : analyzeImage_(p);
   }
   if (action === 'analyzeText') {
     if (!String(p.text || '').trim()) throw new Error('NO_FOOD');

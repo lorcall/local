@@ -61,8 +61,8 @@ function pushHistory() {
 function friendly(e) {
   let m = String((e && (e.message || e)) || '');
   const fromServer = /^SERVER:/.test(m); m = m.replace(/^SERVER:\s*/, '');
-  if (/QUOTA|RESOURCE_EXHAUSTED/i.test(m)) return 'Today\'s free photo analyses are used up. Add from favorites or try again tomorrow.';
-  if (/NO_FOOD/.test(m)) return 'No food found in this photo. Try another angle, or add without a photo.';
+  if (/QUOTA|RESOURCE_EXHAUSTED/i.test(m)) return 'Today\'s free photo analyses are used up. Add something you\'ve had before from search, or try again tomorrow.';
+  if (/NO_FOOD/.test(m)) return 'No food or nutrition label found in this photo. Try another angle, or search past meals.';
   if (/NO_KEY/.test(m)) return 'The Gemini API key is missing. Add GEMINI_API_KEY in Script Properties.';
   if (/PERMISSION|do not have permission|UrlFetchApp/i.test(m)) return 'Apps Script hasn\'t been allowed to contact Gemini yet. In the script editor, run testGemini once and approve the permission, then deploy a new version.';
   // only a failed google.script.run call is a connection problem; server messages are shown as they are
@@ -91,12 +91,13 @@ async function photoUrl() {
   if (!L.photoP) return '';
   return Promise.race([L.photoP, new Promise(r => setTimeout(() => r(''), 15000))]);
 }
-/* Dish hints for the AI, sent with the photo so the server doesn't read the Sheet. Most-used first. */
+/* Portions the user has eaten or corrected, sent with the photo so the server doesn't read the
+   Sheet. Their own corrections first, then the most used. */
 function aiHints() {
-  const dishes = S.data.favorites.filter(f => has(f.kcal) && (f.is_local_dish === true || f.user_corrected === true || num(f.use_count) > 0))
+  const dishes = S.data.favorites.filter(f => has(f.kcal) && (f.user_corrected === true || num(f.use_count) > 0))
     .sort((a, b) => (b.user_corrected === true) - (a.user_corrected === true) || num(b.use_count) - num(a.use_count)).slice(0, 40)
     .map(f => f.name + ' (' + servingLabel(f) + '): ' + fmt(f.kcal) + ' kcal, P' + fmt(f.protein_g, 1) + ' C' + fmt(f.carbs_g, 1) + ' F' + fmt(f.fat_g, 1) + (f.user_corrected === true ? ' *' : ''));
-  return {rice: setting('rice_serving', '1 cup, 160 g'), dishes};
+  return {dishes};
 }
 
 /* ---------- builders ---------- */
@@ -178,7 +179,7 @@ const A = {
   tab: el => { S.stack = [{name: el.dataset.v, p: {}}]; S.ui.openSwipe = null; pushHistory(); render(); },
   go: el => {
     const v = el.dataset.v;
-    if (['log', 'quick', 'describe'].includes(v)) {
+    if (['log', 'search', 'describe'].includes(v)) {
       const L = logState(), from = route().name;
       if (TABS.includes(from) && !L.img && !L.busy) { const d = from === 'today' ? viewDay() : today(); if (L.date !== d) { L.date = d; L.time = d === today() ? nowHM() : TYPE_TIME[L.meal_type]; L.timeAuto = d !== today(); } }
       L.error = '';
@@ -277,7 +278,6 @@ const A = {
     } catch (e) { L.busy = false; L.error = /NO_FOOD/.test(String(e && e.message)) ? 'No food found in that description. Name each food with an amount.' : friendly(e); L.errorFrom = 'text'; render(); }
   },
   closeLog: () => { S.log = null; back(); },
-  logMode: el => { const L = logState(); if (L.mode !== el.dataset.v) { L.mode = el.dataset.v; L.error = ''; } render(); if (el.dataset.shoot && !L.img) A.shoot(); },
   shoot: () => { const i = document.getElementById('camIn'); if (i) { i.value = ''; i.click(); } },
   pick: () => { const i = document.getElementById('galIn'); if (i) { i.value = ''; i.click(); } },
   async analyze() {
@@ -285,14 +285,15 @@ const A = {
     if (!L.img) return A.shoot();
     L.busy = true; L.error = ''; render();
     // Save the photo to Drive in a parallel call, so the estimate never waits for Drive.
-    if (!L.photoP) L.photoP = API.savePhoto({image: L.full.data, mime: L.full.mime, mode: L.mode, meal_type: L.meal_type})
+    if (!L.photoP) L.photoP = API.savePhoto({image: L.full.data, mime: L.full.mime, meal_type: L.meal_type})
       .then(u => { L.photo_url = u || ''; return L.photo_url; }).catch(() => { L.photoP = null; return ''; });
     try {
-      const res = await API.analyzePhoto({image: L.full.data, mime: L.full.mime, note: L.note, mode: L.mode, meal_type: L.meal_type, hints: aiHints()});
+      // mode 'auto': the AI decides whether the photo is food or a nutrition label
+      const res = await API.analyzePhoto({image: L.full.data, mime: L.full.mime, note: L.note, mode: 'auto', meal_type: L.meal_type, hints: aiHints()});
       if (res.analysesToday != null) S.meta.analysesToday = res.analysesToday;
       if (res.error) throw new Error('SERVER: ' + res.error);
       const r = res.result;
-      if (L.mode === 'label') {
+      if (r.kind === 'label' || (!r.items && r.per_serving)) {
         S.label = {result: r, name: r.product || 'Packaged food', servings: 1, manual: {}, meal_type: L.meal_type, img: L.img, demo: S.meta.demo};
         L.busy = false; go('label');
       } else {
@@ -383,13 +384,6 @@ const A = {
   async doneItem() {
     const E = S.edit, it = Object.assign({}, E.item); if (!it.name || !has(it.kcal)) return;
     VALUES.forEach(v => { if (!has(it[v])) it[v] = 0; });
-    if (E.ctx === 'dish') {
-      const base = E.favId ? S.data.favorites.find(f => f.food_id === E.favId) : null;
-      const f = favPerUnit(it, base || {food_id: uid('food'), pinned: false, use_count: 0, usual_hour: new Date().getHours(), last_used: '', is_local_dish: true});
-      f.dish_group = it.dish_group || (base && base.dish_group) || 'Ulam'; f.user_corrected = !!base;
-      try { await API.saveFavorite(f); applyFavorite(f); S.edit = null; S.stack.pop(); toast('Saved ' + lc1(f.name)); } catch (e) { toast(friendly(e)); }
-      return;
-    }
     it.edited = E.edited;
     if (it.edited && it.confidence === 'low') it.confidence = 'medium';
     if (E.idx >= 0) S.draft.items[E.idx] = it; else S.draft.items.push(Object.assign(it, {entry_id: uid('ent'), meal_id: S.draft.meal.meal_id}));
@@ -415,23 +409,22 @@ const A = {
     catch (err) { S.ui.busy = false; toast(friendly(err)); }
   },
 
-  qaTab: el => { S.ui.qa.tab = el.dataset.v; render(); },
-  async addFood(el) {
-    const f = S.data.favorites.find(x => x.food_id === el.dataset.v); if (!f) return;
-    if (!has(f.kcal)) return openEdit('dish', -1, Object.assign({}, f, {quantity: 1}), {manual: true, favId: f.food_id});
+  async addPastItem(el) {
+    const e = S.data.entries.find(x => x.entry_id === el.dataset.v); if (!e) return;
     const type = logState().meal_type;
-    try { await addToMealToday(type, [entryFrom(f, '', 1)], 'quick add'); bumpFavorite(f); } catch (e) { toast(friendly(e)); }
+    try { await addToMealToday(type, [Object.assign({}, e, {entry_id: uid('ent'), meal_id: '', edited: false})], 'quick add'); } catch (err) { toast(friendly(err)); }
   },
-  foodMenu: el => {
-    const f = S.data.favorites.find(x => x.food_id === el.dataset.v); if (!f) return;
-    menu({title: f.name, text: servingLabel(f) + (has(f.kcal) ? ', ' + fmt(f.kcal) + ' kcal' : ''), items: [
-      {label: has(f.kcal) ? 'Add with a different amount' : 'Set its values', fn: () => {
-        if (!has(f.kcal)) return openEdit('dish', -1, Object.assign({}, f, {quantity: 1}), {manual: true, favId: f.food_id});
-        const meal = newMeal(logState().meal_type, {source: 'quick add'});
-        S.draft = {mode: 'new', source: 'quick', meal, items: [entryFrom(f, meal.meal_id, 1)], ai: null, favs: [f]}; go('review');
-      }},
-      {label: isPinned(f) ? 'Unpin' : 'Pin to the top', fn: () => { const nf = Object.assign({}, f, {pinned: !isPinned(f)}); applyFavorite(nf); API.saveFavorite(nf).catch(e => toast(friendly(e))); toast(nf.pinned ? 'Pinned ' + lc1(f.name) : 'Unpinned ' + lc1(f.name)); }},
-      {label: 'Edit its values', fn: () => openEdit('dish', -1, Object.assign({}, f, {quantity: 1}), {manual: true, favId: f.food_id})}]});
+  pastItemChange: el => {
+    const e = S.data.entries.find(x => x.entry_id === el.dataset.v); if (!e) return;
+    const meal = newMeal(logState().meal_type, {source: 'quick add'});
+    S.draft = {mode: 'new', source: 'quick', meal, items: [Object.assign({}, e, {entry_id: uid('ent'), meal_id: meal.meal_id, edited: false})], ai: null}; go('review');
+  },
+  // Nothing matched: start a meal with one blank item named after the search, values entered by hand.
+  newFood: () => {
+    const name = ((S.ui.sq && S.ui.sq.q) || '').trim();
+    const meal = newMeal(logState().meal_type, {source: 'quick add'});
+    S.draft = {mode: 'new', source: 'quick', meal, items: [], ai: null}; go('review');
+    openEdit('draft', -1, {name, serving_unit: 'g', grams_per_unit: 100, quantity: 1, category: 'other', confidence: 'high', kcal: '', protein_g: '', carbs_g: '', fat_g: '', sugar_g: '', fiber_g: '', sodium_mg: ''}, {manual: true});
   },
   async copyPast(el) {
     const type = logState().meal_type;
@@ -442,8 +435,6 @@ const A = {
     const meal = newMeal(logState().meal_type, {source: 'copy', note: m.note, thumb: m.thumb, photo_url: m.photo_url});
     S.draft = {mode: 'new', source: 'copy', meal, items: copyItems(m.meal_id, meal.meal_id), ai: null}; go('review');
   },
-  dishGroup: el => { S.ui.dg = el.dataset.v; render(); },
-  newDish: () => openEdit('dish', -1, {name: '', serving_unit: 'serving', grams_per_unit: '', quantity: 1, category: 'meat and fish', dish_group: S.ui.dg && S.ui.dg !== 'All' ? S.ui.dg : 'Ulam', kcal: '', protein_g: '', carbs_g: '', fat_g: '', sugar_g: '', fiber_g: '', sodium_mg: ''}, {manual: true, isNew: true}),
 
   month: el => { if (el.disabled) return; S.ui.month = el.dataset.v; render(); },
   range: el => { S.ui.range = el.dataset.v; render(); },
@@ -489,21 +480,15 @@ const I = {
   itemGrams: el => { const it = S.edit.item; it.grams_per_unit = el.value === '' ? '' : num(el.value); it.serving_label = ''; applyRef(); },
   itemVal: el => { const it = S.edit.item; it[el.dataset.k] = el.value === '' ? '' : num(el.value); S.edit.ref = snap(it); S.edit.edited = true; },
   itemCat: el => { S.edit.item.category = el.value; },
-  itemGroup: el => { S.edit.item.dish_group = el.value; },
   labelVal: el => { S.label.manual[el.dataset.k] = el.value; },
   labelName: el => { S.label.name = el.value; },
-  qaSearch: el => { S.ui.qa.q = el.value; },
+  sqSearch: el => { S.ui.sq.q = el.value; },
   custom: el => { const r = trendRange(); S.ui.custom = {from: r.from, to: r.to}; S.ui.custom[el.dataset.k] = el.value; if (S.ui.custom.from > S.ui.custom.to) S.ui.custom.from = S.ui.custom.to; },
   wIn: el => { S.ui.wIn = el.value; },
   wNote: el => { S.ui.wNote = el.value; },
   async setting(el) {
     const k = el.dataset.k, v = el.value; S.data.settings[k] = v;
     const patch = {[k]: v};
-    if (k === 'rice_serving') {
-      const f = S.data.favorites.find(x => x.name === 'Plain rice');
-      const m = v.match(/^1 (\w+), (\d+) g/);
-      if (f && m && num(f.grams_per_unit)) { const nf = Object.assign(rescale(Object.assign({}, f, {quantity: 1}), +m[2], 1), {serving_unit: m[1]}); delete nf.quantity; applyFavorite(nf); API.saveFavorite(nf).catch(() => {}); }
-    }
     try { await API.saveSettings(patch); toast('Saved'); } catch (e) { toast(friendly(e)); }
   },
   async photo(el) {
@@ -519,7 +504,7 @@ const I = {
   }
 };
 /* inputs whose change should redraw everything (choices, not typing) */
-const FULL_ON_INPUT = new Set(['setting', 'photo', 'custom', 'itemCat', 'itemGroup', 'logDate', 'logTime', 'draftDate', 'draftTime']);
+const FULL_ON_INPUT = new Set(['setting', 'photo', 'custom', 'itemCat', 'logDate', 'logTime', 'draftDate', 'draftTime']);
 
 function bindEvents() {
   document.addEventListener('click', ev => {

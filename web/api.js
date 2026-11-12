@@ -479,7 +479,7 @@ function WebAPI() {
           is_local_dish: !!f.is_local_dish, pinned: !!f.pinned, user_corrected: false
         })));
       }
-      const defaults = {week_start: 'Monday', rice_serving: '1 cup, 160 g', units: 'kg and cm'};
+      const defaults = {week_start: 'Monday', units: 'kg and cm'};
       for (const k of Object.keys(defaults)) {
         if (data.settings[k] == null || data.settings[k] === '') await upsert('Settings', {key: k, value: defaults[k]});
       }

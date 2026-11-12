@@ -10,7 +10,9 @@
  *  - The fastest model goes first (Flash-Lite) with thinking at its lowest level.
  *  - The model and API that answered last time are remembered and tried first.
  *  - Photo analysis reads nothing from the Sheet and writes nothing to Drive;
- *    the page sends the dish hints and saves the photo in a parallel call.
+ *    the page sends the portion hints and saves the photo in a parallel call.
+ *  - One photo call handles both kinds of picture: the model decides whether it shows food or
+ *    a nutrition label, so the page never asks which.
  *
  * Models: Google renames Flash models often. The list below was current in October 2026
  * (all on the free tier). Set GEMINI_MODEL in Script Properties to pin one, for example
@@ -62,7 +64,7 @@ function analyzeItem(p) {
   var q = Number(p.quantity) || 1, g = Number(p.grams_per_unit) || 0;
   var amount = q + ' ' + (p.serving_unit || 'serving') + (g ? ' (' + g + ' g each, ' + Math.round(g * q) + ' g total)' : '');
   var prompt = [
-    'Nutrition for ' + amount + ' of "' + p.name + '", as eaten in the Philippines. Values for the whole amount.',
+    'Nutrition for ' + amount + ' of "' + p.name + '". Values for the whole amount.',
     'Sugar and fiber are part of carbs. kcal close to protein*4 + carbs*4 + fat*9.',
     'category: one of ' + CATEGORY_LIST.join(', ') + '. confidence high, medium or low; reason under 6 words.',
     p.note ? 'User note: "' + p.note + '".' : ''
@@ -74,9 +76,9 @@ function analyzeItem(p) {
 /** n: the week's computed numbers (no photos). Returns {text, suggestions}. */
 function weeklySummary(n) {
   var prompt = [
-    'Write a short weekly summary for a personal calorie tracker in the Philippines, using only these numbers.',
+    'Write a short weekly summary for a personal calorie tracker, using only these numbers.',
     '2 to 3 plain sentences, calm and friendly: the week against the calorie target, where the misses were, protein against its goal.',
-    'Then exactly 2 practical suggestions for next week, one sentence each, with a concrete food or portion (Filipino meals are fine).',
+    'Then exactly 2 practical suggestions for next week, one sentence each, with a concrete food or portion.',
     'No emoji, no exclamation marks, no medical advice, no judgment. Round kcal to the nearest 10.',
     'Numbers: ' + JSON.stringify(n)
   ].join('\n');
@@ -87,51 +89,100 @@ function weeklySummary(n) {
 
 /* ---------- prompts ---------- */
 
+/** Rules for estimating a meal, shared by photo and written estimates. Cuisine-neutral on purpose. */
+function mealRules_(h) {
+  return [
+    'One item per distinct food or drink being eaten. Name each dish the way the people who cook it do, local names included; never relabel a dish as a different cuisine\'s.',
+    'Per item: name, category (' + CATEGORY_LIST.join(', ') + '), serving_unit (cup, bowl, piece, plate, serving, slice, tbsp, glass or g), quantity, grams_per_unit, and values for the whole item.',
+    'Sugar and fiber are part of carbs. kcal close to protein*4 + carbs*4 + fat*9. Count likely cooking oil, sauces, dressings and condiments.',
+    'confidence high, medium or low per item and overall. Item reason under 6 words. Overall reason: one short sentence; say if the note settled something.',
+    h && h.dishes && h.dishes.length ? 'Known portions (use when a dish matches; * = the user\'s own values):\n' + h.dishes.slice(0, 40).join('\n') : ''
+  ];
+}
+
+function mealItemSchema_() {
+  return obj_(merge_(values_(), {
+    name: str_(), category: {type: 'string', enum: CATEGORY_LIST}, serving_unit: str_(), quantity: numT_(), grams_per_unit: numT_(), confidence: conf_(), reason: str_()
+  }), ['name', 'category', 'serving_unit', 'quantity', 'grams_per_unit'].concat(VALUE_KEYS).concat(['confidence', 'reason']));
+}
+
+function cleanItems_(items) {
+  items.forEach(function (it) { VALUE_KEYS.forEach(function (k) { it[k] = Math.max(0, Number(it[k]) || 0); }); });
+  return items;
+}
+
 function estimateMeal_(p) {
   var h = p.hints || hintsFromSheet_();
   var written = !p.image && p.description;
   var prompt = [
-    written ? 'Estimate nutrition for the meal described below, for a calorie tracker in the Philippines. Use the amounts given; when none is given, assume a typical Filipino serving and set that item\'s confidence to low.'
-      : 'Estimate nutrition from this meal photo for a calorie tracker in the Philippines.',
-    'One item per distinct food being eaten. Use local names for Filipino dishes (sinigang, adobo, tinola, tapsilog, sinangag, pancit, lechon, kare-kare, lumpia); do not relabel them as foreign dishes.',
-    'Per item: name, category (' + CATEGORY_LIST.join(', ') + '), serving_unit (cup, bowl, piece, plate, serving, slice, tbsp, glass or g), quantity, grams_per_unit, and values for the whole item.',
-    'Sugar and fiber are part of carbs. kcal close to protein*4 + carbs*4 + fat*9. Count likely oil, broth fat and condiments (patis, toyo, bagoong).',
-    'Rice: ' + (h.rice || '1 cup, 160 g') + ' cooked is one cup.',
-    'confidence high, medium or low per item and overall. Item reason under 6 words. Overall reason: one short sentence; say if the note settled something.',
-    h.dishes && h.dishes.length ? 'Known portions (use when a dish matches; * = the user\'s own values):\n' + h.dishes.slice(0, 40).join('\n') : '',
+    written ? 'Estimate nutrition for the meal described below, for a calorie tracker. Use the amounts given; when none is given, assume a typical serving and set that item\'s confidence to low.'
+      : 'Estimate nutrition from this meal photo for a calorie tracker.'
+  ].concat(mealRules_(h)).concat([
     written ? 'The meal, as the user described it: "' + p.description + '"' : (p.note ? 'User note, more reliable than the photo: "' + p.note + '"' : ''),
     written ? 'If the text names no food: no_food true and empty items.' : 'No food in the photo: no_food true and empty items.'
-  ].filter(String).join('\n');
-  var item = obj_(merge_(values_(), {
-    name: str_(), category: {type: 'string', enum: CATEGORY_LIST}, serving_unit: str_(), quantity: numT_(), grams_per_unit: numT_(), confidence: conf_(), reason: str_()
-  }), ['name', 'category', 'serving_unit', 'quantity', 'grams_per_unit'].concat(VALUE_KEYS).concat(['confidence', 'reason']));
-  var schema = obj_({items: {type: 'array', items: item}, confidence: conf_(), reason: str_(), no_food: {type: 'boolean'}}, ['items', 'confidence', 'reason']);
+  ]).filter(String).join('\n');
+  var schema = obj_({items: {type: 'array', items: mealItemSchema_()}, confidence: conf_(), reason: str_(), no_food: {type: 'boolean'}}, ['items', 'confidence', 'reason']);
   var out = geminiJson_(written ? [{text: prompt}] : [{image: p.image, mime: p.mime || 'image/jpeg'}, {text: prompt}], schema);
   if (out.no_food || !out.items || !out.items.length) throw new Error('NO_FOOD');
-  out.items.forEach(function (it) { VALUE_KEYS.forEach(function (k) { it[k] = Math.max(0, Number(it[k]) || 0); }); });
+  cleanItems_(out.items);
   return out;
 }
 
-function readLabel_(p) {
-  var prompt = [
-    'Read the nutrition facts label in this photo. Copy the printed numbers; do not estimate.',
-    'product (name, or a short description), serving_g, servings_per_pack, per_serving: kcal, protein_g, carbs_g (total carbohydrate), fat_g (total fat), sugar_g, fiber_g, sodium_mg.',
-    'kJ only: divide by 4.184. Salt only: sodium_mg = salt g * 400. Per 100 g only: convert to one serving.',
-    'Blurry, cut off or missing value: 0, and list its key in unread_fields. Not a nutrition label: not_a_label true.'
-  ].join('\n');
-  var schema = obj_({
+/* Label-reading rules, shared by the label-only call and the combined photo call. */
+var LABEL_RULES = [
+  'Copy the printed numbers; do not estimate. product (name, or a short description), serving_g, servings_per_pack, per_serving: kcal, protein_g, carbs_g (total carbohydrate), fat_g (total fat), sugar_g, fiber_g, sodium_mg.',
+  'kJ only: divide by 4.184. Salt only: sodium_mg = salt g * 400. Per 100 g only: convert to one serving.',
+  'Blurry, cut off or missing value: 0, and list its key in unread_fields.'
+];
+function labelSchema_() {
+  return obj_({
     product: str_(), serving_g: numT_(), servings_per_pack: numT_(), per_serving: obj_(values_(), VALUE_KEYS),
-    unread_fields: {type: 'array', items: {type: 'string', enum: VALUE_KEYS}}, confidence: conf_(), not_a_label: {type: 'boolean'}
+    unread_fields: {type: 'array', items: {type: 'string', enum: VALUE_KEYS}}, confidence: conf_()
   }, ['product', 'serving_g', 'servings_per_pack', 'per_serving', 'unread_fields', 'confidence']);
-  var out = geminiJson_([{image: p.image, mime: p.mime || 'image/jpeg'}, {text: prompt}], schema);
-  if (out.not_a_label) throw new Error('That photo doesn\'t look like a nutrition label. Try again closer, or switch to Meal.');
-  (out.unread_fields || []).forEach(function (k) { if (out.per_serving) out.per_serving[k] = null; });
-  return out;
+}
+function cleanLabel_(l) {
+  (l.unread_fields || []).forEach(function (k) { if (l.per_serving) l.per_serving[k] = null; });
+  return l;
 }
 
+/**
+ * One call for any photo: the model first decides what it shows, then answers in that shape.
+ * Returns {kind: 'meal', items, confidence, reason} or {kind: 'label', product, ..., per_serving}.
+ */
+function analyzeImage_(p) {
+  var h = p.hints || hintsFromSheet_();
+  var prompt = [
+    'This photo is for a calorie tracker. First decide what it shows and set kind:',
+    '"label" if it shows a printed nutrition facts panel. Then fill label only, and read it:',
+    LABEL_RULES.join('\n'),
+    '"meal" if it shows food or drink to be eaten, including packaged food with no readable nutrition panel. Then fill items, confidence and reason only, and estimate:',
+    mealRules_(h).filter(String).join('\n'),
+    '"none" if it shows neither.',
+    p.note ? 'User note, more reliable than the photo: "' + p.note + '"' : ''
+  ].filter(String).join('\n');
+  var schema = obj_({
+    kind: {type: 'string', enum: ['meal', 'label', 'none']},
+    items: {type: 'array', items: mealItemSchema_()}, confidence: conf_(), reason: str_(),
+    label: labelSchema_()
+  }, ['kind']);
+  var out = geminiJson_([{image: p.image, mime: p.mime || 'image/jpeg'}, {text: prompt}], schema);
+  if (out.kind === 'label' && out.label && out.label.per_serving) return merge_({kind: 'label'}, cleanLabel_(out.label));
+  if (out.kind === 'none' || !out.items || !out.items.length) throw new Error('NO_FOOD');
+  return {kind: 'meal', items: cleanItems_(out.items), confidence: out.confidence || 'medium', reason: out.reason || ''};
+}
+
+/** The label-only call, kept for pages that still ask for it by mode. */
+function readLabel_(p) {
+  var prompt = ['Read the nutrition facts label in this photo.'].concat(LABEL_RULES).concat(['Not a nutrition label: not_a_label true.']).join('\n');
+  var schema = labelSchema_();
+  schema.properties.not_a_label = {type: 'boolean'};
+  var out = geminiJson_([{image: p.image, mime: p.mime || 'image/jpeg'}, {text: prompt}], schema);
+  if (out.not_a_label) throw new Error('That photo doesn\'t look like a nutrition label. Try again closer.');
+  return cleanLabel_(out);
+}
 
 /** The proxy has no Sheet to read, so the page must send its own hints. */
-function hintsFromSheet_() { return {rice: '1 cup, 160 g', dishes: []}; }
+function hintsFromSheet_() { return {dishes: []}; }
 
 /* ---------- Gemini transport ---------- */
 

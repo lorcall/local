@@ -49,7 +49,6 @@ const VALUE_LABEL = {kcal: 'Calories', protein_g: 'Protein', carbs_g: 'Carbs', f
 const VALUE_UNIT = {kcal: 'kcal', protein_g: 'g', carbs_g: 'g', fat_g: 'g', sugar_g: 'g', fiber_g: 'g', sodium_mg: 'mg'};
 const CATEGORIES = ['staple', 'meat and fish', 'vegetables', 'fruit', 'drinks', 'snacks and sweets', 'other'];
 const CATEGORY_LABEL = {'staple': 'Rice, bread and noodles', 'meat and fish': 'Meat and fish', 'vegetables': 'Vegetables', 'fruit': 'Fruit', 'drinks': 'Drinks', 'snacks and sweets': 'Snacks and sweets', 'other': 'Other'};
-const DISH_GROUPS = ['All', 'Ulam', 'Rice', 'Soup', 'Street food', 'Merienda'];
 const UNITS = ['g', 'cup', 'bowl', 'piece'];
 const UNIT_LABEL = {g: 'Grams', cup: 'Cup', bowl: 'Bowl', piece: 'Piece'};
 const ACTIVITY = [['Desk job', 1.2], ['Light', 1.375], ['Moderate', 1.55], ['Very active', 1.725]];
@@ -69,7 +68,6 @@ const route = () => S.stack[S.stack.length - 1];
 const setting = (k, d) => (S.data.settings[k] != null && S.data.settings[k] !== '') ? S.data.settings[k] : d;
 const profile = () => { try { return JSON.parse(setting('profile', '{}')) || {}; } catch (e) { return {}; } };
 const weekStart = () => setting('week_start', 'Monday') === 'Sunday' ? 0 : 1;
-const riceServing = () => { const m = String(setting('rice_serving', '1 cup, 160 g')).match(/(\d+)\s*g/); return m ? +m[1] : 160; };
 
 /* ---------- serving labels ---------- */
 function unitWord(u, q) {
