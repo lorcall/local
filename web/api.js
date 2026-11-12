@@ -26,7 +26,9 @@ const CONFIG = {
 /** Shows progress on the boot screen. A stalled step should say which step it is. */
 function status(msg) {
   try {
-    const el = document.querySelector('#app .boot span');
+    // The boot markup is <div class="boot"><logo tile/><span>message</span></div>, and the
+    // logo tile contains spans of its own, so only a direct child is the message.
+    const el = document.querySelector('#app .boot > span');
     if (el) el.textContent = msg;
   } catch (e) { /* the app may have rendered already */ }
 }

@@ -26,8 +26,19 @@ fs.writeFileSync(path.join(__dirname, 'artifact', 'LoCal.html'), art);
 const webDir = path.join(root, 'web');
 if (fs.existsSync(webDir)) {
   fs.writeFileSync(path.join(webDir, 'app.js'), src);
-  fs.writeFileSync(path.join(webDir, 'styles.css'), styles.replace(/^[\s\S]*?<style>/, '').replace(/<\/style>[\s\S]*$/, '').trim() + '\n');
+  const css = styles.replace(/^[\s\S]*?<style>/, '').replace(/<\/style>[\s\S]*$/, '').trim() + '\n';
+  fs.writeFileSync(path.join(webDir, 'styles.css'), css);
   const webIndex = path.join(webDir, 'index.html');
-  fs.writeFileSync(webIndex, fs.readFileSync(webIndex, 'utf8').replace(/<!--boot-->[\s\S]*?<!--\/boot-->/, '<!--boot-->' + bootHtml + '<!--/boot-->'));
+  // Cache busting, not cosmetics: Pages sends a long max-age and iOS Safari holds these
+  // files hard, so without a changing URL a deploy can simply never arrive.
+  const apiSrc = fs.readFileSync(path.join(webDir, 'api.js'), 'utf8');
+  const stamp = require('crypto').createHash('sha1').update(src + css + apiSrc).digest('hex').slice(0, 8);
+  const html = fs.readFileSync(webIndex, 'utf8')
+    .replace(/<!--boot-->[\s\S]*?<!--\/boot-->/, '<!--boot-->' + bootHtml + '<!--/boot-->')
+    .replace(/(href=")styles\.css(\?v=[a-f0-9]+)?(")/, '$1styles.css?v=' + stamp + '$3')
+    .replace(/(src=")api\.js(\?v=[a-f0-9]+)?(")/, '$1api.js?v=' + stamp + '$3')
+    .replace(/(s\.src = ')app\.js(\?v=[a-f0-9]+)?(')/, '$1app.js?v=' + stamp + '$3');
+  fs.writeFileSync(webIndex, html);
+  console.log('web stamped', stamp);
 }
 console.log('built', (src.length / 1024).toFixed(1) + ' KB js');
