@@ -51,8 +51,11 @@ const PHOTO_FOLDER = 'LoCal photos';
 const SHEET_NAME = 'LoCal log';
 const STORE_KEY = 'local-web-ids-v1';
 
-/* The tabs and their columns. Must match sheets.gs so a Sheet works with either build. */
-const TABS = {
+/* The tabs and their columns. Must match sheets.gs so a Sheet works with either build.
+   Named SHEET_TABS, not TABS: this file shares a global scope with the app bundle, which
+   declares its own TABS, and two const declarations of one name is a SyntaxError that
+   stops the whole bundle executing. */
+const SHEET_TABS = {
   Meals: ['meal_id', 'date', 'time', 'meal_type', 'photo_url', 'note', 'confidence', 'confidence_reason', 'source', 'edited', 'thumb'],
   Entries: ['entry_id', 'meal_id', 'name', 'category', 'serving_unit', 'grams_per_unit', 'serving_label', 'quantity',
     'kcal', 'protein_g', 'carbs_g', 'fat_g', 'sugar_g', 'fiber_g', 'sodium_mg', 'confidence', 'edited', 'reason'],
@@ -191,20 +194,20 @@ function WebAPI() {
     (meta.sheets || []).forEach(s => { have[s.properties.title] = s.properties.sheetId; });
     gids = have;
 
-    const adds = Object.keys(TABS).filter(t => !(t in have)).map(title => ({addSheet: {properties: {title}}}));
+    const adds = Object.keys(SHEET_TABS).filter(t => !(t in have)).map(title => ({addSheet: {properties: {title}}}));
     if (adds.length) {
       const r = await json(SHEETS + '/' + ids.sheet + ':batchUpdate', {requests: adds});
       (r.replies || []).forEach(rep => { if (rep.addSheet) gids[rep.addSheet.properties.title] = rep.addSheet.properties.sheetId; });
     }
 
     // Header rows: read what is there, write only the tabs that are missing columns.
-    const ranges = Object.keys(TABS).map(t => encodeURIComponent(t + '!1:1')).join('&ranges=');
+    const ranges = Object.keys(SHEET_TABS).map(t => encodeURIComponent(t + '!1:1')).join('&ranges=');
     const got = await call(SHEETS + '/' + ids.sheet + '/values:batchGet?ranges=' + ranges);
     const writes = [];
-    Object.keys(TABS).forEach((tab, i) => {
+    Object.keys(SHEET_TABS).forEach((tab, i) => {
       const row = ((got.valueRanges[i] || {}).values || [])[0] || [];
       headers[tab] = row.map(String).filter(Boolean);
-      const missing = TABS[tab].filter(c => headers[tab].indexOf(c) < 0);
+      const missing = SHEET_TABS[tab].filter(c => headers[tab].indexOf(c) < 0);
       if (!missing.length) return;
       headers[tab] = headers[tab].concat(missing);
       writes.push({range: tab + '!A1', values: [headers[tab]]});
@@ -248,7 +251,7 @@ function WebAPI() {
       if (thumbAt > 0) mealRanges.push('Meals!A:' + colLetter(thumbAt - 1));
       if (thumbAt < headers.Meals.length - 1) mealRanges.push('Meals!' + colLetter(thumbAt + 1) + ':' + colLetter(headers.Meals.length - 1));
     }
-    const others = Object.keys(TABS).filter(t => t !== 'Meals');
+    const others = Object.keys(SHEET_TABS).filter(t => t !== 'Meals');
     const ranges = mealRanges.concat(others.map(t => t + '!A:' + colLetter(headers[t].length - 1)));
     const got = await call(SHEETS + '/' + ids.sheet + '/values:batchGet?majorDimension=ROWS&ranges=' + ranges.map(encodeURIComponent).join('&ranges='));
 
