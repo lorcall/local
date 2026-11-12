@@ -72,6 +72,14 @@
 
   (function () {
     const app = () => document.getElementById('app');
+    // The startup screen the build put in #app (the logo tile with its spinning ring), kept so every
+    // loading step can show it with its own line of text.
+    const BOOT = app().innerHTML;
+    function loading(text) {
+      app().innerHTML = BOOT;
+      const line = app().querySelector('.boot > span');
+      if (line) line.textContent = text;
+    }
 
     function gate(message, detail, onTap, label) {
       app().innerHTML =
@@ -98,7 +106,7 @@
     }
 
     function loadApp() {
-      app().innerHTML = '<div class="boot"><span>Opening your log</span></div>';
+      loading('Opening your log');
       const s = document.createElement('script');
       s.src = 'app.js?v=25d56efd';
       s.onerror = () => gate('The app didn\'t load. Check your connection and try again.', '', () => location.reload(), 'Reload');
@@ -108,7 +116,7 @@
     /* Approval happens once, at sign-in: unapproved accounts wait here, before anything is opened
        or created in their Drive. */
     async function admit() {
-      app().innerHTML = '<div class="boot"><span>Checking your access</span></div>';
+      loading('Checking your access');
       let r;
       try { r = await LoCalAccess.check(); }
       catch (e) { return gate('LoCal couldn\'t check your access. ' + ((e && e.message) || ''), '', admit, 'Try again'); }
