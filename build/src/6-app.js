@@ -625,7 +625,8 @@ function normFav(f) { return Object.assign({}, f, {pinned: bool(f.pinned), is_lo
 
 async function boot() {
   bindEvents();
-  app().innerHTML = '<div class="boot">' + logoTile(96, true) + '<span>Opening your log</span></div>';
+  // The web build arrives with a skeleton already on screen; keep it rather than flash a spinner.
+  if (!app().querySelector('[data-skeleton]')) app().innerHTML = '<div class="boot">' + logoTile(96, true) + '<span>Opening your log</span></div>';
   try {
     const r = await API.bootstrap();
     loadData(r);

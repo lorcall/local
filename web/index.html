@@ -25,11 +25,28 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geologica:wght@200..700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=e32753c4">
+  <link rel="stylesheet" href="styles.css?v=49436f46">
   <style>
     /* The stylesheet already accounts for the bottom inset on the tab bar, toasts and menus,
        so only the top needs adding here, and only once installed: in Safari the browser's own
        chrome occupies that space and padding would leave a gap. */
+    /* Loading skeleton: the Today screen's own layout, pressed in and waiting to be filled. The
+       dial's mango arc is the progress bar, so it fills as each background step finishes. */
+    .skb { display: block; flex-shrink: 0; border-radius: 8px; background-color: var(--g);
+      background-image: linear-gradient(100deg, rgba(255,255,255,0) 38%, rgba(255,255,255,.07) 50%, rgba(255,255,255,0) 62%);
+      background-size: 300% 100%; box-shadow: inset 2px 2px 4px var(--lo), inset -2px -2px 4px var(--hi);
+      animation: sk-sheen 1.8s ease-in-out infinite; }
+    .skb.round { border-radius: 50%; }
+    @keyframes sk-sheen { from { background-position: 100% 0; } to { background-position: 0 0; } }
+    .sk-arc { stroke: var(--a); filter: drop-shadow(0 0 6px var(--a)); transition: stroke-dasharray .7s cubic-bezier(.3,.7,.2,1); }
+    .sk-status { text-align: center; font-size: 13px; color: var(--mu); min-height: 19px; margin-top: -6px; transition: opacity .18s ease; }
+    .sk-status.out { opacity: 0; }
+    .sk-macro { flex: 1; min-width: 0; padding: 12px 6px; display: flex; flex-direction: column; align-items: center; gap: 9px; }
+    .sk-fab { width: 56px; height: 56px; border-radius: 50%; }
+    .sk.failed .skb { animation: none; }
+    .sk.failed .sk-arc { stroke: var(--ov); filter: drop-shadow(0 0 6px var(--ov)); }
+    .sk.failed .sk-status { color: #FF8E8E; }
+    .sk-retry { display: block; margin: 12px auto 0; height: 40px; padding: 0 18px; border-radius: 14px; font-size: 14px; color: var(--a); font-weight: 500; }
     @media (display-mode: standalone) {
       #app { padding-top: env(safe-area-inset-top, 0px); }
     }
@@ -45,21 +62,94 @@
   </style>
 </head>
 <body>
-  <div id="app"><!--boot--><div class="boot"><div style="position:relative;width:96px;height:96px;border-radius:24px;background:linear-gradient(145deg,#2A2D36,#1F2128);box-shadow:14px 14px 28px var(--lo),-12px -12px 24px var(--hi),inset 0 1px 0 rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="74" height="74" viewBox="0 0 120 120" role="img" aria-label="LoCal app icon"><defs><linearGradient id="lw" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#16171C"/><stop offset="1" stop-color="#30333D"/></linearGradient><filter id="lg" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><circle cx="60" cy="60" r="47" fill="url(#lw)"/><circle cx="60" cy="60" r="43" fill="#23252D"/><circle cx="60" cy="60" r="34" fill="none" stroke="#17181D" stroke-width="8"/><circle cx="60" cy="60" r="18" fill="#FFFFFF" fill-opacity=".06" stroke="#FFFFFF" stroke-opacity=".16"/></svg><span class="spinglow logospin"><span class="spin" style="--s:46.9px;--t:4.9px"></span></span></div><span>Opening your log</span></div><!--/boot--></div>
+  <div id="app"><div class="sk" data-skeleton aria-busy="true">
+    <div class="scr tabbed" style="gap:16px">
+      <header class="col" style="gap:10px">
+        <div class="between" style="align-items:center"><span class="skb" style="width:84px;height:22px"></span><span class="ib m" aria-hidden="true"><span class="skb round" style="width:20px;height:20px"></span></span></div>
+        <div class="col" style="gap:10px"><span class="skb" style="width:104px;height:12px"></span><span class="skb" style="width:150px;height:26px"></span></div>
+      </header>
+      <div class="between" style="align-items:center;padding:4px 0">
+        <span class="ib ib40" aria-hidden="true"></span>
+        <div class="dial raised" role="progressbar" aria-label="Opening your log" aria-valuemin="0" aria-valuemax="100" aria-valuenow="4" style="width:220px;height:220px;box-shadow:12px 12px 24px var(--lo),-10px -10px 22px var(--hi)">
+          <div class="well" style="width:180px;height:180px"><div class="glasscore" style="width:126px;height:126px;gap:9px"><span class="skb" style="width:66px;height:32px"></span><span class="skb" style="width:50px;height:10px"></span></div></div>
+          <svg class="arc" width="220" height="220" viewBox="0 0 220 220" aria-hidden="true"><circle class="sk-arc" cx="110" cy="110" r="100" fill="none" stroke-width="5" stroke-linecap="round" stroke-dasharray="25 628.3" transform="rotate(-90 110 110)"/></svg>
+        </div>
+        <span class="ib ib40" aria-hidden="true"></span>
+      </div>
+      <p class="sk-status" data-status aria-live="polite">Opening LoCal</p>
+      <div class="row">
+        <div class="raised r20 sk-macro"><span class="skb round" style="width:50px;height:50px"></span><span class="skb" style="width:62px;height:11px"></span><span class="skb" style="width:42px;height:9px"></span></div>
+        <div class="raised r20 sk-macro"><span class="skb round" style="width:50px;height:50px"></span><span class="skb" style="width:62px;height:11px"></span><span class="skb" style="width:42px;height:9px"></span></div>
+        <div class="raised r20 sk-macro"><span class="skb round" style="width:50px;height:50px"></span><span class="skb" style="width:62px;height:11px"></span><span class="skb" style="width:42px;height:9px"></span></div>
+      </div>
+      <section class="col" style="gap:12px">
+        <span class="skb" style="width:62px;height:16px"></span>
+        <div class="raised-md mrow"><span class="skb round" style="width:8px;height:8px"></span><span class="grow col" style="gap:8px"><span class="skb" style="width:64%;height:13px"></span><span class="skb" style="width:40%;height:10px"></span></span><span class="skb" style="width:34px;height:13px"></span></div>
+        <div class="raised-md mrow"><span class="skb round" style="width:8px;height:8px"></span><span class="grow col" style="gap:8px"><span class="skb" style="width:52%;height:13px"></span><span class="skb" style="width:34%;height:10px"></span></span><span class="skb" style="width:34px;height:13px"></span></div>
+      </section>
+    </div>
+    <div class="tabbar" aria-hidden="true"><span class="skb round" style="width:22px;height:22px"></span><span class="skb round" style="width:22px;height:22px"></span><span class="raised sk-fab"></span><span class="skb round" style="width:22px;height:22px"></span><span class="skb round" style="width:22px;height:22px"></span></div>
+  </div></div>
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="api.js?v=e32753c4"></script>
+  <script src="api.js?v=49436f46"></script>
   <script>
   /* The app bundle boots itself and asks for data straight away, so it is only loaded once a
      token exists. Signing in first also means the Google popup opens from a real tap, which
      is the only way Safari reliably allows it. */
   // A script error inside the bundle leaves the boot screen up forever: a parse error
   // doesn't fire the script tag's onerror, so nothing would ever report it. Say it on screen.
+  /* Each background step, in order, with how far round the dial it brings the mango arc.
+     Copy names what's happening in the user's terms, not the API call behind it. */
+  const LOAD_STEPS = {
+    app:    [0.10, 'Opening LoCal'],
+    signin: [0.22, 'Checking your Google sign-in'],
+    folder: [0.40, 'Finding your LoCal App folder'],
+    log:    [0.56, 'Opening your log'],
+    tabs:   [0.72, 'Checking your log is set up'],
+    read:   [0.88, 'Reading your meals and targets']
+  };
+  let loadFrac = 0.04, statusTimer = 0;
+  window.LoCalProgress = function (key, text) {
+    const root = document.querySelector('#app [data-skeleton]');
+    if (!root) return;
+    const step = LOAD_STEPS[key] || [null, key];
+    const msg = text || step[1];
+    if (step[0] != null && step[0] > loadFrac) {            // the arc only ever moves forward
+      loadFrac = step[0];
+      const C = 2 * Math.PI * 100;
+      const arc = root.querySelector('.sk-arc');
+      if (arc) arc.style.strokeDasharray = (loadFrac * C).toFixed(1) + ' ' + C.toFixed(1);
+      const bar = root.querySelector('[role=progressbar]');
+      if (bar) bar.setAttribute('aria-valuenow', String(Math.round(loadFrac * 100)));
+    }
+    const line = root.querySelector('[data-status]');
+    if (!line || line.textContent === msg) return;
+    clearTimeout(statusTimer);
+    line.classList.add('out');                                // a quick fade, so a change reads as a change
+    statusTimer = setTimeout(() => { line.textContent = msg; line.classList.remove('out'); }, 180);
+  };
+
+  // A script error inside the bundle would leave the loading screen up forever: a parse error
+  // doesn't fire the script tag's onerror. Stop the skeleton and say what failed instead.
   function showFailure(title, detail) {
-    const el = document.querySelector('#app .boot > span');
-    if (!el) return;
-    const safe = s => String(s || '').slice(0, 200).replace(/[&<>]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;'}[c]));
-    el.innerHTML = '<span style="color:#FF8E8E">' + safe(title) + '</span><br><span style="font-size:13px">' + safe(detail) + '</span>';
+    const root = document.querySelector('#app [data-skeleton]');
+    const line = root ? root.querySelector('[data-status]') : document.querySelector('#app .boot > span');
+    if (!line) return;
+    clearTimeout(statusTimer);
+    if (root) {
+      root.classList.add('failed');
+      root.removeAttribute('aria-busy');
+    }
+    line.classList.remove('out');
+    line.textContent = String(title || '') + (detail ? ' ' + String(detail).slice(0, 200) : '');
+    if (root && !root.querySelector('.sk-retry')) {
+      const b = document.createElement('button');
+      b.className = 'raised-sm sk-retry';
+      b.textContent = 'Reload';
+      b.onclick = () => location.reload();
+      line.after(b);
+    }
   }
   window.addEventListener('error', ev =>
     showFailure((ev.filename ? ev.filename.split('/').pop().split('?')[0] : 'The app') + ' failed to load.', ev.message));
@@ -69,6 +159,7 @@
 
   (function () {
     const app = () => document.getElementById('app');
+    const SKELETON = app().innerHTML;   // the static skeleton above, kept to show again after sign-in
 
     function gate(message, detail, onTap, label) {
       app().innerHTML =
@@ -92,9 +183,11 @@
     }
 
     function loadApp() {
-      app().innerHTML = '<div class="boot"><span>Opening your log</span></div>';
+      app().innerHTML = SKELETON;
+      loadFrac = 0.04;
+      window.LoCalProgress('app');
       const s = document.createElement('script');
-      s.src = 'app.js?v=e32753c4';
+      s.src = 'app.js?v=49436f46';
       s.onerror = () => gate('The app didn\'t load. Check your connection and try again.', '', () => location.reload(), 'Reload');
       document.body.appendChild(s);
     }
