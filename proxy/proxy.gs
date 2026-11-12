@@ -145,6 +145,16 @@ function accessCols_(sh) {
   return {email: email, status: status, width: width};
 }
 
+/* The owner types the status by hand, so accept the obvious words for each, in any case. */
+var APPROVED_WORDS = ['approved', 'approve', 'allowed', 'allow', 'yes', 'y', 'ok', 'okay', 'active'];
+var DENIED_WORDS = ['denied', 'deny', 'blocked', 'block', 'no', 'n', 'removed', 'revoked'];
+function normStatus_(v) {
+  var s = String(v || '').trim().toLowerCase();
+  if (APPROVED_WORDS.indexOf(s) >= 0) return 'approved';
+  if (DENIED_WORDS.indexOf(s) >= 0) return 'denied';
+  return 'pending';
+}
+
 /** 'approved', 'pending', 'denied' or 'none'. Cached briefly so a photo doesn't wait on a read. */
 function accessStatus_(email) {
   var cache = CacheService.getScriptCache(), key = 'acc_' + email;
@@ -156,7 +166,7 @@ function accessStatus_(email) {
     var rows = sh.getRange(2, 1, n, c.width).getDisplayValues();
     for (var i = 0; i < rows.length; i++) {
       if (String(rows[i][c.email - 1]).trim().toLowerCase() === email) {
-        status = String(rows[i][c.status - 1] || 'pending').trim().toLowerCase() || 'pending';
+        status = normStatus_(rows[i][c.status - 1]);
         break;
       }
     }

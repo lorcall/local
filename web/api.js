@@ -200,6 +200,8 @@ async function accessCall() {
     body: JSON.stringify({action: 'access', token: t})}), 30000, 'The approval check');
   if (!res.ok) throw new Error('The approval check didn\'t answer (' + res.status + '). Try again in a moment.');
   const j = await res.json();
+  // An error that isn't about approval (an old proxy, a misconfiguration) is an error, not a wait.
+  if (!j.pending && !(j.result && j.result.approved)) throw new Error(j.error || 'The approval check gave no answer.');
   const ok = !!(j.result && j.result.approved);
   try { if (ok) localStorage.setItem(ACCESS_KEY, JSON.stringify({email: j.result.email || '', at: Date.now()})); else localStorage.removeItem(ACCESS_KEY); } catch (e) { /* private mode */ }
   if (ok && j.result.email && !hint) { hint = j.result.email; persist(); }
