@@ -18,7 +18,7 @@
 const CONFIG = {
   // Google Cloud Console > Credentials > OAuth client ID (Web application).
   // Authorized JavaScript origin must include this page's origin exactly.
-  CLIENT_ID: '',
+  CLIENT_ID: '554886238264-huc53raj9j242imk8k59fpdsjba9lu0q.apps.googleusercontent.com',
   // The Apps Script proxy deployment URL, ending in /exec. Holds the Gemini key.
   PROXY_URL: ''
 };
