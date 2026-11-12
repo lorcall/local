@@ -814,7 +814,7 @@ SCREENS.log = () => {
   const cta = L.busy ? '<button class="cta btn" disabled aria-live="polite"><span class="spinglow"><span class="spin"></span></span><span style="margin-left:10px">Analyzing photo</span></button>'
     : '<button class="cta btn" data-a="analyze">' + (L.img ? 'Analyze photo' : 'Take a photo') + '</button>';
   return '<div class="col" style="min-height:100vh;min-height:100dvh">' +
-    '<div class="cam">' + (L.img ? '<img class="shot" src="' + L.img + '" alt="Your photo">' :
+    '<div class="cam' + (L.img ? '' : ' empty') + '">' + (L.img ? '<img class="shot" src="' + L.img + '" alt="Your photo">' :
       '<button data-a="shoot" class="col" style="align-items:center;gap:10px;color:rgba(255,255,255,.75);font-size:14px;text-align:center">' + icon('camera', 40, 1.4) + '<span>Photograph your plate<br>or a nutrition label</span></button>') +
     corners +
     '<header style="position:absolute;left:18px;right:18px;top:22px;display:flex;align-items:center">' +

@@ -214,6 +214,10 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 /* log a meal */
 .cam{height:372px;flex-shrink:0;position:relative;background:radial-gradient(circle at 50% 46%,#4A3B2A 0,#211B26 58%,#0E0D12 100%);display:flex;align-items:center;justify-content:center;overflow:hidden}
 .cam img.shot{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+/* Before a photo is taken there's nothing to frame, so the frame and the sheet under it take the
+   page's own ground; only the corner marks remain. The dark backdrop returns with the photo. */
+.cam.empty{background:none}
+.cam.empty+.sheet{background:none;box-shadow:none}
 .gb{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);box-shadow:inset 0 1px 0 rgba(255,255,255,.15)}
 .corner{position:absolute;width:26px;height:26px;border-color:var(--a);border-style:solid;border-width:0}
 .sheet{flex-grow:1;margin-top:-28px;position:relative;border-radius:30px 30px 0 0;padding:0 20px 28px;background:var(--g);box-shadow:0 -10px 24px -8px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:16px}
@@ -1074,7 +1078,7 @@ SCREENS.log = () => {
   const cta = L.busy ? '<button class="cta btn" disabled aria-live="polite"><span class="spinglow"><span class="spin"></span></span><span style="margin-left:10px">Analyzing photo</span></button>'
     : '<button class="cta btn" data-a="analyze">' + (L.img ? 'Analyze photo' : 'Take a photo') + '</button>';
   return '<div class="col" style="min-height:100vh;min-height:100dvh">' +
-    '<div class="cam">' + (L.img ? '<img class="shot" src="' + L.img + '" alt="Your photo">' :
+    '<div class="cam' + (L.img ? '' : ' empty') + '">' + (L.img ? '<img class="shot" src="' + L.img + '" alt="Your photo">' :
       '<button data-a="shoot" class="col" style="align-items:center;gap:10px;color:rgba(255,255,255,.75);font-size:14px;text-align:center">' + icon('camera', 40, 1.4) + '<span>Photograph your plate<br>or a nutrition label</span></button>') +
     corners +
     '<header style="position:absolute;left:18px;right:18px;top:22px;display:flex;align-items:center">' +
