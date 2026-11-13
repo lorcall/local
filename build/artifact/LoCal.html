@@ -73,7 +73,8 @@ h1,h2,h3,p{margin:0}
 
 /* press feedback: raised → pressed (120 ms) */
 .raised-sm,.raised-md,.raised,.cta,.ib,.st,.add{transition:box-shadow .12s ease,transform .12s ease}
-.raised-sm:active,.raised-md:active,.ib:active,.st:active,.add:active{box-shadow:inset 3px 3px 6px var(--lo),inset -3px -3px 6px var(--hi)}
+/* only things that can be tapped press in; raised cards that just show numbers stay put */
+:is(button,a,label,[role=button]):not([disabled]):is(.raised-sm,.raised-md,.ib,.st,.add):active,.hrow:not(.open):active{box-shadow:inset 3px 3px 6px var(--lo),inset -3px -3px 6px var(--hi)}
 .cta:active{transform:translateY(1px);box-shadow:2px 2px 6px var(--lo),0 0 18px -8px var(--a),inset 0 1px 0 rgba(255,255,255,.3)}
 
 /* buttons */
