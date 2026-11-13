@@ -265,8 +265,8 @@ SCREENS.review = () => {
     when +
     (isNew ? '' : '<div class="col" style="gap:6px"><label for="rv-note" class="lb">Note</label><input id="rv-note" class="fld" data-in="draftNote" value="' + esc(m.note || '') + '" placeholder="Optional"></div>') +
     '<div class="grow"></div>' +
-    '<div class="row">' + (isNew ? '' : '<button class="raised-sm" data-a="deleteMeal" data-v="' + esc(m.meal_id) + '" style="height:56px;padding:0 18px;border-radius:20px;font-size:15px;color:var(--ov);white-space:nowrap">Delete meal</button>') +
-    '<button class="cta btn grow" data-a="saveDraft"' + (D.items.length && !S.ui.busy ? '' : ' disabled') + '>' + (S.ui.busy ? '<span class="spinglow"><span class="spin"></span></span>' : isNew ? 'Save to ' + tl : 'Save changes') + '</button></div></div>';
+    '<div class="row">' + (isNew ? '<button class="raised-sm" data-a="discardDraft" style="height:56px;padding:0 20px;border-radius:20px;font-size:15px;color:var(--mu);white-space:nowrap">Cancel</button>' : '<button class="raised-sm" data-a="deleteMeal" data-v="' + esc(m.meal_id) + '" style="height:56px;padding:0 18px;border-radius:20px;font-size:15px;color:var(--ov);white-space:nowrap">Delete meal</button>') +
+    '<button class="cta btn grow" data-a="saveDraft"' + (D.items.length ? '' : ' disabled') + '>' + (isNew ? 'Save to ' + tl : 'Save changes') + '</button></div></div>';
 };
 
 /* ---------- Edit an item (also adds or edits a saved dish) ---------- */
@@ -334,7 +334,8 @@ SCREENS.label = () => {
     '<div data-part="ls-tot" class="pressed-sm r20 between" style="padding:14px 16px;align-items:center" aria-live="polite"><div><div class="num" style="font-size:30px">' + fmt(tot.kcal) + ' kcal</div><div class="cap">' + esc(Lb.meal_type) + ', ' + plural(s, 'serving') + '</div></div>' +
     '<div class="cap" style="text-align:right;line-height:1.6">Protein ' + fmt(tot.protein_g, 1) + ' g<br>Carbs ' + fmt(tot.carbs_g, 1) + ' g<br>Fat ' + fmt(tot.fat_g, 1) + ' g</div></div>' +
     '<div class="grow"></div>' +
-    '<button data-part="ls-save" class="cta btn" data-a="saveLabel"' + (S.ui.busy || !has(ps.kcal) ? ' disabled' : '') + '>' + (S.ui.busy ? '<span class="spinglow"><span class="spin"></span></span>' : 'Save to ' + esc(lc1(Lb.meal_type))) + '</button></div>';
+    '<div class="row"><button class="raised-sm" data-a="discardDraft" style="height:56px;padding:0 20px;border-radius:20px;font-size:15px;color:var(--mu);white-space:nowrap">Cancel</button>' +
+    '<button data-part="ls-save" class="cta btn grow" data-a="saveLabel"' + (!has(ps.kcal) ? ' disabled' : '') + '>Save to ' + esc(lc1(Lb.meal_type)) + '</button></div></div>';
 };
 
 /* ---------- Search what you've eaten before ---------- */

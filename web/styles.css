@@ -252,13 +252,19 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 
 /* overlays */
 .toast{position:fixed;left:50vw;transform:translateX(-50%);bottom:calc(100px + env(safe-area-inset-bottom));z-index:60;padding:12px 18px;border-radius:16px;font-size:14px;max-width:calc(min(100vw,430px) - 40px);display:flex;gap:14px;align-items:center;animation:up .2s ease-out}
+/* background-save status: a small pill where toasts appear; it doesn't block taps around it */
+.syncpill{position:fixed;left:50vw;transform:translateX(-50%);bottom:calc(100px + env(safe-area-inset-bottom));z-index:55;height:34px;padding:0 14px;border-radius:17px;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--soft);white-space:nowrap;max-width:calc(min(100vw,430px) - 40px);animation:up .18s ease-out}
+.syncpill.notab{bottom:auto;top:calc(12px + env(safe-area-inset-top));animation-name:down}
+.syncpill span{overflow:hidden;text-overflow:ellipsis}
+.syncpill button{color:var(--a);font-weight:600;font-size:13px;padding:0 2px 0 6px;height:34px}
+.syncpill[data-state=error]{color:var(--tx)}
 .toast.notab{bottom:auto;top:calc(16px + env(safe-area-inset-top));animation-name:down}
 @keyframes down{from{transform:translate(-50%,-16px);opacity:0}}
 .scrim{position:fixed;inset:0;background:rgba(10,10,14,.55);z-index:50;display:flex;align-items:flex-end;justify-content:center}
 .menu{width:min(100vw,430px);border-radius:28px 28px 0 0;padding:18px 20px calc(24px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px;animation:up .2s ease-out}
 .menu .mi{height:52px;border-radius:18px;font-size:15px;display:flex;align-items:center;justify-content:center}
 @keyframes up{from{transform:translate(var(--tx0,0),24px);opacity:0}}
-.toast{--tx0:-50%}
+.toast,.syncpill{--tx0:-50%}
 /* loading: a mango arc that rotates and leaves a fading trail behind its head */
 /* --s = size, --t = ring thickness */
 .spin{--s:24px;--t:3.5px;display:inline-block;flex-shrink:0;width:var(--s);height:var(--s);border-radius:50%;position:relative;vertical-align:middle;

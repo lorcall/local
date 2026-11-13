@@ -16,6 +16,7 @@ function render() {
   lastRoute = name;
   selMotion(before);
   flushThumbs();
+  syncPlace();
 }
 /* Swap only computed regions, so a field being typed in keeps focus and the keyboard stays up. */
 function refreshParts() {
@@ -50,6 +51,59 @@ function confirmBox(title, text, label, fn) { menu({title, text, items: [{label,
 function go(name, p = {}) { S.stack.push({name, p}); S.ui.openSwipe = null; pushHistory(); render(); }
 function replace(name, p = {}) { S.stack[S.stack.length - 1] = {name, p}; render(); }
 /* After stepping a period, slide the new one in from the side it came from. */
+/* ---------- background saving ----------
+   Every write is a job: kept in order, run one at a time, and stored on the device until done, so
+   a save survives the app being closed mid-way (it's replayed and finished on the next open). A
+   failed job stays at the front with a Retry, and nothing after it runs until it succeeds. */
+const SYNC_KEY = 'local-pending-v1';
+const SYNC = {jobs: [], running: false, hideT: 0, last: null};
+function syncStore() { try { localStorage.setItem(SYNC_KEY, JSON.stringify(SYNC.jobs)); } catch (e) { /* full or blocked: still runs this session */ } }
+function syncLoad() { try { const j = JSON.parse(localStorage.getItem(SYNC_KEY) || '[]'); return Array.isArray(j) ? j : []; } catch (e) { return []; } }
+function queueJob(job) { job.job = uid('job'); SYNC.jobs.push(job); syncStore(); syncRun(); }
+/* what a job looks like once done, applied to the in-memory log (used when replaying after a reload) */
+function syncApplyLocal(j) {
+  if (j.kind === 'meal') { const m = Object.assign({}, j.meal); if (m.thumb) { S.photos[m.meal_id] = m.thumb; m.has_thumb = true; } delete m.thumb; applyMeal(normMeal(m), j.entries.map(normEntry)); }
+  else if (j.kind === 'deleteMeal') { S.data.meals = S.data.meals.filter(x => x.meal_id !== j.mealId); S.data.entries = S.data.entries.filter(x => x.meal_id !== j.mealId); }
+  else if (j.kind === 'targets') S.data.targets = S.data.targets.filter(x => x.effective_date !== j.row.effective_date).concat([j.row]);
+  else if (j.kind === 'weight') S.data.weight = S.data.weight.filter(w => w.date !== j.row.date).concat([j.row]);
+}
+async function syncJob(j) {
+  if (j.kind === 'meal') {
+    const cur = S.data.meals.find(x => x.meal_id === j.meal.meal_id);
+    if (j.photo && !j.meal.photo_url) {
+      j.meal.photo_url = (await API.savePhoto({image: j.photo.data, mime: j.photo.mime, meal_type: j.meal.meal_type, mode: j.photo.mode})) || '';
+      j.photo = null; syncStore();                       // a retry won't upload it twice
+      if (cur) cur.photo_url = j.meal.photo_url;
+    } else if (!j.meal.photo_url && cur && cur.photo_url) j.meal.photo_url = cur.photo_url;   // an edit made while the upload ran
+    await API.saveMeal({meal: j.meal, entries: j.entries});
+  } else if (j.kind === 'deleteMeal') await API.deleteMeal(j.mealId);
+  else if (j.kind === 'targets') await API.saveTargets(j.row);
+  else if (j.kind === 'weight') await API.addWeight(j.row);
+}
+async function syncRun() {
+  if (SYNC.running) return;
+  SYNC.running = true;
+  while (SYNC.jobs.length) {
+    const j = SYNC.jobs[0];
+    syncShow('busy', j);
+    try { await syncJob(j); SYNC.jobs.shift(); syncStore(); }
+    catch (e) { SYNC.running = false; syncShow('error', j, friendly(e)); return; }
+  }
+  SYNC.running = false; syncShow('done');
+}
+const syncVerb = j => j.kind === 'deleteMeal' ? ['Deleting', 'Deleted', 'Delete'] : ['Saving', 'Saved', 'Save'];
+function syncShow(state, j, err) {
+  let el = document.getElementById('syncpill');
+  if (!el) { el = document.createElement('div'); el.id = 'syncpill'; el.className = 'syncpill glass'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); document.body.appendChild(el); }
+  clearTimeout(SYNC.hideT); el.hidden = false; syncPlace();
+  const what = j ? ' ' + esc(j.label || '') : '';
+  if (state === 'busy') { SYNC.last = j; el.dataset.state = 'busy'; el.title = ''; el.innerHTML = '<span class="spin" style="--s:12px;--t:2px"></span><span>' + syncVerb(j)[0] + what + '</span>'; }
+  else if (state === 'error') { el.dataset.state = 'error'; el.title = err || ''; el.innerHTML = '<span class="ov" style="display:flex">' + icon('warn', 14, 2) + '</span><span>' + 'Couldn\'t ' + syncVerb(j)[2].toLowerCase() + what + '</span><button data-a="syncRetry">Retry</button>'; }
+  else { const l = SYNC.last; el.dataset.state = 'done'; el.title = ''; el.innerHTML = '<span class="mango" style="display:flex">' + icon('check', 14, 2.4) + '</span><span>' + (l ? syncVerb(l)[1] + ' ' + esc(l.label || '') : 'Saved') + '</span>'; SYNC.hideT = setTimeout(() => { el.hidden = true; }, 1800); }
+}
+/* above the tab bar where there is one, at the top otherwise, like toasts */
+function syncPlace() { const el = document.getElementById('syncpill'); if (el) el.classList.toggle('notab', !app().querySelector('.tabbar')); }
+
 /* ---------- tab switching ----------
    The whole app redraws on every change, so a tab switch is animated from a snapshot: where the
    tile sat and the screen that was showing, taken just before the redraw. The tile then stretches
@@ -236,12 +290,10 @@ function drawTo(img, max, square, q) {
 }
 
 /* ---------- photo analysis helpers ---------- */
-/* The Drive link from the parallel upload; waits at most 15 s, then saves without it. */
-async function photoUrl() {
-  const L = S.log; if (!L) return '';
-  if (L.photo_url) return L.photo_url;
-  if (!L.photoP) return '';
-  return Promise.race([L.photoP, new Promise(r => setTimeout(() => r(''), 15000))]);
+/* The photo being logged, to upload when its meal is saved; null if there's none or it's already up. */
+function pendingPhoto(mode) {
+  const L = S.log; if (!L || !L.full || L.photo_url) return null;
+  return {data: L.full.data, mime: L.full.mime || 'image/jpeg', mode: mode || 'meal'};
 }
 /* Portions the user has eaten or corrected, sent with the photo so the server doesn't read the
    Sheet. Their own corrections first, then the most used. */
@@ -267,9 +319,14 @@ function aiItem(x, mealId) {
   return e;
 }
 function copyItems(mealId, newId) { return itemsOf(mealId).map(e => Object.assign({}, e, {entry_id: uid('ent'), meal_id: newId})); }
-async function persistMeal(meal, entries) {
-  const res = await API.saveMeal({meal, entries});
-  applyMeal(res && res.meal ? res.meal : meal, res && res.entries ? res.entries : entries);
+/* Saves look instant: the meal shows straight away and the upload and Sheet writes run in the
+   background, one at a time, with a small status pill (see the sync section below). */
+function persistMeal(meal, entries, photo) {
+  const m = Object.assign({}, meal), es = entries.map(e => Object.assign({}, e, {meal_id: m.meal_id}));
+  if (m.thumb) { S.photos[m.meal_id] = m.thumb; m.has_thumb = true; }
+  const local = Object.assign({}, m); delete local.thumb;
+  applyMeal(local, es);
+  queueJob({kind: 'meal', meal: m, entries: es, photo: photo || null, label: lc1(m.meal_type)});
 }
 async function bumpFavorite(f) {
   const h = new Date().getHours(), n = Math.min(num(f.use_count), 9);
@@ -287,7 +344,7 @@ async function addToMealToday(type, entries, source, toastVerb) {
   let meal, all;
   if (existing) { meal = Object.assign({}, existing); all = itemsOf(existing.meal_id).concat(entries.map(e => Object.assign(e, {meal_id: existing.meal_id}))); }
   else { meal = newMeal(type, {source}); all = entries.map(e => Object.assign(e, {meal_id: meal.meal_id})); }
-  await persistMeal(meal, all);
+  persistMeal(meal, all);
   toast((toastVerb || 'Added to') + ' ' + lc1(type) + (d === today() ? '' : ', ' + dayLabel(d)));
 }
 const savedText = (verb, meal) => verb + ' ' + lc1(meal.meal_type) + (meal.date === today() ? '' : ', ' + dayLabel(meal.date));
@@ -301,7 +358,7 @@ async function thumbOf(m) {
 async function copyMealTo(id, day, type) {
   const m = S.data.meals.find(x => x.meal_id === id); if (!m) return;
   const nm = Object.assign({}, m, {meal_id: uid('meal'), date: day, time: day === today() ? nowHM() : m.time, meal_type: type || m.meal_type, source: 'copy', thumb: await thumbOf(m)});
-  await persistMeal(nm, copyItems(id, nm.meal_id));
+  persistMeal(nm, copyItems(id, nm.meal_id));
 }
 function csvData() {
   const head = ['date', 'time', 'meal_type', 'item', 'category', 'amount'].concat(VALUES).concat(['confidence', 'edited', 'note', 'photo_url']);
@@ -377,9 +434,8 @@ const A = {
   async saveTargets() {
     const t = tgState(); if (S.ui.busy || !tgChanged()) return;
     const row = tgRow(t);
-    S.ui.busy = true; render();
-    try { await API.saveTargets(row); S.data.targets = S.data.targets.filter(x => x.effective_date !== row.effective_date).concat([row]); S.dirty = true; S.ui.busy = false; S.ui.tg = null; home('Targets saved'); }
-    catch (e) { S.ui.busy = false; toast(friendly(e)); }
+    S.data.targets = S.data.targets.filter(x => x.effective_date !== row.effective_date).concat([row]); S.dirty = true; S.ui.tg = null;
+    queueJob({kind: 'targets', row, label: 'targets'}); home();
   },
   csv() {
     if (S.meta.demo) { toast('The preview can\'t save files. In your deployed app this downloads a CSV.'); return; }
@@ -443,9 +499,7 @@ const A = {
     const L = logState(); if (L.busy) return;
     if (!L.img) return A.shoot();
     L.busy = true; L.error = ''; render();
-    // Save the photo to Drive in a parallel call, so the estimate never waits for Drive.
-    if (!L.photoP) L.photoP = API.savePhoto({image: L.full.data, mime: L.full.mime, meal_type: L.meal_type})
-      .then(u => { L.photo_url = u || ''; return L.photo_url; }).catch(() => { L.photoP = null; return ''; });
+    // Nothing is stored yet: the photo goes to Drive only when the meal is saved (see persistMeal).
     try {
       // mode 'auto': the AI decides whether the photo is food or a nutrition label
       const res = await API.analyzePhoto({image: L.full.data, mime: L.full.mime, note: L.note, mode: 'auto', meal_type: L.meal_type, hints: aiHints()});
@@ -472,17 +526,13 @@ const A = {
   async saveDraft() {
     const D = S.draft; if (!D || S.ui.busy || !D.items.length) return;
     const meal = Object.assign({}, D.meal, {edited: D.meal.edited === true || D.items.some(e => e.edited === true)});
-    S.ui.busy = true; render();
-    try {
-      if (D.mode === 'new' && D.source === 'photo' && !meal.photo_url) meal.photo_url = await photoUrl();
-      await persistMeal(meal, D.items);
-      (D.favs || []).forEach(f => bumpFavorite(f));
-      S.ui.busy = false; const isNew = D.mode === 'new'; S.draft = null;
-      if (isNew && (D.source === 'photo' || D.source === 'text')) S.log = null;
-      if (meal.thumb) { S.photos[meal.meal_id] = meal.thumb; meal.has_thumb = true; }
-      S.ui.day = meal.date === today() ? null : meal.date;
-      home(savedText(isNew ? 'Saved to' : 'Saved changes to', meal));
-    } catch (e) { S.ui.busy = false; toast(friendly(e)); }
+    const isNew = D.mode === 'new';
+    persistMeal(meal, D.items, isNew && D.source === 'photo' && !meal.photo_url ? pendingPhoto('meal') : null);
+    (D.favs || []).forEach(f => bumpFavorite(f));
+    S.draft = null;
+    if (isNew && (D.source === 'photo' || D.source === 'text')) S.log = null;
+    S.ui.day = meal.date === today() ? null : meal.date;
+    home();
   },
 
   editMeal: el => {
@@ -495,7 +545,7 @@ const A = {
   copyMeal: el => {
     const id = el.dataset.v, m = S.data.meals.find(x => x.meal_id === id); if (!m) return;
     menu({title: 'Copy ' + lc1(m.meal_type), items: [
-      {label: 'Add again today', fn: async () => { try { await copyMealTo(id, today()); S.ui.day = null; home('Copied to today\'s ' + lc1(m.meal_type)); } catch (e) { toast(friendly(e)); } }},
+      {label: 'Add again today', fn: async () => { await copyMealTo(id, today()); S.ui.day = null; home(); }},
       {label: 'Copy to another date or meal', primary: true, fn: async () => {
         S.ui.openSwipe = null; const L = logState(); L.date = viewDay(); L.time = m.time; L.timeAuto = false;
         const meal = newMeal(m.meal_type, {source: 'copy', note: m.note, photo_url: m.photo_url, thumb: await thumbOf(m)});
@@ -507,18 +557,16 @@ const A = {
     const id = el.dataset.v, m = S.data.meals.find(x => x.meal_id === id);
     const t = m ? lc1(m.meal_type) : 'meal';
     confirmBox('Delete ' + t + '?', 'This removes the meal and its items from your Sheet.', 'Delete ' + t, async () => {
-      try {
-        await API.deleteMeal(id);
-        S.data.meals = S.data.meals.filter(x => x.meal_id !== id); S.data.entries = S.data.entries.filter(x => x.meal_id !== id); S.dirty = true;
-        S.ui.openSwipe = null;
-        if (route().name === 'review') { S.draft = null; S.stack.pop(); }
-        toast('Deleted ' + t);
-      } catch (e) { toast(friendly(e)); }
+      S.data.meals = S.data.meals.filter(x => x.meal_id !== id); S.data.entries = S.data.entries.filter(x => x.meal_id !== id); S.dirty = true;
+      S.ui.openSwipe = null;
+      if (route().name === 'review') { S.draft = null; S.stack.pop(); }
+      queueJob({kind: 'deleteMeal', mealId: id, label: t});
+      render();
     });
   },
   async copyToToday(el) {
     const id = el.dataset.v, m = S.data.meals.find(x => x.meal_id === id); if (!m) return;
-    try { await copyMealTo(id, today()); toast('Added to today\'s ' + lc1(m.meal_type)); } catch (e) { toast(friendly(e)); }
+    await copyMealTo(id, today()); render();
   },
 
   manual: () => { S.edit.manual = !S.edit.manual; render(); },
@@ -563,9 +611,8 @@ const A = {
     if (/drink|juice|soda|milk|coffee|tea/i.test(Lb.name)) src.category = 'drinks';
     if (/noodle|bread|rice|cracker|biscuit|pasta|cereal/i.test(Lb.name)) src.category = /cracker|biscuit/i.test(Lb.name) ? 'snacks and sweets' : 'staple';
     const e = entryFrom(src, meal.meal_id, num(Lb.servings) || 1);
-    S.ui.busy = true; render();
-    try { if (!meal.photo_url) meal.photo_url = await photoUrl(); await persistMeal(meal, [e]); if (meal.thumb) S.photos[meal.meal_id] = meal.thumb; S.ui.busy = false; S.label = null; S.log = null; S.ui.day = meal.date === today() ? null : meal.date; home(savedText('Saved to', meal)); }
-    catch (err) { S.ui.busy = false; toast(friendly(err)); }
+    persistMeal(meal, [e], meal.photo_url ? null : pendingPhoto('label'));
+    S.label = null; S.log = null; S.ui.day = meal.date === today() ? null : meal.date; home();
   },
 
   async addPastItem(el) {
@@ -595,6 +642,14 @@ const A = {
     S.draft = {mode: 'new', source: 'copy', meal, items: copyItems(m.meal_id, meal.meal_id), ai: null}; go('review');
   },
 
+  syncRetry: () => syncRun(),
+  // leave a new entry without saving anything: back to wherever logging started
+  discardDraft: () => {
+    S.draft = null; S.label = null; S.log = null; S.edit = null;
+    while (S.stack.length > 1 && ['review', 'label', 'log', 'search', 'describe', 'edit'].includes(route().name)) S.stack.pop();
+    if (['review', 'label', 'log', 'search', 'describe', 'edit'].includes(route().name)) S.stack = [{name: 'today', p: {}}];
+    S.ui.openSwipe = null; render();
+  },
   // History: pick a date on the calendar (the week below moves to end there) or a row (the week stays put)
   hDate: el => { const d = el.dataset.d; S.ui.hSel = S.ui.hAnchor = S.ui.hOpen = S.ui.hAnim = d; render(); showOpenDay(); },
   hPick: el => {
@@ -638,8 +693,8 @@ const A = {
     const kg = num(S.ui.wIn != null ? S.ui.wIn : (document.getElementById('wt-in') || {}).value);
     if (!(kg >= 20 && kg <= 400)) { toast('Enter a weight in kilograms, such as 72.4'); return; }
     const row = {date: today(), kg: r1(kg), note: (S.ui.wNote || '').trim()};
-    try { await API.addWeight(row); S.data.weight = S.data.weight.filter(w => w.date !== row.date).concat([row]); S.ui.wNote = ''; S.ui.wIn = null; toast('Saved ' + fmt(row.kg, 1) + ' kg'); }
-    catch (e) { toast(friendly(e)); }
+    S.data.weight = S.data.weight.filter(w => w.date !== row.date).concat([row]); S.ui.wNote = ''; S.ui.wIn = null;
+    queueJob({kind: 'weight', row, label: fmt(row.kg, 1) + ' kg'}); render();
   }
 };
 
@@ -775,6 +830,9 @@ function bindEvents() {
   /* system back button */
   const onBack = () => { if (S.menu) { S.menu = null; render(); return; } if (S.stack.length > 1) back(); };
   try { if (IN_GAS) google.script.history.setChangeHandler(onBack); else window.addEventListener('popstate', onBack); } catch (e) { /* ignore */ }
+  // a save still running when the page is closed: ask the browser to hold on (it's kept on the device either way)
+  window.addEventListener('beforeunload', ev => { if (SYNC.jobs.length) { ev.preventDefault(); ev.returnValue = ''; } });
+  window.addEventListener('online', () => { if (SYNC.jobs.length && !SYNC.running) syncRun(); });
   // widths change with the window and once the font arrives; the selection indicators follow
   let resizeT = 0;
   window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(placeAllSel, 80); });
@@ -810,10 +868,14 @@ async function boot() {
   try {
     const r = await API.bootstrap();
     loadData(r);
+    // saves still waiting from last time: show them as made, then finish them
+    SYNC.jobs = syncLoad(); SYNC.jobs.forEach(syncApplyLocal);
+    if (SYNC.jobs.length) setTimeout(syncRun, 300);
     if (setting('onboarded', '') !== 'yes') S.stack = [{name: 'welcome', p: {}}];
     render();
   } catch (e) {
-    app().innerHTML = '<div class="boot" style="padding:24px;text-align:center">' + logoTile(96) + '<span class="ov">' + esc(friendly(e)) + '</span><button class="raised-sm btn-sm mango" onclick="location.reload()">Try again</button></div>';
+    app().innerHTML = '<div class="boot" style="padding:24px;text-align:center">' + logoTile(96) + '<span class="ov">' + esc(friendly(e)) + '</span><button class="raised-sm btn-sm mango" id="bootRetry">Try again</button></div>';
+    const rb = document.getElementById('bootRetry'); if (rb) rb.addEventListener('click', () => location.reload());
   }
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
