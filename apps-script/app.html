@@ -1507,7 +1507,7 @@ function placeTile() {
   const on = bar.querySelector('.nb[aria-current]');
   if (!on) { ind.style.opacity = '0'; return null; }
   const x = on.offsetLeft + on.offsetWidth / 2 - 24;
-  ind.style.transform = 'translateX(' + x + 'px)'; ind.style.width = '48px'; ind.style.opacity = '1';
+  ind.style.left = x + 'px'; ind.style.width = '48px'; ind.style.opacity = '1';
   return {ind, x};
 }
 function tabSnapshot() {
@@ -1556,12 +1556,15 @@ function ghostOut(s, dir, clip) {
 }
 const glideIn = (el, dir) => el.animate && el.animate([{opacity: 0, transform: 'translateX(' + (dir * 28) + 'px)'}, {opacity: 1, transform: 'translateX(0px)'}],
   {duration: 360, delay: 80, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards'});
+/* The tile's left edge and width move together as plain layout properties. Moving it with
+   transform instead let Safari run the position on the compositor with different timing from the
+   width, so the far edge overshot the target; one timing curve for the whole animation, too. */
 function stretchTo(ind, from, fromW, to, toW) {
   const left = Math.min(from, to), span = Math.max(from + fromW, to + toW) - left;
   ind.animate([
-    {transform: 'translateX(' + from + 'px)', width: fromW + 'px'},
-    {transform: 'translateX(' + left + 'px)', width: span + 'px', offset: .46, easing: 'cubic-bezier(.3,0,.2,1)'},
-    {transform: 'translateX(' + to + 'px)', width: toW + 'px'}
+    {left: from + 'px', width: fromW + 'px'},
+    {left: left + 'px', width: span + 'px', offset: .46},
+    {left: to + 'px', width: toW + 'px'}
   ], {duration: 460, easing: 'cubic-bezier(.55,0,.3,1)'});
 }
 
@@ -1580,7 +1583,7 @@ function placeSel(g) {
   // exact sub-pixel boxes: chips that share a row's width are fractions of a pixel wide
   const r = on.getBoundingClientRect(), b = g.getBoundingClientRect();
   const box = {x: r.left - b.left - g.clientLeft + g.scrollLeft, y: r.top - b.top - g.clientTop + g.scrollTop, w: r.width, h: r.height};
-  ind.style.transform = 'translateX(' + box.x + 'px)'; ind.style.top = box.y + 'px';
+  ind.style.left = box.x + 'px'; ind.style.top = box.y + 'px';
   ind.style.width = box.w + 'px'; ind.style.height = box.h + 'px';
   ind.style.borderRadius = getComputedStyle(on).borderRadius; ind.style.opacity = '1';
   return {ind, box};

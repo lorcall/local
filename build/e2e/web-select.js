@@ -87,6 +87,26 @@ const DATA = {
   const goTo = async n => { await page.evaluate(n => go(n, {}), n); await page.waitForTimeout(250); };
   const rest = (s, what) => check(s.off === 0 && s.dw === 0 && s.dh === 0 && !s.ghost, what + ' (' + JSON.stringify(s) + ')');
 
+  // No overshoot: sample a switch frame by frame; the tile's edges must stay between where it
+  // started and where it ends. (Safari mistimed a transform-plus-width version so the far edge
+  // overshot; position now moves as 'left', on the same curve as the width.)
+  const sweep = async (q, tap) => {
+    const box = () => page.evaluate(q => { const r = document.querySelector(q).getBoundingClientRect(); return [r.left, r.right]; }, q);
+    const a = await box();
+    await page.evaluate(([q, t]) => { window.__frames = []; const loop = () => { const e = document.querySelector(q); if (e) { const r = e.getBoundingClientRect(); window.__frames.push([r.left, r.right]); } if (window.__frames.length < 60) requestAnimationFrame(loop); }; requestAnimationFrame(loop); document.querySelector(t).click(); }, [q, tap]);
+    await page.waitForTimeout(1100);
+    const b = await box(), f = await page.evaluate(() => window.__frames);
+    const lo = Math.min(a[0], b[0]) - 1, hi = Math.max(a[1], b[1]) + 1;
+    const bad = f.filter(x => x[0] < lo || x[1] > hi);
+    return {bad: bad.length, frames: f.length, wide: Math.max(...f.map(x => x[1] - x[0]))};
+  };
+  await goTo('today');
+  let o = await sweep('#app .tabbar .tabind', '#app .tabbar .nb[data-v="targets"]');
+  check(!o.bad && o.wide > 60, 'tab bar: the tile stretches but never passes its start or end (' + JSON.stringify(o) + ')');
+  o = await sweep('#app .tabbar .tabind', '#app .tabbar .nb[data-v="today"]');
+  check(!o.bad, 'tab bar, going back: no overshoot either (' + JSON.stringify(o) + ')');
+  check(await page.evaluate(() => { const i = document.querySelector('#app .tabbar .tabind'); return !i.style.transform && /px$/.test(i.style.left); }), 'the tile is placed with left, not transform');
+
   // Trends: the 7 days / 30 days / Custom track
   await goTo('trends');
   rest(await sel('.track[aria-label="Range"]'), 'Trends: the tile sits exactly on the chosen range');
