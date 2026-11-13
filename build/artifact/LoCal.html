@@ -759,10 +759,10 @@ function backHeader(title, o = {}) {
     '<h1 class="title22"' + (o.small ? ' style="font-size:21px"' : '') + '>' + esc(title) + '</h1></div>' + (o.right || '') + '</header>';
 }
 
-/* an arc on a ring: frac 0..1, starts at 12 o'clock */
+/* an arc on a ring: frac 0..1, starts at 6 o'clock and runs clockwise, like the LoCal icon */
 function arc(size, r, sw, frac, color, o = {}) {
   const C = 2 * Math.PI * r, L = clamp(frac, 0, 1) * C, c = size / 2;
-  return '<circle cx="' + c + '" cy="' + c + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="' + sw + '" stroke-linecap="' + (o.butt ? 'butt' : 'round') + '" stroke-dasharray="' + L.toFixed(1) + ' ' + C.toFixed(1) + '"' + (o.offset ? ' stroke-dashoffset="' + o.offset + '"' : '') + ' transform="rotate(-90 ' + c + ' ' + c + ')"' + (o.cls ? ' class="' + o.cls + '"' : '') + '/>';
+  return '<circle cx="' + c + '" cy="' + c + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="' + sw + '" stroke-linecap="' + (o.butt ? 'butt' : 'round') + '" stroke-dasharray="' + L.toFixed(1) + ' ' + C.toFixed(1) + '"' + (o.offset ? ' stroke-dashoffset="' + o.offset + '"' : '') + ' transform="rotate(90 ' + c + ' ' + c + ')"' + (o.cls ? ' class="' + o.cls + '"' : '') + '/>';
 }
 
 /* CalorieDial: raised disc with a thin pressed groove (r 80 to 96) and the glowing mango arc running along it (r 88), glass centre */
@@ -770,10 +770,10 @@ function calorieDial(eaten, target, o = {}) {
   const left = target - eaten, over = left < 0;
   const frac = target > 0 ? eaten / target : 0;
   const label = fmt(eaten) + ' of ' + fmt(target) + ' kcal eaten' + (over ? ', ' + fmt(-left) + ' over target' : '');
-  // over target: the full ring stays mango and a coral arc runs on from 12 o'clock for the excess
+  // over target: the full ring stays mango and a coral arc runs on from 6 o'clock for the excess
   const arcs = !over ? (frac > 0 ? '<g style="filter:drop-shadow(0 0 6px ' + COLOR.a + ')">' + arc(220, 88, 5, frac, COLOR.a, {cls: o.animate ? 'arcdraw' : ''}) + '</g>' : '')
     : '<g opacity=".45">' + arc(220, 88, 5, 1, COLOR.a) + '</g><g style="filter:drop-shadow(0 0 7px ' + COLOR.ov + ')">' + arc(220, 88, 6, Math.min(1, -left / target), COLOR.ov, {cls: o.animate ? 'arcdraw' : ''}) + '</g>' +
-      '<line x1="110" y1="15" x2="110" y2="29" stroke="' + COLOR.ov + '" stroke-width="3" stroke-linecap="round"/>';
+      '<line x1="110" y1="191" x2="110" y2="205" stroke="' + COLOR.ov + '" stroke-width="3" stroke-linecap="round"/>';
   return '<div class="dial raised" style="width:220px;height:220px;box-shadow:12px 12px 24px var(--lo),-10px -10px 22px var(--hi)">' +
     '<div class="well" style="width:192px;height:192px;background:#1C1E24;box-shadow:inset 6px 6px 10px #0E0F12,inset -4px -4px 8px #353844,inset 0 0 0 1px rgba(0,0,0,.35)">' +
     // the groove floor is darker than the surface; the glass centre keeps the surface colour under its sheen
@@ -828,7 +828,7 @@ function macroRing(t, size, r, sw, gap, center, aria) {
   const avail = C - gap * segs.length; let off = 0; const c = size / 2;
   const arcs = segs.map(([k, col]) => {
     const L = Math.max(0.1, sh[k] * avail);
-    const s = '<circle cx="' + c + '" cy="' + c + '" r="' + r + '" fill="none" stroke="' + col + '" stroke-width="' + sw + '" stroke-linecap="' + (gap ? 'round' : 'butt') + '" stroke-dasharray="' + L.toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="' + (-off).toFixed(1) + '" transform="rotate(-90 ' + c + ' ' + c + ')"/>';
+    const s = '<circle cx="' + c + '" cy="' + c + '" r="' + r + '" fill="none" stroke="' + col + '" stroke-width="' + sw + '" stroke-linecap="' + (gap ? 'round' : 'butt') + '" stroke-dasharray="' + L.toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="' + (-off).toFixed(1) + '" transform="rotate(90 ' + c + ' ' + c + ')"/>';
     off += L + gap; return s;
   }).join('');
   return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" role="img" aria-label="' + esc(aria || ('Protein ' + Math.round(sh.p * 100) + ' percent, carbs ' + Math.round(sh.c * 100) + ' percent, fat ' + Math.round(sh.f * 100) + ' percent')) + '"' + (center ? ' style="position:absolute;left:0;top:0"' : '') + '>' + (arcs || '<circle cx="' + c + '" cy="' + c + '" r="' + r + '" fill="none" stroke="#15161B" stroke-width="' + sw + '"/>') + '</svg>';
