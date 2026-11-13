@@ -1317,10 +1317,13 @@ SCREENS.consistency = () => {
   }).join('');
   const sw = rangeDays(addDays(t, -13), addDays(t, -1));
   const vals = sw.map(d => ({d, v: totalsOn(d)[M.v], tg: num(targetFor(d)[M.t]), l: logged(d) && num(targetFor(d)[M.t]) > 0}));
-  const tgv = vals.length ? vals[vals.length - 1].tg || 1 : 1, spanV = Math.max(tgv * 0.35, ...vals.filter(x => x.l).map(x => Math.abs(x.v - x.tg))) || 1;
-  const W = 322, Hh = 96, y = v => (Hh / 2 - (v - tgv) / spanV * (Hh / 2 - 8)).toFixed(1), bandH = (tgv * 0.1 / spanV) * (Hh / 2 - 8);
+  // Each day is plotted as its distance from that day's own target, as a share of it, so the line
+  // (on target) is flat by definition and the band is exactly the 10% the colours use, even when
+  // the target changed within the fortnight. Amounts against a moving target are Trends' job.
+  const dev = x => (x.v - x.tg) / x.tg, spanV = Math.max(0.35, ...vals.filter(x => x.l).map(x => Math.abs(dev(x))));
+  const W = 322, Hh = 96, y = r => (Hh / 2 - r / spanV * (Hh / 2 - 8)).toFixed(1), bandH = (0.1 / spanV) * (Hh / 2 - 8);
   const good = x => measure === 'kcal' ? Math.abs(x.v - x.tg) <= x.tg * 0.1 : dayStatus(x.d, measure) === 'on';
-  const pts = vals.map((x, i) => x.l ? '<circle cx="' + (12 + i * (W - 24) / (vals.length - 1)).toFixed(1) + '" cy="' + y(x.v) + '" r="5" fill="' + (good(x) ? COLOR.a : COLOR.ov) + '"/>' : '').join('');
+  const pts = vals.map((x, i) => x.l ? '<circle cx="' + (12 + i * (W - 24) / (vals.length - 1)).toFixed(1) + '" cy="' + y(dev(x)) + '" r="5" fill="' + (good(x) ? COLOR.a : COLOR.ov) + '"/>' : '').join('');
   const lg = vals.filter(x => x.l), diffs = lg.map(x => Math.abs(x.v - x.tg)).sort((a, b) => a - b), med = diffs.length ? diffs[Math.floor(diffs.length / 2)] : 0;
   const misses = lg.filter(x => !good(x)), wkMiss = misses.filter(x => [0, 6].includes(parseDay(x.d).getDay())).length;
   const u = measure === 'kcal' ? 'kcal' : VALUE_UNIT[M.v] + ' of ' + M.label.toLowerCase(), step = measure === 'kcal' ? 10 : measure === 'sodium' ? 50 : 1;
