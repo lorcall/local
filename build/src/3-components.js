@@ -49,17 +49,17 @@ function arc(size, r, sw, frac, color, o = {}) {
   return '<circle cx="' + c + '" cy="' + c + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="' + sw + '" stroke-linecap="' + (o.butt ? 'butt' : 'round') + '" stroke-dasharray="' + L.toFixed(1) + ' ' + C.toFixed(1) + '"' + (o.offset ? ' stroke-dashoffset="' + o.offset + '"' : '') + ' transform="rotate(-90 ' + c + ' ' + c + ')"' + (o.cls ? ' class="' + o.cls + '"' : '') + '/>';
 }
 
-/* CalorieDial: raised disc, pressed well, glass centre, glowing mango arc */
+/* CalorieDial: raised disc with a thin pressed groove (r 80 to 96) and the glowing mango arc running along it (r 88), glass centre */
 function calorieDial(eaten, target, o = {}) {
   const left = target - eaten, over = left < 0;
   const frac = target > 0 ? eaten / target : 0;
   const label = fmt(eaten) + ' of ' + fmt(target) + ' kcal eaten' + (over ? ', ' + fmt(-left) + ' over target' : '');
   // over target: the full ring stays mango and a coral arc runs on from 12 o'clock for the excess
-  const arcs = !over ? (frac > 0 ? '<g style="filter:drop-shadow(0 0 6px ' + COLOR.a + ')">' + arc(220, 100, 5, frac, COLOR.a, {cls: o.animate ? 'arcdraw' : ''}) + '</g>' : '')
-    : '<g opacity=".45">' + arc(220, 100, 5, 1, COLOR.a) + '</g><g style="filter:drop-shadow(0 0 7px ' + COLOR.ov + ')">' + arc(220, 100, 6, Math.min(1, -left / target), COLOR.ov, {cls: o.animate ? 'arcdraw' : ''}) + '</g>' +
-      '<line x1="110" y1="2" x2="110" y2="18" stroke="' + COLOR.ov + '" stroke-width="3" stroke-linecap="round"/>';
+  const arcs = !over ? (frac > 0 ? '<g style="filter:drop-shadow(0 0 6px ' + COLOR.a + ')">' + arc(220, 88, 5, frac, COLOR.a, {cls: o.animate ? 'arcdraw' : ''}) + '</g>' : '')
+    : '<g opacity=".45">' + arc(220, 88, 5, 1, COLOR.a) + '</g><g style="filter:drop-shadow(0 0 7px ' + COLOR.ov + ')">' + arc(220, 88, 6, Math.min(1, -left / target), COLOR.ov, {cls: o.animate ? 'arcdraw' : ''}) + '</g>' +
+      '<line x1="110" y1="15" x2="110" y2="29" stroke="' + COLOR.ov + '" stroke-width="3" stroke-linecap="round"/>';
   return '<div class="dial raised" style="width:220px;height:220px;box-shadow:12px 12px 24px var(--lo),-10px -10px 22px var(--hi)">' +
-    '<div class="well" style="width:180px;height:180px"><div class="glasscore" style="width:126px;height:126px">' +
+    '<div class="well" style="width:192px;height:192px;box-shadow:inset 4px 4px 8px var(--lo),inset -4px -4px 8px var(--hi)"><div class="glasscore" style="width:160px;height:160px">' +
     '<div class="num" style="font-size:50px;letter-spacing:-.04em;' + (over ? 'color:var(--ov)' : '') + '">' + fmt(Math.abs(left)) + '</div>' +
     '<div class="cap13" style="margin-top:2px' + (over ? ';color:var(--ov)' : '') + '">' + (over ? 'kcal over' : o.past ? 'kcal under' : 'kcal left') + '</div></div></div>' +
     '<svg class="arc" width="220" height="220" viewBox="0 0 220 220" role="img" aria-label="' + label + '">' + arcs + '</svg></div>';
