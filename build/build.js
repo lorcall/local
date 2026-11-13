@@ -8,7 +8,7 @@ fs.writeFileSync(path.join(__dirname, 'app.bundle.js'), src);
 fs.writeFileSync(path.join(root, 'apps-script', 'app.html'), '<script>\n' + src + '\n</script>\n');
 // The loading screen is written into the page, so it shows before the script has run.
 const logoSrc = src.slice(src.indexOf('function logoTile('), src.indexOf('function wordmark('));
-const bootHtml = '<div class="boot">' + new Function(logoSrc + 'return logoTile(96, true);')() + '<div class="tagline">AI calorie tracker</div><span>Opening your log</span></div>';
+const bootHtml = '<div class="boot">' + new Function(logoSrc + 'return logoTile(96, true);')() + '<span>Opening your log</span></div>';
 const indexPath = path.join(root, 'apps-script', 'index.html');
 fs.writeFileSync(indexPath, fs.readFileSync(indexPath, 'utf8').replace(/<!--boot-->[\s\S]*?<!--\/boot-->/, '<!--boot-->' + bootHtml + '<!--/boot-->'));
 const styles = fs.readFileSync(path.join(root, 'apps-script', 'styles.html'), 'utf8');
