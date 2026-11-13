@@ -1,8 +1,12 @@
 // Builds apps-script/app.html from build/src/*.js, and a standalone preview (demo mode).
 const fs = require('fs'), path = require('path');
 const root = path.join(__dirname, '..');
+// The LoCal wordmark is a picture, rendered once from Geologica (icons/wordmark.png), embedded
+// wherever it shows so it never waits on a download or a font.
+const WORDMARK = 'data:image/png;base64,' + fs.readFileSync(path.join(root, 'icons', 'wordmark.png')).toString('base64');
 const src = fs.readdirSync(path.join(__dirname, 'src')).filter(f => f.endsWith('.js')).sort()
-  .map(f => fs.readFileSync(path.join(__dirname, 'src', f), 'utf8')).join('\n');
+  .map(f => fs.readFileSync(path.join(__dirname, 'src', f), 'utf8')).join('\n')
+  .replace("'__WORDMARK_PNG__'", "'" + WORDMARK + "'");
 if (/<\/script/i.test(src)) throw new Error('Source contains a closing script tag');
 fs.writeFileSync(path.join(__dirname, 'app.bundle.js'), src);
 fs.writeFileSync(path.join(root, 'apps-script', 'app.html'), '<script>\n' + src + '\n</script>\n');
@@ -38,7 +42,7 @@ if (fs.existsSync(webDir)) {
     .replace(/(href=")styles\.css(\?v=[a-f0-9]+)?(")/, '$1styles.css?v=' + stamp + '$3')
     .replace(/(src=")api\.js(\?v=[a-f0-9]+)?(")/, '$1api.js?v=' + stamp + '$3')
     .replace(/(s\.src = ')app\.js(\?v=[a-f0-9]+)?(')/, '$1app.js?v=' + stamp + '$3');
-  fs.writeFileSync(webIndex, withCsp(html));
+  fs.writeFileSync(webIndex, withCsp(html.replace(/data-wm src="[^"]*"/, 'data-wm src="' + WORDMARK + '"')));
   console.log('web stamped', stamp);
 }
 console.log('built', (src.length / 1024).toFixed(1) + ' KB js');

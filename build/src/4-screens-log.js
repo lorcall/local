@@ -20,17 +20,18 @@ function logoTile(px, loading) {
   const s = Math.round(px * 116 / 150), k = s / 120;
   // loading: the dial's arc becomes the rotating trail, sized to sit exactly on the track (r 34, stroke 8)
   const ring = loading ? '<span class="spinglow logospin"><span class="spin" style="--s:' + (2 * 38 * k).toFixed(1) + 'px;--t:' + (8 * k).toFixed(1) + 'px"></span></span>' : '';
-  return '<div style="position:relative;width:' + px + 'px;height:' + px + 'px;border-radius:' + Math.round(px * .253) + 'px;background:linear-gradient(145deg,#2A2D36,#1F2128);box-shadow:14px 14px 28px var(--lo),-12px -12px 24px var(--hi),inset 0 1px 0 rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;flex-shrink:0">' +
+  return '<div class="nosel" style="position:relative;width:' + px + 'px;height:' + px + 'px;border-radius:' + Math.round(px * .253) + 'px;background:linear-gradient(145deg,#2A2D36,#1F2128);box-shadow:14px 14px 28px var(--lo),-12px -12px 24px var(--hi),inset 0 1px 0 rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;flex-shrink:0">' +
     '<svg width="' + s + '" height="' + s + '" viewBox="0 0 120 120" role="img" aria-label="LoCal app icon"><defs><linearGradient id="lw" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#16171C"/><stop offset="1" stop-color="#30333D"/></linearGradient><filter id="lg" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>' +
     '<circle cx="60" cy="60" r="47" fill="url(#lw)"/><circle cx="60" cy="60" r="43" fill="#23252D"/><circle cx="60" cy="60" r="34" fill="none" stroke="#17181D" stroke-width="8"/>' +
     (loading ? '' : '<circle cx="60" cy="60" r="34" fill="none" stroke="#F5A524" stroke-width="8" stroke-linecap="round" stroke-dasharray="160.2 213.6" transform="rotate(135 60 60)" filter="url(#lg)"/>' +
     '<circle cx="84" cy="84" r="5.5" fill="#FFD08A" filter="url(#lg)"/>') + '<circle cx="60" cy="60" r="18" fill="#FFFFFF" fill-opacity=".06" stroke="#FFFFFF" stroke-opacity=".16"/></svg>' + ring + '</div>';
 }
+/* The LoCal wordmark is a picture (icons/wordmark.png, embedded by the build), drawn once from
+   Geologica and the dial: it can't be selected, dragged or broken by a missing font or a style
+   change. fs is the font size it stands in for; the picture is 0.738 of that tall. */
+const WORDMARK = '__WORDMARK_PNG__';
 function wordmark(fs, style) {
-  const d = Math.round(fs * 0.57);
-  return '<div role="img" aria-label="LoCal" style="display:flex;align-items:baseline;font-size:' + fs + 'px;font-weight:300;letter-spacing:-.045em;line-height:1;' + (style || '') + '"><span aria-hidden="true">L</span>' +
-    '<svg width="' + d + '" height="' + d + '" viewBox="0 0 120 120" aria-hidden="true" style="margin:0 2px;position:relative;top:1px"><circle cx="60" cy="60" r="48" fill="none" stroke="#15161B" stroke-width="15"/><circle cx="60" cy="60" r="48" fill="none" stroke="#F5A524" stroke-width="15" stroke-linecap="round" stroke-dasharray="226.2 301.6" transform="rotate(135 60 60)" style="filter:drop-shadow(0 0 3px #F5A524)"/><circle cx="94" cy="94" r="8" fill="#FFD08A"/></svg>' +
-    '<span aria-hidden="true">Cal</span></div>';
+  return '<img class="wordmark" src="' + WORDMARK + '" alt="LoCal" draggable="false" style="height:' + (fs * 0.7381).toFixed(1) + 'px;' + (style || '') + '">';
 }
 
 /* ---------- Goal calculator ---------- */

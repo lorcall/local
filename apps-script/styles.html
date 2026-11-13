@@ -285,6 +285,9 @@ button.cta:has(.spin),button[disabled].cta:has(.spin){background:var(--g);color:
 @media (prefers-reduced-motion:reduce){.spin{animation:spin 2.4s linear infinite!important}}
 .demo{font-size:11px;color:var(--a);text-align:center;padding:6px 12px;border-radius:10px;box-shadow:inset 2px 2px 4px var(--lo),inset -2px -2px 4px var(--hi)}
 /* the one line under the logo that says what LoCal is */
+/* the logo, wordmark and tagline are pictures: a long press or double tap doesn't select them */
+.nosel,.tagline,.boot{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.wordmark{display:block;width:auto;max-width:none;user-select:none;-webkit-user-select:none;-webkit-user-drag:none;-webkit-touch-callout:none;pointer-events:none}
 .tagline{font-size:15px;font-weight:400;color:var(--soft);letter-spacing:.01em;text-align:center}
 .boot{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;color:var(--mu);font-size:14px}
 
