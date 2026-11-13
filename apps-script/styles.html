@@ -202,11 +202,12 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .dot.on{background:var(--a);box-shadow:0 0 6px var(--a)}
 .dot.over{background:var(--ov)}
 .dot.none{box-shadow:inset 0 0 0 1px var(--mu)}
-.hm{aspect-ratio:1;border-radius:50%}
-.hm.on{background:var(--a);box-shadow:0 0 8px -1px var(--a)}
-.hm.over{background:var(--ov);opacity:.5}
-.hm.none{box-shadow:inset 2px 2px 4px var(--lo),inset -2px -2px 4px var(--hi)}
-.hm.today{box-shadow:inset 0 0 0 2px var(--a)}
+.hm{aspect-ratio:1;border-radius:50%;display:grid;place-items:center;box-shadow:inset 2px 2px 4px var(--lo),inset -2px -2px 4px var(--hi)}
+/* every day is a divot; a logged day's colour is poured into it, shaded on its inner edge so it sits below the surface */
+.hm i{width:70%;height:70%;border-radius:50%}
+.hm.on i{background:var(--a);box-shadow:inset 2px 2px 4px rgba(120,70,0,.55),inset -1px -1px 2px rgba(255,220,160,.45),0 0 8px -2px var(--a)}
+.hm.over i{background:#8E4F49;box-shadow:inset 2px 2px 4px rgba(40,10,10,.5),inset -1px -1px 2px rgba(255,180,170,.25)}
+.hm.today{box-shadow:inset 0 0 0 2px var(--a),inset 2px 2px 4px var(--lo),inset -2px -2px 4px var(--hi)}
 .hm.fut{opacity:.25;box-shadow:inset 1px 1px 2px var(--lo),inset -1px -1px 2px var(--hi)}
 .dd{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px}
 .dd.on{background:var(--a);color:var(--oa);box-shadow:0 0 10px -2px var(--a)}

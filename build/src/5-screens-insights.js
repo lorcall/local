@@ -227,8 +227,8 @@ SCREENS.consistency = () => {
   const pct = last30.length ? Math.round(last30.filter(d => measure === 'kcal' ? within10(d) : dayStatus(d, measure) === 'on').length / last30.length * 100) : 0;
   const wb = weekBounds(t), start = addDays(wb.start, -28);
   const cells = rangeDays(start, wb.end).map(d => {
-    const cls = d > t ? 'fut' : d === t ? (dayStatus(d, measure) === 'on' ? 'on' : 'today') : dayStatus(d, measure);
-    return '<div class="hm ' + cls + '" title="' + shortDay(d) + '"></div>';
+    const cls = d > t ? 'fut' : d === t ? (dayStatus(d, measure) === 'on' ? 'on today' : 'today') : dayStatus(d, measure);
+    return '<div class="hm ' + cls + '" title="' + shortDay(d) + '">' + (/^(on|over)/.test(cls) ? '<i></i>' : '') + '</div>';
   }).join('');
   const sw = rangeDays(addDays(t, -13), addDays(t, -1));
   const vals = sw.map(d => ({d, v: totalsOn(d)[M.v], tg: num(targetFor(d)[M.t]), l: logged(d) && num(targetFor(d)[M.t]) > 0}));
@@ -247,7 +247,7 @@ SCREENS.consistency = () => {
     '<div><div class="num" style="font-size:24px;line-height:1.2">' + pct + '%</div><div class="cap">' + (measure === 'kcal' ? 'of days within 10% of target in 30 days' : 'of days on ' + name + ' target in 30 days') + '</div></div></div></section>' +
     '<section class="raised r24" style="padding:14px 16px;display:flex;flex-direction:column;gap:10px"><div class="between"><h2 class="sec15">Last 5 weeks</h2><span class="cap">' + (weekStart() ? 'Mon to Sun' : 'Sun to Sat') + '</span></div>' +
     '<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px" role="img" aria-label="Days on ' + name + ' target over the last 5 weeks">' + cells + '</div>' +
-    '<div class="row cap" style="gap:14px;flex-wrap:wrap"><span class="row" style="gap:5px"><span class="hm on" style="width:8px"></span>On target</span><span class="row" style="gap:5px"><span class="hm over" style="width:8px"></span>' + (goal ? 'Under' : 'Over') + '</span><span class="row" style="gap:5px"><span class="hm none" style="width:8px"></span>Nothing logged</span></div></section>' +
+    '<div class="row cap" style="gap:14px;flex-wrap:wrap"><span class="row" style="gap:5px"><span class="hm on" style="width:12px"><i></i></span>On target</span><span class="row" style="gap:5px"><span class="hm over" style="width:12px"><i></i></span>' + (goal ? 'Under' : 'Over') + '</span><span class="row" style="gap:5px"><span class="hm none" style="width:12px"></span>Nothing logged</span></div></section>' +
     '<section class="raised r24" style="padding:14px 16px;display:flex;flex-direction:column;gap:8px"><div class="between"><h2 class="sec15">Day-to-day swing</h2><span class="cap">last 13 days</span></div>' +
     '<svg width="100%" viewBox="0 0 ' + W + ' ' + Hh + '" role="img" aria-label="Daily ' + u + ' against a band of 10 percent around the target. Median distance ' + fmt(med) + ' ' + u + '.">' +
     '<rect x="0" y="' + (Hh / 2 - bandH).toFixed(1) + '" width="' + W + '" height="' + (bandH * 2).toFixed(1) + '" rx="8" fill="#F5A524" fill-opacity=".1"/><line x1="0" y1="' + Hh / 2 + '" x2="' + W + '" y2="' + Hh / 2 + '" stroke="#A2A7B6" stroke-dasharray="4 4"/>' + pts + '</svg>' +
