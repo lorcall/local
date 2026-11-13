@@ -89,7 +89,8 @@ const DATA = {
     await page.setInputFiles('#galIn', path.join(ROOT, 'icons', 'icon-192.png')); await page.waitForTimeout(700);
     await page.click('[data-a=analyze]'); await page.waitForTimeout(1000);
   };
-  const pill = () => page.evaluate(() => { const p = document.getElementById('syncpill'); return p && !p.hidden ? p.dataset.state + ': ' + p.textContent : 'hidden'; });
+  // what's on screen, not just the flag: a styled element can ignore 'hidden'
+  const pill = () => page.evaluate(() => { const p = document.getElementById('syncpill'); return p && getComputedStyle(p).display !== 'none' ? p.dataset.state + ': ' + p.textContent : 'hidden'; });
   const mealsToday = () => page.evaluate(() => mealsOn(today()).length);
   await page.waitForTimeout(800);
   const start = await mealsToday();
@@ -116,8 +117,10 @@ const DATA = {
   await page.waitForFunction(() => { const p = document.getElementById('syncpill'); return p && p.dataset.state === 'done'; }, null, {timeout: 15000});
   check(/^done: Saved/.test(await pill()), 'then says saved (' + await pill() + ')');
   check(NET.uploads === 1 && NET.appends === 1, 'the photo went up once and the meal was written once (' + NET.uploads + ', ' + NET.appends + ')');
-  await page.waitForTimeout(2200);
-  check(await pill() === 'hidden', 'the pill goes away by itself');
+  await page.waitForTimeout(1000);
+  check(/^done: Saved/.test(await pill()), 'it stays a moment so it can be read');
+  await page.waitForTimeout(1300);
+  check(await pill() === 'hidden', 'then actually disappears from the screen');
 
   // 3. delete is instant too
   const id = await page.evaluate(() => mealsOn(today()).slice(-1)[0].meal_id);

@@ -255,6 +255,8 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .toast{position:fixed;left:50vw;transform:translateX(-50%);bottom:calc(100px + env(safe-area-inset-bottom));z-index:60;padding:12px 18px;border-radius:16px;font-size:14px;max-width:calc(min(100vw,430px) - 40px);display:flex;gap:14px;align-items:center;animation:up .2s ease-out}
 /* background-save status: a small pill where toasts appear; it doesn't block taps around it */
 .syncpill{position:fixed;left:50vw;transform:translateX(-50%);bottom:calc(100px + env(safe-area-inset-bottom));z-index:55;height:34px;padding:0 14px;border-radius:17px;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--soft);white-space:nowrap;max-width:calc(min(100vw,430px) - 40px);animation:up .18s ease-out}
+.syncpill[hidden]{display:none}
+.syncpill.out{opacity:0;transition:opacity .3s ease}
 .syncpill.notab{bottom:auto;top:calc(12px + env(safe-area-inset-top));animation-name:down}
 .syncpill span{overflow:hidden;text-overflow:ellipsis}
 .syncpill button{color:var(--a);font-weight:600;font-size:13px;padding:0 2px 0 6px;height:34px}
