@@ -775,7 +775,9 @@ function calorieDial(eaten, target, o = {}) {
     : '<g opacity=".45">' + arc(220, 88, 5, 1, COLOR.a) + '</g><g style="filter:drop-shadow(0 0 7px ' + COLOR.ov + ')">' + arc(220, 88, 6, Math.min(1, -left / target), COLOR.ov, {cls: o.animate ? 'arcdraw' : ''}) + '</g>' +
       '<line x1="110" y1="15" x2="110" y2="29" stroke="' + COLOR.ov + '" stroke-width="3" stroke-linecap="round"/>';
   return '<div class="dial raised" style="width:220px;height:220px;box-shadow:12px 12px 24px var(--lo),-10px -10px 22px var(--hi)">' +
-    '<div class="well" style="width:192px;height:192px;box-shadow:inset 4px 4px 8px var(--lo),inset -4px -4px 8px var(--hi)"><div class="glasscore" style="width:160px;height:160px">' +
+    '<div class="well" style="width:192px;height:192px;background:#1C1E24;box-shadow:inset 6px 6px 10px #0E0F12,inset -4px -4px 8px #353844,inset 0 0 0 1px rgba(0,0,0,.35)">' +
+    // the groove floor is darker than the surface; the glass centre keeps the surface colour under its sheen
+    '<div class="glasscore" style="width:160px;height:160px;background:linear-gradient(rgba(255,255,255,.05),rgba(255,255,255,.05)),var(--g);box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 0 0 1px rgba(0,0,0,.25),3px 3px 8px rgba(0,0,0,.35)">' +
     '<div class="num" style="font-size:50px;letter-spacing:-.04em;' + (over ? 'color:var(--ov)' : '') + '">' + fmt(Math.abs(left)) + '</div>' +
     '<div class="cap13" style="margin-top:2px' + (over ? ';color:var(--ov)' : '') + '">' + (over ? 'kcal over' : o.past ? 'kcal under' : 'kcal left') + '</div></div></div>' +
     '<svg class="arc" width="220" height="220" viewBox="0 0 220 220" role="img" aria-label="' + label + '">' + arcs + '</svg></div>';
