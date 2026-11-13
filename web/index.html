@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client 'sha256-bHlriZDZrBFx8d3ND4UrsgJeAGEyfRYjAlpQTq9rNZQ=' 'sha256-H2ZB6xeEuixyWMBfqsTOeVp7h2h9lLo4syzUJcBd6V0='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com/gsi/style; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://www.googleapis.com https://sheets.googleapis.com https://script.google.com https://script.googleusercontent.com https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client 'sha256-bHlriZDZrBFx8d3ND4UrsgJeAGEyfRYjAlpQTq9rNZQ=' 'sha256-CCguhuYncwHAz5c+kYtW+uEb5g/2oLOIyAON0EZj7mg='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com/gsi/style; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://www.googleapis.com https://sheets.googleapis.com https://script.google.com https://script.googleusercontent.com https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/; object-src 'none'; base-uri 'none'; form-action 'none'">
   <!-- viewport-fit=cover lets the app paint under the status bar; the inset rule below
        keeps content clear of it. This is what the Apps Script build could never do, because
        its page is wrapped in a Google frame whose meta tags are not ours to set. -->
@@ -29,7 +29,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geologica:wght@200..700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=244e494d">
+  <link rel="stylesheet" href="styles.css?v=5b8d79f8">
   <style>
     /* The stylesheet already accounts for the bottom inset on the tab bar, toasts and menus,
        so only the top needs adding here, and only once installed: in Safari the browser's own
@@ -58,7 +58,7 @@
   <div id="app"><!--boot--><div class="boot"><div class="nosel" style="position:relative;width:96px;height:96px;border-radius:24px;background:linear-gradient(145deg,var(--lt-a,#2A2D36),var(--lt-b,#1F2128));box-shadow:14px 14px 28px var(--lo),-12px -12px 24px var(--hi),inset 0 1px 0 var(--lt-sheen,rgba(255,255,255,.06));display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="74" height="74" viewBox="0 0 120 120" role="img" aria-label="LoCal app icon"><defs><linearGradient id="lw" x1="0" y1="0" x2="1" y2="1"><stop class="lt-s1" offset="0" stop-color="#16171C"/><stop class="lt-s2" offset="1" stop-color="#30333D"/></linearGradient><filter id="lg" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><circle cx="60" cy="60" r="47" fill="url(#lw)"/><circle class="lt-face" cx="60" cy="60" r="43" fill="#23252D"/><circle class="lt-groove" cx="60" cy="60" r="34" fill="none" stroke="#17181D" stroke-width="8"/><circle class="lt-core" cx="60" cy="60" r="18" fill="#FFFFFF" fill-opacity=".06" stroke="#FFFFFF" stroke-opacity=".16"/></svg><span class="spinglow logospin"><span class="spin" style="--s:46.9px;--t:4.9px"></span></span></div><span>Opening your log</span></div><!--/boot--></div>
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="api.js?v=244e494d"></script>
+  <script src="api.js?v=5b8d79f8"></script>
   <script>
   /* The app bundle boots itself and asks for data straight away, so it is only loaded once a
      token exists. Signing in first also means the Google popup opens from a real tap, which
@@ -116,7 +116,7 @@
     function loadApp() {
       loading('Opening your log');
       const s = document.createElement('script');
-      s.src = 'app.js?v=244e494d';
+      s.src = 'app.js?v=5b8d79f8';
       s.onerror = () => gate('The app didn\'t load. Check your connection and try again.', '', () => location.reload(), 'Reload');
       document.body.appendChild(s);
     }
