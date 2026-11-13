@@ -193,7 +193,14 @@ function demoBadge() { return S.meta.demo ? '<div class="demo">Preview with samp
 /* ---------- photos: thumbnails load on demand, never with the rest of the data ---------- */
 const hasPhoto = m => !!(m && (m.has_thumb || m.thumb || m.photo_url));
 let thumbQueue = new Set();
-function thumbEl(m, size, extra) {
+/* A copied meal shares its original's photo but, before this was fixed, not its thumbnail:
+   such a meal shows the thumbnail of a meal with the same photo. */
+function thumbSource(m) {
+  if (m.thumb || m.source !== 'copy' || !m.photo_url) return m;
+  return S.data.meals.find(x => x.photo_url === m.photo_url && x.source !== 'copy') || m;
+}
+function thumbEl(m0, size, extra) {
+  const m = Object.assign({}, m0, (() => { const t = thumbSource(m0); return t === m0 ? {} : {meal_id: t.meal_id, has_thumb: t.has_thumb, thumb: t.thumb}; })());
   const id = m.meal_id, src = S.photos[id];
   if (src === undefined && (m.has_thumb || m.thumb)) { if (m.thumb) S.photos[id] = m.thumb; else thumbQueue.add(id); }
   const raw = S.photos[id], url = raw == null ? raw : (safeImg(raw) || false);

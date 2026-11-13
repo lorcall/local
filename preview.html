@@ -931,7 +931,14 @@ function demoBadge() { return S.meta.demo ? '<div class="demo">Preview with samp
 /* ---------- photos: thumbnails load on demand, never with the rest of the data ---------- */
 const hasPhoto = m => !!(m && (m.has_thumb || m.thumb || m.photo_url));
 let thumbQueue = new Set();
-function thumbEl(m, size, extra) {
+/* A copied meal shares its original's photo but, before this was fixed, not its thumbnail:
+   such a meal shows the thumbnail of a meal with the same photo. */
+function thumbSource(m) {
+  if (m.thumb || m.source !== 'copy' || !m.photo_url) return m;
+  return S.data.meals.find(x => x.photo_url === m.photo_url && x.source !== 'copy') || m;
+}
+function thumbEl(m0, size, extra) {
+  const m = Object.assign({}, m0, (() => { const t = thumbSource(m0); return t === m0 ? {} : {meal_id: t.meal_id, has_thumb: t.has_thumb, thumb: t.thumb}; })());
   const id = m.meal_id, src = S.photos[id];
   if (src === undefined && (m.has_thumb || m.thumb)) { if (m.thumb) S.photos[id] = m.thumb; else thumbQueue.add(id); }
   const raw = S.photos[id], url = raw == null ? raw : (safeImg(raw) || false);
@@ -1970,9 +1977,16 @@ async function addToMealToday(type, entries, source, toastVerb) {
   toast((toastVerb || 'Added to') + ' ' + lc1(type) + (d === today() ? '' : ', ' + dayLabel(d)));
 }
 const savedText = (verb, meal) => verb + ' ' + lc1(meal.meal_type) + (meal.date === today() ? '' : ', ' + dayLabel(meal.date));
+/* the thumbnail a copy of m should carry: already on screen, or fetched once */
+async function thumbOf(m) {
+  const t = thumbSource(m), key = t.meal_id;
+  if (typeof S.photos[key] === 'string' && safeImg(S.photos[key])) return S.photos[key];
+  if (!t.has_thumb && !t.thumb) return '';
+  try { const map = await API.getThumbs([key]); return safeImg((map || {})[key]); } catch (e) { return ''; }
+}
 async function copyMealTo(id, day, type) {
   const m = S.data.meals.find(x => x.meal_id === id); if (!m) return;
-  const nm = Object.assign({}, m, {meal_id: uid('meal'), date: day, time: day === today() ? nowHM() : m.time, meal_type: type || m.meal_type, source: 'copy'});
+  const nm = Object.assign({}, m, {meal_id: uid('meal'), date: day, time: day === today() ? nowHM() : m.time, meal_type: type || m.meal_type, source: 'copy', thumb: await thumbOf(m)});
   await persistMeal(nm, copyItems(id, nm.meal_id));
 }
 function csvData() {
@@ -2168,9 +2182,9 @@ const A = {
     const id = el.dataset.v, m = S.data.meals.find(x => x.meal_id === id); if (!m) return;
     menu({title: 'Copy ' + lc1(m.meal_type), items: [
       {label: 'Add again today', fn: async () => { try { await copyMealTo(id, today()); S.ui.day = null; home('Copied to today\'s ' + lc1(m.meal_type)); } catch (e) { toast(friendly(e)); } }},
-      {label: 'Copy to another date or meal', primary: true, fn: () => {
+      {label: 'Copy to another date or meal', primary: true, fn: async () => {
         S.ui.openSwipe = null; const L = logState(); L.date = viewDay(); L.time = m.time; L.timeAuto = false;
-        const meal = newMeal(m.meal_type, {source: 'copy', note: m.note, photo_url: m.photo_url});
+        const meal = newMeal(m.meal_type, {source: 'copy', note: m.note, photo_url: m.photo_url, thumb: await thumbOf(m)});
         S.draft = {mode: 'new', source: 'copy', meal, items: copyItems(id, meal.meal_id), ai: null}; go('review');
         setTimeout(() => { const f = document.getElementById('draft-date'); if (f) { f.scrollIntoView({block: 'center'}); f.focus({preventScroll: true}); } }, 60);
       }}]});
@@ -2261,9 +2275,9 @@ const A = {
     const type = logState().meal_type;
     try { await addToMealToday(type, copyItems(el.dataset.v, ''), 'copy', 'Copied to'); } catch (e) { toast(friendly(e)); }
   },
-  copyChange: el => {
+  copyChange: async el => {
     const m = S.data.meals.find(x => x.meal_id === el.dataset.v); if (!m) return;
-    const meal = newMeal(logState().meal_type, {source: 'copy', note: m.note, thumb: m.thumb, photo_url: m.photo_url});
+    const meal = newMeal(logState().meal_type, {source: 'copy', note: m.note, thumb: await thumbOf(m), photo_url: m.photo_url});
     S.draft = {mode: 'new', source: 'copy', meal, items: copyItems(m.meal_id, meal.meal_id), ai: null}; go('review');
   },
 
