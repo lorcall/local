@@ -33,10 +33,10 @@ SCREENS.history = () => {
       (meals.length ? meals.map(m => '<div class="row" style="gap:10px"><button class="row grow" data-a="editMeal" data-v="' + esc(m.meal_id) + '" style="gap:12px;text-align:left;min-width:0">' + thumbEl(m) +
         '<span class="grow" style="min-width:0"><span class="cap" style="display:block">' + esc(m.meal_type) + ', ' + time12(m.time) + '</span><span style="display:block;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(mealName(m)) + '</span></span>' +
         '<span class="num" style="font-size:14px">' + fmt(mealKcal(m)) + '</span></button>' +
-        (d === t ? '' : '<button class="raised-sm" data-a="copyToToday" data-v="' + esc(m.meal_id) + '" aria-label="Add this meal to today" style="height:34px;padding:0 10px;border-radius:11px;font-size:12px;color:var(--a);flex-shrink:0">Add to today</button>') + '</div>').join('')
+        (d === t ? '' : '<button class="raised-sm" data-a="copyToToday" data-v="' + esc(m.meal_id) + '" aria-label="Add this meal to today" style="height:34px;padding:0 10px;border-radius:11px;font-size:12px;color:var(--link);flex-shrink:0">Add to today</button>') + '</div>').join('')
         : '<p class="cap" style="margin:0">Nothing logged on this day.</p>') + '</div>';
     return '<div class="hrow ' + (open ? 'open pressed-sm' : 'raised-sm') + (has ? '' : ' empty') + '">' +
-      '<button class="mrow" data-a="hPick" data-d="' + d + '" aria-expanded="' + open + '"' + (open ? ' aria-controls="hp-' + d + '"' : '') + '><span class="grow"><span style="display:block;font-size:15px' + (d === sel ? ';color:var(--a)' : '') + '">' + name + '</span>' +
+      '<button class="mrow" data-a="hPick" data-d="' + d + '" aria-expanded="' + open + '"' + (open ? ' aria-controls="hp-' + d + '"' : '') + '><span class="grow"><span style="display:block;font-size:15px' + (d === sel ? ';color:var(--link)' : '') + '">' + name + '</span>' +
       '<span class="cap" style="display:block' + (st === 'over' && has ? ';color:var(--ov)' : '') + '">' + sub + '</span></span>' + (has ? '<span style="font-size:15px">' + fmt(tt.kcal) + '</span>' : '') +
       '<span class="mu chev">' + icon('next', 16, 2) + '</span></button>' + panel + '</div>';
   };
@@ -69,7 +69,7 @@ SCREENS.day = () => {
     '<section class="col" style="gap:12px">' + (meals.length ? meals.map(m =>
       '<div class="raised-md r20 row" style="padding:12px"><button class="row grow" data-a="editMeal" data-v="' + esc(m.meal_id) + '" style="gap:12px;text-align:left;min-width:0">' + thumb(m) +
       '<span class="grow" style="min-width:0"><span class="cap" style="display:block">' + esc(m.meal_type) + ', ' + time12(m.time) + '</span><span style="display:block;font-size:15px">' + esc(mealName(m)) + '</span><span class="cap" style="display:block">' + fmt(mealKcal(m)) + ' kcal</span></span></button>' +
-      (isToday ? '' : '<button class="raised-sm" data-a="copyToToday" data-v="' + esc(m.meal_id) + '" style="height:36px;padding:0 12px;border-radius:12px;font-size:12px;color:var(--a);flex-shrink:0">Add to today</button>') + '</div>').join('')
+      (isToday ? '' : '<button class="raised-sm" data-a="copyToToday" data-v="' + esc(m.meal_id) + '" style="height:36px;padding:0 12px;border-radius:12px;font-size:12px;color:var(--link);flex-shrink:0">Add to today</button>') + '</div>').join('')
       : '<p class="cap" style="text-align:center">Nothing logged on this day.</p>') + '</section>' +
     '<p class="cap" style="line-height:1.5">Tap a meal to edit or delete it.' + (isToday ? '' : ' Adding to today copies its saved values without a new photo analysis.') + '</p></div>';
 };
@@ -104,7 +104,7 @@ SCREENS.trends = () => {
   const tgNow = num(targetFor(to).kcal), H = 118, many = days.length > 10;
   const bars = days.map(d => {
     const k = totalsOn(d).kcal, h = clamp(k / maxK, 0, 1) * (H - 6), st = dayStatus(d);
-    const style = d === t ? 'background:repeating-linear-gradient(135deg,#F5A524 0 3px,transparent 3px 8px);opacity:.55' : st === 'over' ? 'background:var(--ov);box-shadow:0 0 14px -2px var(--ov)' : 'background:var(--a);box-shadow:0 0 14px -2px var(--a)';
+    const style = d === t ? 'background:repeating-linear-gradient(135deg,var(--a) 0 3px,transparent 3px 8px);opacity:.55' : st === 'over' ? 'background:var(--ov);box-shadow:0 0 14px -2px var(--ov)' : 'background:var(--a);box-shadow:0 0 14px -2px var(--a)';
     return '<div class="trk' + (many ? ' thin' : '') + '" style="height:' + H + 'px" title="' + shortDay(d) + ': ' + fmt(k) + ' kcal"><div style="height:' + (k ? Math.max(4, h) : 0).toFixed(0) + 'px;' + style + '"></div></div>';
   }).join('');
   // The target line follows the target history: each day's segment sits at the target in effect
@@ -141,7 +141,7 @@ SCREENS.trends = () => {
   };
   const targetLine = '<div aria-hidden="true" style="position:absolute;top:0;bottom:0;left:4px;right:4px;display:flex;gap:' + G + 'px;pointer-events:none;z-index:1">' + tgs.map(stepCell).join('') + '</div>';
   const targetText = runs.length === 1 ? 'a target of ' + fmt(tgNow) + ' kcal' : 'your daily target, ' + runs.map(r => fmt(r.k) + ' kcal from ' + MON3[parseDay(days[r.s]).getMonth()] + ' ' + parseDay(days[r.s]).getDate()).join(', then ');
-  const labels = days.map((d, i) => '<span style="flex:1;min-width:0;' + (d === t ? 'color:var(--a);font-weight:600' : '') + '">' + (!many ? WD3[parseDay(d).getDay()][0] : (i % 5 === 0 || d === t) ? parseDay(d).getDate() : '') + '</span>').join('');
+  const labels = days.map((d, i) => '<span style="flex:1;min-width:0;' + (d === t ? 'color:var(--ai);font-weight:600' : '') + '">' + (!many ? WD3[parseDay(d).getDay()][0] : (i % 5 === 0 || d === t) ? parseDay(d).getDate() : '') + '</span>').join('');
   const diffs = done.map(d => ({d, x: totalsOn(d).kcal - num(targetFor(d).kcal)}));
   const closest = diffs.slice().sort((a, b) => Math.abs(a.x) - Math.abs(b.x))[0], furthest = diffs.slice().sort((a, b) => Math.abs(b.x) - Math.abs(a.x))[0];
   const dlab = o => o ? WD3[parseDay(o.d).getDay()] + (many ? ' ' + parseDay(o.d).getDate() : '') + ', ' + fmt(Math.abs(o.x)) + (o.x > 0 ? ' over' : ' under') : '—';
@@ -203,7 +203,7 @@ SCREENS.weekly = () => {
       stat('Weight', n.w0 != null && n.w1 != null && n.w0 !== n.w1 ? fmtSigned(n.w1 - n.w0, 1) + ' kg' : '—', n.w0 != null ? fmt(n.w0, 1) + ' to ' + fmt(n.w1, 1) + ' kg' : 'No weigh-ins') + '</div>' +
       '<div class="row" style="gap:12px;font-size:13px"><div class="pressed-sm r16" style="flex:1;padding:10px 12px"><div class="cap">Closest day</div><div>' + dayK(n.closest) + '</div></div>' +
       '<div class="pressed-sm r16" style="flex:1;padding:10px 12px"><div class="cap">Furthest day</div><div' + (n.furthest && dayStatus(n.furthest) === 'over' ? ' class="ov"' : '') + '>' + dayK(n.furthest) + '</div></div></div>' +
-      '<section class="glass-soft r24" style="padding:16px;display:flex;flex-direction:column;gap:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.1),8px 8px 18px var(--lo)">' +
+      '<section class="glass-soft r24" style="padding:16px;display:flex;flex-direction:column;gap:12px;box-shadow:inset 0 1px 0 var(--sheen-line),8px 8px 18px var(--lo)">' +
       '<div class="between"><h2 class="sec15">Summary</h2><span class="cap">Written by the AI from your numbers</span></div>' +
       (S.ui.sumBusy ? '<div class="row cap13"><span class="spinglow"><span class="spin"></span></span>Writing a summary</div>' : saved ? '<p style="font-size:14px;line-height:1.55;color:var(--soft)">' + esc(saved.text) + '</p><div class="col" style="gap:8px;font-size:14px;line-height:1.45">' + (saved.suggestions || []).map(s => '<div class="row" style="gap:10px;align-items:flex-start"><span class="bul"></span><span>' + esc(s) + '</span></div>').join('') + '</div>'
         : '<p class="cap13">No summary for this week yet.</p>') +
@@ -271,7 +271,7 @@ SCREENS.consistency = () => {
     '<div class="row cap" style="gap:14px;flex-wrap:wrap"><span class="row" style="gap:5px"><span class="hm on" style="width:12px"><i></i></span>On target</span><span class="row" style="gap:5px"><span class="hm over" style="width:12px"><i></i></span>' + (goal ? 'Under' : 'Over') + '</span><span class="row" style="gap:5px"><span class="hm none" style="width:12px"></span>Nothing logged</span></div></section>' +
     '<section class="raised r24" style="padding:14px 16px;display:flex;flex-direction:column;gap:8px"><div class="between"><h2 class="sec15">Day-to-day swing</h2><span class="cap">last 13 days</span></div>' +
     '<svg width="100%" viewBox="0 0 ' + W + ' ' + Hh + '" role="img" aria-label="Daily ' + u + ' against a band of 10 percent around the target. Median distance ' + fmt(med) + ' ' + u + '.">' +
-    '<rect x="0" y="' + (Hh / 2 - bandH).toFixed(1) + '" width="' + W + '" height="' + (bandH * 2).toFixed(1) + '" rx="8" fill="#F5A524" fill-opacity=".1"/><line x1="0" y1="' + Hh / 2 + '" x2="' + W + '" y2="' + Hh / 2 + '" stroke="#A2A7B6" stroke-dasharray="4 4"/>' + pts + '</svg>' +
+    '<rect x="0" y="' + (Hh / 2 - bandH).toFixed(1) + '" width="' + W + '" height="' + (bandH * 2).toFixed(1) + '" rx="8" fill="' + COLOR.a + '" fill-opacity=".1"/><line x1="0" y1="' + Hh / 2 + '" x2="' + W + '" y2="' + Hh / 2 + '" stroke="' + COLOR.mu + '" stroke-dasharray="4 4"/>' + pts + '</svg>' +
     '<div style="font-size:13px;line-height:1.45;color:var(--soft)">' + (lg.length ? 'Most days sit within ' + fmt(Math.round(med / step) * step) + ' ' + u + ' of your target.' + (misses.length >= 2 ? (wkMiss / misses.length >= 0.5 ? ' The misses cluster on weekends.' : ' The misses are spread across the week.') : '') : 'Log a few days to see your swing.') + '</div></section></div>';
 };
 
@@ -306,16 +306,16 @@ SCREENS.weight = () => {
     const path = ser.map((x, i) => (i ? 'L' : 'M') + X(x.date) + ' ' + Y(x.kg)).join('');
     const ticks = [hi - pad, (hi + lo) / 2, lo + pad];
     chart = '<svg width="100%" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Estimated weight from ' + fmt(ser[0].kg, 1) + ' kilograms on ' + mon(d0) + ' to ' + fmt(now, 1) + ' today, with ' + plural(pts.length, 'weigh-in') + '.">' +
-      '<g stroke="#2F323C" stroke-width="1">' + ticks.map(v => '<line x1="' + x0 + '" y1="' + Y(v) + '" x2="' + W + '" y2="' + Y(v) + '"/>').join('') + '</g>' +
-      '<g fill="#A2A7B6" font-size="10" font-family="inherit" text-anchor="end">' + ticks.map(v => '<text x="' + (x0 - 6) + '" y="' + (+Y(v) + 3.5) + '">' + fmt(v, 1) + '</text>').join('') + '</g>' +
-      (goal && goal >= lo && goal <= hi ? '<line x1="' + x0 + '" y1="' + Y(goal) + '" x2="' + W + '" y2="' + Y(goal) + '" stroke="#7BE5C4" stroke-opacity=".7" stroke-dasharray="4 5"/><text x="' + W + '" y="' + (+Y(goal) - 5) + '" fill="#7BE5C4" font-size="10" text-anchor="end">Goal ' + fmt(goal, 1) + '</text>' : '') +
-      '<path d="' + path + '" stroke="#F5A524" stroke-opacity=".05" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="' + path + '" stroke="#F5A524" stroke-opacity=".08" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="' + path + '" stroke="#F5A524" stroke-opacity=".14" stroke-width="6.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>' +
-      '<path d="' + path + '" stroke="#F5A524" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>' +
-      '<g fill="#ECEDF2">' + pts.map(w => '<circle cx="' + X(w.date) + '" cy="' + Y(w.kg) + '" r="3.5" fill-opacity=".85"/>').join('') + '</g>' +
-      '<circle cx="' + X(t) + '" cy="' + Y(now) + '" r="5" fill="#FFD08A"/>' +
-      '<g fill="#A2A7B6" font-size="10"><text x="' + x0 + '" y="' + (H - 4) + '">' + mon(d0) + '</text><text x="' + x1 + '" y="' + (H - 4) + '" text-anchor="end">Today</text></g></svg>' +
+      '<g stroke="' + COLOR.grid + '" stroke-width="1">' + ticks.map(v => '<line x1="' + x0 + '" y1="' + Y(v) + '" x2="' + W + '" y2="' + Y(v) + '"/>').join('') + '</g>' +
+      '<g fill="' + COLOR.mu + '" font-size="10" font-family="inherit" text-anchor="end">' + ticks.map(v => '<text x="' + (x0 - 6) + '" y="' + (+Y(v) + 3.5) + '">' + fmt(v, 1) + '</text>').join('') + '</g>' +
+      (goal && goal >= lo && goal <= hi ? '<line x1="' + x0 + '" y1="' + Y(goal) + '" x2="' + W + '" y2="' + Y(goal) + '" stroke="' + COLOR.p + '" stroke-opacity=".7" stroke-dasharray="4 5"/><text x="' + W + '" y="' + (+Y(goal) - 5) + '" fill="' + COLOR.p + '" font-size="10" text-anchor="end">Goal ' + fmt(goal, 1) + '</text>' : '') +
+      '<path d="' + path + '" stroke="' + COLOR.a + '" stroke-opacity=".05" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="' + path + '" stroke="' + COLOR.a + '" stroke-opacity=".08" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="' + path + '" stroke="' + COLOR.a + '" stroke-opacity=".14" stroke-width="6.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<path d="' + path + '" stroke="' + COLOR.a + '" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<g fill="' + COLOR.dot + '">' + pts.map(w => '<circle cx="' + X(w.date) + '" cy="' + Y(w.kg) + '" r="3.5" fill-opacity=".85"/>').join('') + '</g>' +
+      '<circle cx="' + X(t) + '" cy="' + Y(now) + '" r="5" fill="' + COLOR.knob + '"/>' +
+      '<g fill="' + COLOR.mu + '" font-size="10"><text x="' + x0 + '" y="' + (H - 4) + '">' + mon(d0) + '</text><text x="' + x1 + '" y="' + (H - 4) + '" text-anchor="end">Today</text></g></svg>' +
       '<div class="row cap" style="gap:14px;flex-wrap:wrap"><span class="row" style="gap:6px"><span style="width:14px;height:3px;border-radius:2px;background:var(--a)"></span>Estimate</span>' +
-      '<span class="row" style="gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:#ECEDF2"></span>Weigh-ins</span></div>';
+      '<span class="row" style="gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:var(--dot)"></span>Weigh-ins</span></div>';
   }
 
   // what the estimate is saying, in plain words
@@ -346,7 +346,7 @@ SCREENS.weight = () => {
     '<input class="fld sm" data-in="wNote" value="' + esc(S.ui.wNote != null ? S.ui.wNote : (ed ? ed.note || '' : '')) + '" placeholder="Note, optional" aria-label="Note for this weigh-in" style="font-size:14px">' +
     '<div class="row" style="gap:10px">' + (ed ? '<button class="raised-sm" data-a="wCancel" style="height:44px;padding:0 16px;border-radius:14px;font-size:14px;color:var(--mu)">Cancel</button><button class="raised-sm" data-a="wDelete" style="height:44px;padding:0 16px;border-radius:14px;font-size:14px;color:var(--ov)">Delete</button>' : '') +
     '<button class="cta btn-sm grow" data-a="saveWeight" style="height:44px">' + (ed ? 'Save changes' : 'Add weigh-in') + '</button></div></div>';
-  const rows = shown.map(w => '<div class="sep"></div><button class="row" data-a="wEdit" data-v="' + esc(w.date) + '" aria-label="Change the weigh-in on ' + shortDay(w.date) + '" style="min-height:46px;font-size:14px;text-align:left;gap:10px' + (ed && ed.date === w.date ? ';color:var(--a)' : '') + '">' +
+  const rows = shown.map(w => '<div class="sep"></div><button class="row" data-a="wEdit" data-v="' + esc(w.date) + '" aria-label="Change the weigh-in on ' + shortDay(w.date) + '" style="min-height:46px;font-size:14px;text-align:left;gap:10px' + (ed && ed.date === w.date ? ';color:var(--link)' : '') + '">' +
     '<span class="grow" style="min-width:0">' + shortDay(w.date) + (w.note ? ' <span class="cap">' + esc(w.note) + '</span>' : '') + '</span><span class="num">' + fmt(w.kg, 1) + ' kg</span><span class="mu" style="display:flex">' + icon('next', 14, 2) + '</span></button>').join('') +
     (list.length > shown.length ? '<div class="sep"></div><button data-a="wAll" class="mango" style="height:40px;font-size:14px">Show all ' + list.length + '</button>' : '');
 

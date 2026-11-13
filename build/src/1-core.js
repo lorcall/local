@@ -57,7 +57,32 @@ const CATEGORY_LABEL = {'staple': 'Rice, bread and noodles', 'meat and fish': 'M
 const UNITS = ['g', 'cup', 'bowl', 'piece'];
 const UNIT_LABEL = {g: 'Grams', cup: 'Cup', bowl: 'Bowl', piece: 'Piece'};
 const ACTIVITY = [['Desk job', 1.2], ['Light', 1.375], ['Moderate', 1.55], ['Very active', 1.725]];
-const COLOR = {p: '#7BE5C4', c: '#F5A524', f: '#A495FF', ov: '#FF7A6B', a: '#F5A524', mu: '#A2A7B6', lo: '#15161B', hi: '#2F323C'};
+const COLOR = {p: '#7BE5C4', c: '#F5A524', f: '#A495FF', f2: '#B9AEFF', ov: '#FF7A6B', a: '#F5A524', mu: '#A2A7B6', lo: '#15161B', hi: '#2F323C',
+  track: '#15161B', grid: '#2F323C', dot: '#ECEDF2', knob: '#FFD08A', neutral: '#D6D8E0'};
+/* Themes: the stylesheet holds each palette (Default, Light, Dark). SVG drawings take plain colours
+   (Safari doesn't reliably resolve CSS variables in SVG attributes), so COLOR is refreshed from the
+   stylesheet whenever the theme changes, and every redraw uses the current values. */
+const THEMES = ['Default', 'Light', 'Dark'], THEME_KEY = 'local-theme-v1';
+function themeColors() {
+  try {
+    const cs = getComputedStyle(document.documentElement);
+    Object.keys(COLOR).forEach(k => { const v = cs.getPropertyValue('--' + k).trim(); if (v) COLOR[k] = v; });
+  } catch (e) { /* no stylesheet yet: keep the Default values */ }
+}
+function cachedTheme() { try { return localStorage.getItem(THEME_KEY) || 'Default'; } catch (e) { return 'Default'; } }
+const currentTheme = () => { const t = S.data && S.data.settings && S.data.settings.theme; return THEMES.includes(t) ? t : cachedTheme(); };
+function applyTheme(t, ease) {
+  t = THEMES.includes(t) ? t : 'Default';
+  const root = document.documentElement, v = t.toLowerCase();
+  if (ease) { root.classList.add('theming'); setTimeout(() => root.classList.remove('theming'), 450); }
+  if (v === 'default') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', v);
+  try { localStorage.setItem(THEME_KEY, t); } catch (e) { /* the Sheet has it anyway */ }
+  // the browser's own bar colour follows the ground
+  const g = { default: '#23252D', light: '#E4E7ED', dark: '#141519' }[v];
+  document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute('content', g));
+  themeColors();
+  return t;
+}
 const DEFAULT_TARGET = {effective_date: '2000-01-01', kcal: 1900, protein_g: 120, carbs_g: 210, fat_g: 63, fiber_min_g: 25, sugar_max_g: 50, sodium_max_mg: 2300};
 const KCAL_PER_KG = 7700;
 

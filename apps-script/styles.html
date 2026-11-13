@@ -11,7 +11,54 @@
      the full window including any scrollbar, like the column itself, so nothing moves when one appears. */
   --glow:radial-gradient(circle 380px at calc(50vw + min(50vw,215px) - 20px) 0,rgba(245,165,36,.16),rgba(245,165,36,0)),
     radial-gradient(circle 345px at calc(50vw - min(50vw,215px)) 82%,rgba(164,149,255,.12),rgba(164,149,255,0));
+  /* roles: --ai is mango used as text for what matters (selection, today, key figures); --link is
+     for secondary actions and links. In Default both are mango; Light and Dark keep mango for the
+     important things only. The rest name surfaces the dials and charts draw with. */
+  --ai:var(--a); --link:var(--a);
+  --track:#15161B; --track2:#17181D; --grid:#2F323C; --dot:#ECEDF2; --knob:#FFD08A; --neutral:#D6D8E0;
+  --floor:#1C1E24; --floor-lo:#0E0F12; --floor-hi:#353844; --floor-edge:rgba(0,0,0,.35);
+  --sheen:rgba(255,255,255,.05); --sheen-line:rgba(255,255,255,.1); --sheen-top:rgba(255,255,255,.12); --edge:rgba(0,0,0,.25); --drop:rgba(0,0,0,.35);
+  --glass:rgba(35,37,45,.7); --glass-solid:rgba(35,37,45,.94); --glass-drop:rgba(0,0,0,.7);
+  --th:#2B2E37; --ph:#8A8FA0; --fut:#6B7080; --knob-off:#3A3D48; --over-fill:#8E4F49;
+  --wm-dark:block; --wm-light:none;
 }
+/* Dark: for night. A deeper, quieter graphite, softer embossing, text a touch dimmer so it
+   doesn't glare, and the glows turned down; mango only where it matters. */
+:root[data-theme="dark"]{
+  --g:#141519; --hi:#1E2026; --lo:#07080A;
+  --tx:#DADCE3; --mu:#8C91A0; --soft:#C2C5CE;
+  --a:#F5A524; --a2:#FFD08A; --oa:#1E1606;
+  --p:#6CD1B3; --c:#F0A12A; --f:#978AEE; --f2:#ABA0F2; --ov:#F07264;
+  --ai:#EFA63C; --link:#DADCE3;
+  --glow:radial-gradient(circle 380px at calc(50vw + min(50vw,215px) - 20px) 0,rgba(245,165,36,.07),rgba(245,165,36,0)),
+    radial-gradient(circle 345px at calc(50vw - min(50vw,215px)) 82%,rgba(164,149,255,.05),rgba(164,149,255,0));
+  --track:#0A0B0D; --track2:#0C0D10; --grid:#212329; --dot:#C8CBD3; --knob:#FFD08A; --neutral:#B9BCC6;
+  --floor:#0F1013; --floor-lo:#040405; --floor-hi:#24262D; --floor-edge:rgba(0,0,0,.5);
+  --sheen:rgba(255,255,255,.035); --sheen-line:rgba(255,255,255,.07); --sheen-top:rgba(255,255,255,.08); --edge:rgba(0,0,0,.4); --drop:rgba(0,0,0,.5);
+  --glass:rgba(20,21,25,.74); --glass-solid:rgba(20,21,25,.95); --glass-drop:rgba(0,0,0,.8);
+  --th:#1C1E24; --ph:#757A88; --fut:#555A67; --knob-off:#2A2D35; --over-fill:#7A4540;
+}
+/* Light: daylight neumorphism. A pale cool-grey ground that throws white highlights and grey
+   shadows, so raised and pressed still read; mango stays the fill of buttons and arcs, and turns a
+   deep amber when it has to be read as text. */
+:root[data-theme="light"]{
+  color-scheme:light;
+  --g:#E4E7ED; --hi:#FFFFFF; --lo:#BCC3CF;
+  --tx:#22262F; --mu:#646C7D; --soft:#3A404D;
+  --a:#F5A524; --a2:#C97A08; --oa:#2A1600;
+  --p:#1E9E79; --c:#E8930C; --f:#6E5BE8; --f2:#7F6EEA; --ov:#DC4C39;
+  --ai:#A35F00; --link:#22262F;
+  --glow:radial-gradient(circle 380px at calc(50vw + min(50vw,215px) - 20px) 0,rgba(245,165,36,.14),rgba(245,165,36,0)),
+    radial-gradient(circle 345px at calc(50vw - min(50vw,215px)) 82%,rgba(110,91,232,.08),rgba(110,91,232,0));
+  --track:#D0D6DF; --track2:#CDD3DC; --grid:#D3D8E0; --dot:#4A5160; --knob:#F5A524; --neutral:#5C6475;
+  --floor:#D9DDE5; --floor-lo:#AEB6C3; --floor-hi:#FFFFFF; --floor-edge:rgba(120,130,150,.25);
+  --sheen:rgba(255,255,255,.45); --sheen-line:rgba(255,255,255,.7); --sheen-top:rgba(255,255,255,.9); --edge:rgba(120,130,150,.22); --drop:rgba(120,130,150,.35);
+  --glass:rgba(240,242,246,.78); --glass-solid:rgba(240,242,246,.96); --glass-drop:rgba(80,90,110,.28);
+  --th:#D6DBE3; --ph:#7A8293; --fut:#A3AAB8; --knob-off:#C5CCD7; --over-fill:#E39B92;
+  --wm-dark:none; --wm-light:block;
+}
+/* while the theme changes, colours ease across instead of snapping */
+:root.theming *,:root.theming *::before{transition:background-color .35s ease,color .35s ease,box-shadow .35s ease,border-color .35s ease,fill .35s ease,stroke .35s ease!important}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
 /* The ground and its two glows belong to the page, not the 430px column, so on a tablet or
@@ -23,9 +70,9 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 body{font-family:var(--font);color:var(--tx);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
 button,input,textarea,select{font-family:inherit;font-size:inherit;color:inherit}
 button{cursor:pointer;border:0;background:none;padding:0}
-a{color:var(--a);text-decoration:none;cursor:pointer}
-a:hover{color:var(--a2)}
-:where(button,a,input,textarea,select,[tabindex]):focus-visible{outline:2px solid var(--a);outline-offset:3px}
+a{color:var(--link);text-decoration:none;cursor:pointer}
+a:hover{color:var(--ai)}
+:where(button,a,input,textarea,select,[tabindex]):focus-visible{outline:2px solid var(--ai);outline-offset:3px}
 h1,h2,h3,p{margin:0}
 [tabindex="-1"]:focus{outline:none}
 .sr{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -45,7 +92,7 @@ h1,h2,h3,p{margin:0}
 .cap13{font-size:13px;color:var(--mu)}
 .mu{color:var(--mu)}
 .ov{color:var(--ov)}
-.mango{color:var(--a)}
+.mango{color:var(--link)}
 .title{font-size:26px;font-weight:500;line-height:1.15}
 .title22{font-size:22px;font-weight:500;line-height:1.2}
 .sec{font-size:17px;font-weight:500}
@@ -59,9 +106,9 @@ h1,h2,h3,p{margin:0}
 .raised-md{background:var(--g);box-shadow:5px 5px 10px var(--lo),-5px -5px 10px var(--hi)}
 .pressed{background:var(--g);box-shadow:inset 5px 5px 10px var(--lo),inset -5px -5px 10px var(--hi)}
 .pressed-sm{background:var(--g);box-shadow:inset 3px 3px 6px var(--lo),inset -3px -3px 6px var(--hi)}
-.glass{background:rgba(35,37,45,.7);border:1px solid rgba(255,255,255,.12);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 20px 30px -10px rgba(0,0,0,.7)}
-@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.glass{background:rgba(35,37,45,.94)}}
-.glass-soft{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1)}
+.glass{background:var(--glass);border:1px solid var(--sheen-top);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);box-shadow:inset 0 1px 0 var(--sheen-top),0 20px 30px -10px var(--glass-drop)}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.glass{background:var(--glass-solid)}}
+.glass-soft{background:var(--sheen);border:1px solid var(--sheen-line)}
 .cta{background:var(--a);color:var(--oa);box-shadow:6px 6px 14px var(--lo),-5px -5px 12px var(--hi),0 0 26px -8px var(--a),inset 0 1px 0 rgba(255,255,255,.35)}
 .cta:hover{color:var(--oa)}
 .sep{height:2px;border-radius:1px;box-shadow:inset 1px 1px 2px var(--lo),inset -1px -1px 2px var(--hi)}
@@ -75,18 +122,18 @@ h1,h2,h3,p{margin:0}
 
 /* buttons */
 .btn{height:56px;border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;width:100%}
-.btn2{height:50px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500;color:var(--a);width:100%}
+.btn2{height:50px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500;color:var(--link);width:100%}
 .btn-sm{height:44px;padding:0 16px;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:600}
 .ib{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:var(--g);box-shadow:4px 4px 8px var(--lo),-4px -4px 8px var(--hi);color:var(--tx)}
-.ib.m{color:var(--a)}
+.ib.m{color:var(--link)}
 .ib44{width:44px;height:44px}
 .ib40{width:40px;height:40px}
-.st{width:40px;height:40px;border-radius:50%;color:var(--a);font-size:18px;background:var(--g);box-shadow:3px 3px 6px var(--lo),-3px -3px 6px var(--hi);flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.st{width:40px;height:40px;border-radius:50%;color:var(--link);font-size:18px;background:var(--g);box-shadow:3px 3px 6px var(--lo),-3px -3px 6px var(--hi);flex-shrink:0;display:flex;align-items:center;justify-content:center}
 .st.l{width:44px;height:44px;font-size:20px;box-shadow:4px 4px 8px var(--lo),-4px -4px 8px var(--hi)}
 .st[disabled]{opacity:.45;cursor:default}
-.add{width:40px;height:40px;flex-shrink:0;border-radius:12px;color:var(--a);font-size:20px;background:var(--g);box-shadow:3px 3px 6px var(--lo),-3px -3px 6px var(--hi);display:flex;align-items:center;justify-content:center}
+.add{width:40px;height:40px;flex-shrink:0;border-radius:12px;color:var(--link);font-size:20px;background:var(--g);box-shadow:3px 3px 6px var(--lo),-3px -3px 6px var(--hi);display:flex;align-items:center;justify-content:center}
 .add.w{width:auto;padding:0 16px;font-size:14px;font-weight:600}
-.lnk{font-size:13px;color:var(--a)}
+.lnk{font-size:13px;color:var(--link)}
 button[disabled].cta{opacity:.55;cursor:default}
 /* a CTA with nothing to do yet: a plain greyed button, not dimmed mango */
 button[disabled].cta.idle{opacity:1;background:var(--g);color:var(--mu);box-shadow:4px 4px 8px var(--lo),-4px -4px 8px var(--hi)}
@@ -100,20 +147,20 @@ select.fld{appearance:none;-webkit-appearance:none;padding-right:36px;background
 .pill{height:34px;padding:0 12px;border-radius:11px;font-size:13px;display:inline-flex;align-items:center}
 select.pill{appearance:none;-webkit-appearance:none;border:0;padding:0 30px 0 12px;background:var(--g) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23A2A7B6' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center;box-shadow:inset 3px 3px 6px var(--lo),inset -3px -3px 6px var(--hi)}
 .lb{font-size:12px;color:var(--mu)}
-input::placeholder,textarea::placeholder{color:#8A8FA0}
+input::placeholder,textarea::placeholder{color:var(--ph)}
 input[type=number]{-moz-appearance:textfield}
 input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 
 /* selection: chips (pressed when selected) and tracks (raised when selected) */
 .chips{display:flex;gap:8px}
 .chip{flex:1;height:40px;border-radius:14px;font-size:13px;color:var(--mu);background:var(--g);box-shadow:4px 4px 8px var(--lo),-4px -4px 8px var(--hi);white-space:nowrap;padding:0 8px}
-.chip[aria-checked=true],.chip[aria-selected=true]{color:var(--a);font-weight:600;box-shadow:none}
+.chip[aria-checked=true],.chip[aria-selected=true]{color:var(--ai);font-weight:600;box-shadow:none}
 .chips.scroll{overflow-x:auto;margin:0 -20px;padding:4px 20px 8px;scrollbar-width:none}
 .chips.scroll::-webkit-scrollbar{display:none}
 .chips.scroll .chip{flex:0 0 auto;height:36px;padding:0 14px;border-radius:12px}
 .track{display:flex;gap:4px;padding:4px;border-radius:16px;background:var(--g);box-shadow:inset 3px 3px 6px var(--lo),inset -3px -3px 6px var(--hi)}
 .track button{flex:1;height:36px;border-radius:12px;font-size:13px;color:var(--mu);padding:0 10px;white-space:nowrap}
-.track button[aria-checked=true],.track button[aria-selected=true]{color:var(--a);font-weight:500}
+.track button[aria-checked=true],.track button[aria-selected=true]{color:var(--ai);font-weight:500}
 /* The selection in a chip row (a pressed well) or a track (a raised tile) is one element that
    stretches from choice to choice (see selMotion). It paints over the chips' faces and under
    their labels: buttons stay unpositioned so their label spans can sit above it. */
@@ -126,7 +173,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 
 /* switch */
 .sw{width:52px;height:30px;border-radius:15px;padding:3px;display:flex;justify-content:flex-start;flex-shrink:0;box-shadow:inset 3px 3px 6px var(--lo),inset -3px -3px 6px var(--hi);transition:none}
-.sw .knob{width:24px;height:24px;border-radius:50%;background:#3A3D48;box-shadow:2px 2px 4px var(--lo);transition:transform .12s ease}
+.sw .knob{width:24px;height:24px;border-radius:50%;background:var(--knob-off);box-shadow:2px 2px 4px var(--lo);transition:transform .12s ease}
 .sw[aria-checked=true]{justify-content:flex-end}
 .sw[aria-checked=true] .knob{background:var(--a);box-shadow:0 0 10px -2px var(--a)}
 
@@ -137,7 +184,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .glow5{filter:drop-shadow(0 0 5px var(--a))}
 .glow4{filter:drop-shadow(0 0 4px var(--a))}
 .well{border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:inset 6px 6px 12px var(--lo),inset -6px -6px 12px var(--hi)}
-.glasscore{border-radius:50%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);box-shadow:inset 0 1px 0 rgba(255,255,255,.12);display:flex;flex-direction:column;align-items:center;justify-content:center}
+.glasscore{border-radius:50%;background:var(--sheen);border:1px solid var(--sheen-line);box-shadow:inset 0 1px 0 var(--sheen-top);display:flex;flex-direction:column;align-items:center;justify-content:center}
 .arcdraw{animation:arcdraw .6s ease-out both}
 @keyframes arcdraw{from{stroke-dasharray:0 1000}}
 
@@ -149,7 +196,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 /* content scrolling underneath fades into the ground, so the bar stays sunken without an outer shadow */
 .tabfade{position:fixed;left:0;right:0;bottom:0;height:calc(126px + env(safe-area-inset-bottom));background:linear-gradient(to bottom,rgba(35,37,45,0),var(--g) 44px);z-index:19;pointer-events:none}
 .nb{transition:box-shadow .12s ease,color .12s ease}
-.nb[aria-current=page]{color:var(--a)}
+.nb[aria-current=page]{color:var(--ai)}
 /* the raised tile under the current tab: one element that stretches from tab to tab (see tabMotion) */
 .tabbar .nb{position:relative;z-index:1}
 .tabbar .fab{position:relative;z-index:2}
@@ -167,7 +214,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .swipe{position:relative;border-radius:18px;overflow:hidden;box-shadow:4px 4px 8px var(--lo),-4px -4px 8px var(--hi);transition:box-shadow .18s ease}
 .swipe.open,.swipe.dragging,.swipe:has(.acts:focus-within){box-shadow:inset 4px 4px 8px var(--lo),inset -4px -4px 8px var(--hi)}
 .swipe .acts{position:absolute;right:8px;top:0;bottom:0;display:flex;align-items:center;gap:8px}
-.swipe .acts .ib{width:44px;height:44px;color:var(--a)}
+.swipe .acts .ib{width:44px;height:44px;color:var(--link)}
 .swipe .acts .ib.del{color:var(--ov)}
 .swipe .front{position:relative;background:var(--g);transition:transform .18s ease;touch-action:pan-y}
 .swipe.open .front,.swipe .acts:focus-within+.front{transform:translateX(-158px);box-shadow:6px 0 12px var(--lo)}
@@ -182,7 +229,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .cdots span.on{background:var(--a);box-shadow:0 0 6px var(--a)}
 .cdots span.low{background:var(--ov);box-shadow:0 0 6px var(--ov)}
 .cdots.s span{width:8px;height:8px}
-.tag{font-size:11px;color:var(--a);border-radius:8px;padding:2px 7px;box-shadow:inset 2px 2px 3px var(--lo),inset -2px -2px 3px var(--hi);white-space:nowrap;font-weight:400}
+.tag{font-size:11px;color:var(--ai);border-radius:8px;padding:2px 7px;box-shadow:inset 2px 2px 3px var(--lo),inset -2px -2px 3px var(--hi);white-space:nowrap;font-weight:400}
 .lrow{display:flex;align-items:center;gap:12px;padding:8px 8px 8px 14px;min-height:56px}
 .v{border-radius:14px;padding:8px 10px;box-shadow:inset 3px 3px 6px var(--lo),inset -3px -3px 6px var(--hi)}
 .v .vl{font-size:11px;color:var(--mu)}
@@ -200,10 +247,10 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .trk.thin>div{border-radius:4px}
 .tile{border-radius:18px;padding:12px 14px;display:flex;align-items:center;gap:10px;color:var(--tx);font-size:14px;min-height:50px}
 .tile:hover{color:var(--tx)}
-.th{width:46px;height:46px;border-radius:14px;flex-shrink:0;box-shadow:inset 2px 2px 4px var(--lo),inset -2px -2px 4px var(--hi);background:#2B2E37 center/cover no-repeat;display:flex;align-items:center;justify-content:center;color:var(--mu)}
+.th{width:46px;height:46px;border-radius:14px;flex-shrink:0;box-shadow:inset 2px 2px 4px var(--lo),inset -2px -2px 4px var(--hi);background:var(--th) center/cover no-repeat;display:flex;align-items:center;justify-content:center;color:var(--mu)}
 .day{height:40px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:13px;color:var(--tx)}
-.day.fut{color:#6B7080}
-.day.today{color:var(--a);font-weight:600}
+.day.fut{color:var(--fut)}
+.day.today{color:var(--ai);font-weight:600}
 .day.sel{box-shadow:inset 3px 3px 6px var(--lo),inset -3px -3px 6px var(--hi);font-weight:600}
 /* History's week of days: one opens in place like a drawer */
 .hrow{border-radius:18px}
@@ -223,14 +270,14 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 /* every day is a divot; a logged day's colour is poured into it, shaded on its inner edge so it sits below the surface */
 .hm i{width:70%;height:70%;border-radius:50%}
 .hm.on i{background:var(--a);box-shadow:inset 2px 2px 4px rgba(120,70,0,.55),inset -1px -1px 2px rgba(255,220,160,.45),0 0 8px -2px var(--a)}
-.hm.over i{background:#8E4F49;box-shadow:inset 2px 2px 4px rgba(40,10,10,.5),inset -1px -1px 2px rgba(255,180,170,.25)}
+.hm.over i{background:var(--over-fill);box-shadow:inset 2px 2px 4px rgba(40,10,10,.5),inset -1px -1px 2px rgba(255,180,170,.25)}
 .hm.today{box-shadow:inset 0 0 0 2px var(--a),inset 2px 2px 4px var(--lo),inset -2px -2px 4px var(--hi)}
 .hm.fut{opacity:.25;box-shadow:inset 1px 1px 2px var(--lo),inset -1px -1px 2px var(--hi)}
 .dd{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px}
 .dd.on{background:var(--a);color:var(--oa);box-shadow:0 0 10px -2px var(--a)}
 .dd.over{color:var(--ov);box-shadow:inset 0 0 0 1.5px var(--ov)}
 .dd.none{color:var(--mu);box-shadow:inset 3px 3px 6px var(--lo),inset -3px -3px 6px var(--hi)}
-.rk{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--a);box-shadow:inset 2px 2px 4px var(--lo),inset -2px -2px 4px var(--hi)}
+.rk{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--ai);box-shadow:inset 2px 2px 4px var(--lo),inset -2px -2px 4px var(--hi)}
 .bul{width:6px;height:6px;margin-top:8px;border-radius:50%;flex-shrink:0;background:var(--a);box-shadow:0 0 6px var(--a)}
 .dialmove{transition:transform .2s ease,opacity .2s ease}
 /* swipe zones: vertical scrolling stays with the page, sideways drags step the period */
@@ -263,7 +310,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .syncpill.out{opacity:0;transition:opacity .3s ease}
 .syncpill.notab{bottom:auto;top:calc(12px + env(safe-area-inset-top));animation-name:down}
 .syncpill span{overflow:hidden;text-overflow:ellipsis}
-.syncpill button{color:var(--a);font-weight:600;font-size:13px;padding:0 2px 0 6px;height:34px}
+.syncpill button{color:var(--link);font-weight:600;font-size:13px;padding:0 2px 0 6px;height:34px}
 .syncpill[data-state=error]{color:var(--tx)}
 .toast.notab{bottom:auto;top:calc(16px + env(safe-area-inset-top));animation-name:down}
 @keyframes down{from{transform:translate(-50%,-16px);opacity:0}}
@@ -283,13 +330,14 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .logospin{position:absolute;inset:0;margin:auto;width:fit-content;height:fit-content;display:flex}
 .spinglow{display:inline-flex;filter:drop-shadow(0 0 5px rgba(245,165,36,.7))}
 /* a mango button that's working presses into the ground, so the mango spinner shows */
-button.cta:has(.spin),button[disabled].cta:has(.spin){background:var(--g);color:var(--a);box-shadow:inset 4px 4px 8px var(--lo),inset -4px -4px 8px var(--hi);opacity:1}
+button.cta:has(.spin),button[disabled].cta:has(.spin){background:var(--g);color:var(--ai);box-shadow:inset 4px 4px 8px var(--lo),inset -4px -4px 8px var(--hi);opacity:1}
 @keyframes spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.spin{animation:spin 2.4s linear infinite!important}}
-.demo{font-size:11px;color:var(--a);text-align:center;padding:6px 12px;border-radius:10px;box-shadow:inset 2px 2px 4px var(--lo),inset -2px -2px 4px var(--hi)}
+.demo{font-size:11px;color:var(--ai);text-align:center;padding:6px 12px;border-radius:10px;box-shadow:inset 2px 2px 4px var(--lo),inset -2px -2px 4px var(--hi)}
 /* the one line under the logo that says what LoCal is */
 /* the logo, wordmark and tagline are pictures: a long press or double tap doesn't select them */
 .nosel,.tagline,.boot{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.wordmark.on-light{display:var(--wm-light)}.wordmark.on-dark{display:var(--wm-dark)}
 .wordmark{display:block;width:auto;max-width:none;user-select:none;-webkit-user-select:none;-webkit-user-drag:none;-webkit-touch-callout:none;pointer-events:none}
 .tagline{font-size:15px;font-weight:400;color:var(--soft);letter-spacing:.01em;text-align:center}
 .boot{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;color:var(--mu);font-size:14px}

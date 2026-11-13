@@ -40,7 +40,7 @@ function overlays() {
     (S.viewer.loading ? '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><span class="spinglow"><span class="spin" style="--s:40px;--t:5px"></span></span></div>' : '') + '</div>' +
     (S.viewer.msg ? '<p class="cap13" style="text-align:center">' + esc(S.viewer.msg) + '</p>' : '') +
     '<button class="raised-sm" data-a="closeViewer" style="height:46px;padding:0 22px;border-radius:16px;font-size:15px">Close</button></div></div>';
-  if (S.toast) h += '<div class="toast glass' + (TABS.includes(route().name) ? '' : ' notab') + '" role="status"><span>' + esc(S.toast.text) + '</span>' + (S.toast.undo ? '<button data-a="undo" style="color:var(--a);font-weight:600">Undo</button>' : '') + '</div>';
+  if (S.toast) h += '<div class="toast glass' + (TABS.includes(route().name) ? '' : ' notab') + '" role="status"><span>' + esc(S.toast.text) + '</span>' + (S.toast.undo ? '<button data-a="undo" style="color:var(--link);font-weight:600">Undo</button>' : '') + '</div>';
   return h;
 }
 let toastTimer = null;
@@ -696,6 +696,14 @@ const A = {
   },
 
   syncRetry: () => syncRun(),
+  // Default, Light or Dark: applied at once, kept in the Sheet's Settings (and on the device, so the
+  // next open starts in it before the Sheet has loaded)
+  setTheme: el => {
+    const t = el.dataset.v; if (!THEMES.includes(t) || t === currentTheme()) return;
+    applyTheme(t, true); S.data.settings.theme = t;
+    queueJob({kind: 'settings', values: {theme: t}, label: 'theme'});
+    render();
+  },
   // leave a new entry without saving anything: back to wherever logging started
   discardDraft: () => {
     S.draft = null; S.label = null; S.log = null; S.edit = null;
@@ -945,6 +953,7 @@ async function boot() {
     // saves still waiting from last time: show them as made, then finish them
     SYNC.jobs = syncLoad(); SYNC.jobs.forEach(syncApplyLocal);
     seedWeight();
+    applyTheme(currentTheme());
     if (SYNC.jobs.length) setTimeout(syncRun, 300);
     if (setting('onboarded', '') !== 'yes') S.stack = [{name: 'welcome', p: {}}];
     render();

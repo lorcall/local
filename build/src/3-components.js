@@ -63,9 +63,9 @@ function calorieDial(eaten, target, o = {}) {
     : '<g opacity=".45">' + arc(220, 88, 5, 1, COLOR.a) + '</g>' + arc(220, 88, 6, Math.min(1, -left / target), COLOR.ov, {cls: o.animate ? 'arcdraw' : '', glow: 7}) +
       '<line x1="110" y1="191" x2="110" y2="205" stroke="' + COLOR.ov + '" stroke-width="3" stroke-linecap="round"/>';
   return '<div class="dial raised" style="width:220px;height:220px;box-shadow:12px 12px 24px var(--lo),-10px -10px 22px var(--hi)">' +
-    '<div class="well" style="width:192px;height:192px;background:#1C1E24;box-shadow:inset 6px 6px 10px #0E0F12,inset -4px -4px 8px #353844,inset 0 0 0 1px rgba(0,0,0,.35)">' +
+    '<div class="well" style="width:192px;height:192px;background:var(--floor);box-shadow:inset 6px 6px 10px var(--floor-lo),inset -4px -4px 8px var(--floor-hi),inset 0 0 0 1px var(--floor-edge)">' +
     // the groove floor is darker than the surface; the glass centre keeps the surface colour under its sheen
-    '<div class="glasscore" style="width:160px;height:160px;background:linear-gradient(rgba(255,255,255,.05),rgba(255,255,255,.05)),var(--g);box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 0 0 1px rgba(0,0,0,.25),3px 3px 8px rgba(0,0,0,.35)">' +
+    '<div class="glasscore" style="width:160px;height:160px;background:linear-gradient(var(--sheen),var(--sheen)),var(--g);box-shadow:inset 0 1px 0 var(--sheen-top),0 0 0 1px var(--edge),3px 3px 8px var(--drop)">' +
     '<div class="num" style="font-size:50px;letter-spacing:-.04em;' + (over ? 'color:var(--ov)' : '') + '">' + fmt(Math.abs(left)) + '</div>' +
     '<div class="cap13" style="margin-top:2px' + (over ? ';color:var(--ov)' : '') + '">' + (over ? 'kcal over' : o.past ? 'kcal under' : 'kcal left') + '</div></div></div>' +
     '<svg class="arc" width="220" height="220" viewBox="0 0 220 220" role="img" aria-label="' + label + '">' + arcs + '</svg></div>';
@@ -74,7 +74,7 @@ function calorieDial(eaten, target, o = {}) {
 /* a ring that turns coral past its limit: fill to the limit, then a coral arc for the excess */
 function limitRing(size, r, sw, val, lim, color, track) {
   const frac = lim > 0 ? val / lim : 0, c = size / 2;
-  let s = '<circle cx="' + c + '" cy="' + c + '" r="' + r + '" fill="none" stroke="' + (track || '#15161B') + '" stroke-width="' + sw + '"/>';
+  let s = '<circle cx="' + c + '" cy="' + c + '" r="' + r + '" fill="none" stroke="' + (track || COLOR.track) + '" stroke-width="' + sw + '"/>';
   if (frac <= 1) return s + (frac > 0 ? arc(size, r, sw, frac, color) : '');
   return s + '<g opacity=".5">' + arc(size, r, sw, 1, color) + '</g>' + arc(size, r, sw, Math.min(1, frac - 1), COLOR.ov, {glow: 4});
 }
@@ -99,7 +99,7 @@ function macroDial(label, val, target, color) {
 /* small tiles for sugar, fiber and sodium; fiber is a minimum, so it never turns coral */
 function microDial(label, val, lim, unit, isMin) {
   const over = !isMin && lim > 0 && val > lim;
-  const ring = isMin ? limitRing(36, 14, 4, Math.min(val, lim), lim, COLOR.p) : limitRing(36, 14, 4, val, lim, '#D6D8E0');
+  const ring = isMin ? limitRing(36, 14, 4, Math.min(val, lim), lim, COLOR.p) : limitRing(36, 14, 4, val, lim, COLOR.neutral);
   return '<div class="raised-sm r16" style="flex:1;min-width:0;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:4px" role="img" aria-label="' + label + ' ' + fmt(val) + ' of ' + fmt(lim) + ' ' + (unit === 'mg' ? 'milligrams' : 'grams') + (isMin ? ' minimum' : ' limit') + (over ? ', over' : '') + '">' +
     '<svg width="30" height="30" viewBox="0 0 36 36" aria-hidden="true">' + ring + '</svg>' +
     '<div style="font-size:12px;white-space:nowrap' + (over ? ';color:var(--ov)' : '') + '">' + fmt(val) + '<span style="font-weight:300;color:' + (over ? 'var(--ov)' : 'var(--mu)') + '"> / ' + fmt(lim) + ' ' + unit + '</span></div>' +
@@ -119,7 +119,7 @@ function macroRing(t, size, r, sw, gap, center, aria) {
     const s = '<circle cx="' + c + '" cy="' + c + '" r="' + r + '" fill="none" stroke="' + col + '" stroke-width="' + sw + '" stroke-linecap="' + (gap ? 'round' : 'butt') + '" stroke-dasharray="' + L.toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="' + (-off).toFixed(1) + '" transform="rotate(90 ' + c + ' ' + c + ')"/>';
     off += L + gap; return s;
   }).join('');
-  return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" role="img" aria-label="' + esc(aria || ('Protein ' + Math.round(sh.p * 100) + ' percent, carbs ' + Math.round(sh.c * 100) + ' percent, fat ' + Math.round(sh.f * 100) + ' percent')) + '"' + (center ? ' style="position:absolute;left:0;top:0"' : '') + '>' + (arcs || '<circle cx="' + c + '" cy="' + c + '" r="' + r + '" fill="none" stroke="#15161B" stroke-width="' + sw + '"/>') + '</svg>';
+  return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" role="img" aria-label="' + esc(aria || ('Protein ' + Math.round(sh.p * 100) + ' percent, carbs ' + Math.round(sh.c * 100) + ' percent, fat ' + Math.round(sh.f * 100) + ' percent')) + '"' + (center ? ' style="position:absolute;left:0;top:0"' : '') + '>' + (arcs || '<circle cx="' + c + '" cy="' + c + '" r="' + r + '" fill="none" stroke="' + COLOR.track + '" stroke-width="' + sw + '"/>') + '</svg>';
 }
 
 const CONF_TEXT = {high: 'High confidence', medium: 'Medium confidence', low: 'Low confidence'};
@@ -191,7 +191,7 @@ function mealRow(m) {
 }
 
 /* simple sparkle-free empty icon tile */
-function iconWell(n) { return '<span class="pressed-sm" style="width:40px;height:40px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--a)">' + icon(n, 18) + '</span>'; }
+function iconWell(n) { return '<span class="pressed-sm" style="width:40px;height:40px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--link)">' + icon(n, 18) + '</span>'; }
 
 function demoBadge() { return S.meta.demo ? '<div class="demo">Preview with sample data. Deploy to Apps Script to use your own Sheet and Gemini.</div>' : ''; }
 

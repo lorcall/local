@@ -29,9 +29,10 @@ function logoTile(px, loading) {
 /* The LoCal wordmark is a picture (icons/wordmark.png, embedded by the build), drawn once from
    Geologica and the dial: it can't be selected, dragged or broken by a missing font or a style
    change. fs is the font size it stands in for; the picture is 0.738 of that tall. */
-const WORDMARK = '__WORDMARK_PNG__';
+const WORDMARK = '__WORDMARK_PNG__', WORDMARK_LIGHT = '__WORDMARK_LIGHT_PNG__';
 function wordmark(fs, style) {
-  return '<img class="wordmark" src="' + WORDMARK + '" alt="LoCal" draggable="false" style="height:' + (fs * 0.7381).toFixed(1) + 'px;' + (style || '') + '">';
+  const img = (src, cls, alt) => '<img class="wordmark ' + cls + '" src="' + src + '" alt="' + alt + '" draggable="false" style="height:' + (fs * 0.7381).toFixed(1) + 'px;' + (style || '') + '">';
+  return img(WORDMARK, 'on-dark', 'LoCal') + img(WORDMARK_LIGHT, 'on-light', '');   // the stylesheet shows one, for the theme's ground
 }
 
 /* ---------- Goal calculator ---------- */
@@ -67,7 +68,7 @@ SCREENS.goals = () => {
     '<div class="between"><span class="mu">' + (g.delta < 0 ? 'Daily deficit' : g.delta > 0 ? 'Daily surplus' : 'Daily change') + '</span><span>' + fmtSigned(g.delta) + '</span></div>' +
     (keep ? '' : '<div class="between"><span class="mu">Reach ' + fmt(p.target_weight, 1) + ' kg in</span><span style="white-space:nowrap">about ' + plural(g.weeks, 'week') + '</span></div>') +
     '</div></div><div class="row" style="gap:10px">' +
-    [['Protein', g.protein, COLOR.p], ['Carbs', g.carbs, COLOR.c], ['Fat', g.fat, '#B9AEFF']].map(([l, v, c]) => '<div class="pressed-sm r14" style="flex:1;padding:8px 10px"><div style="font-size:11px;color:' + c + '">' + l + '</div><div style="font-size:16px">' + fmt(v) + ' g</div></div>').join('') +
+    [['Protein', g.protein, COLOR.p], ['Carbs', g.carbs, COLOR.c], ['Fat', g.fat, COLOR.f2]].map(([l, v, c]) => '<div class="pressed-sm r14" style="flex:1;padding:8px 10px"><div style="font-size:11px;color:' + c + '">' + l + '</div><div style="font-size:16px">' + fmt(v) + ' g</div></div>').join('') +
     '</div></section>' +
     '<button class="cta btn" data-a="useTargets">Use these targets</button>' +
     '<p class="cap" style="text-align:center;line-height:1.5">Estimated with the Mifflin-St Jeor formula. A starting point, not medical advice.</p></div>';
@@ -140,6 +141,8 @@ SCREENS.settings = () => {
     '<p class="cap" style="padding:0 4px">Google sets the free limits and can change them. Meals and foods you add again from search don\'t use the AI.</p>' +
     h13('Preferences') +
     '<section class="raised r22 col" style="padding:6px 16px">' +
+    '<div class="row" style="min-height:58px;font-size:14px;gap:12px"><span class="grow">Theme</span>' + track('setTheme', THEMES, currentTheme(), 'Theme', {tight: true}) + '</div>' +
+    '<p class="cap" style="margin:-4px 0 10px;line-height:1.45">Saved to your Sheet, so it follows you to any device.</p><div class="sep"></div>' +
     '<div class="row" style="min-height:50px;font-size:14px"><span class="grow">Units</span><span class="pressed-sm pill">kg and cm</span></div><div class="sep"></div>' +
     '<div class="row" style="min-height:50px;font-size:14px"><span class="grow">Week starts on</span>' + sel('week_start', ['Monday', 'Sunday'], setting('week_start', 'Monday'), 'Week starts on') + '</div></section>' +
     '<button class="raised-sm btn2" data-a="csv">Download all data as CSV</button>' +
@@ -164,7 +167,7 @@ SCREENS.today = () => {
     '<header class="col" style="gap:10px"><div class="between" style="align-items:center">' + wordmark(22, 'color:var(--tx)') +
     '<button class="ib m" data-a="tab" data-v="history" aria-label="Pick a date">' + icon('calendar', 20) + '</button></div>' +
     '<div class="between" style="align-items:flex-end"><div><div class="cap13" style="font-size:14px">' + (d === t0 ? 'Today, ' : d === addDays(t0, -1) ? 'Yesterday, ' : d === addDays(t0, 1) ? 'Tomorrow, ' : '') + dayName(d) + '</div><h1 class="title">' + monthDay(d) + (parseDay(d).getFullYear() !== new Date().getFullYear() ? ', ' + parseDay(d).getFullYear() : '') + '</h1></div>' +
-    (d !== t0 ? '<button class="raised-sm" data-a="day" data-v="today" style="height:36px;padding:0 14px;border-radius:12px;font-size:13px;color:var(--a);font-weight:500">Back to today</button>' : '') + '</div></header>' +
+    (d !== t0 ? '<button class="raised-sm" data-a="day" data-v="today" style="height:36px;padding:0 14px;border-radius:12px;font-size:13px;color:var(--link);font-weight:500">Back to today</button>' : '') + '</div></header>' +
     '<div class="dayswipe" data-hswipe="day" style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;touch-action:pan-y">' + arrow(-1, true) +
     '<div class="dialmove swmove">' + calorieDial(r0(t.kcal), num(tg.kcal), {animate: anim, past: d < t0}) + '</div>' + arrow(1, canNext) + '</div>' +
     '<div class="cap13" style="text-align:center;margin-top:-6px">' + fmt(t.kcal) + ' eaten of ' + fmt(tg.kcal) + ' kcal</div>' +
@@ -260,15 +263,15 @@ SCREENS.review = () => {
     (D.ai ? '<div class="glass-soft r16 row" style="padding:10px 12px;gap:12px">' + confDots(D.ai.confidence) +
       '<div style="font-size:13px;color:var(--mu);line-height:1.35"><span style="color:var(--tx)">' + CONF_TEXT[D.ai.confidence in CONF_TEXT ? D.ai.confidence : 'medium'] + '.</span> ' + esc(D.ai.reason || '') + '</div></div>' : '') +
     '</section>' +
-    '<div class="between" style="align-items:center"><h2 class="sec">' + plural(D.items.length, 'item') + '</h2><button class="raised-sm" data-a="addItem" style="height:40px;padding:0 14px;border-radius:14px;font-size:13px;font-weight:600;color:var(--a)">Add an item</button></div>' +
+    '<div class="between" style="align-items:center"><h2 class="sec">' + plural(D.items.length, 'item') + '</h2><button class="raised-sm" data-a="addItem" style="height:40px;padding:0 14px;border-radius:14px;font-size:13px;font-weight:600;color:var(--link)">Add an item</button></div>' +
     D.items.map(card).join('') +
     (D.items.length ? '<div class="cap" style="display:flex;justify-content:space-between;gap:8px;padding:0 4px;flex-wrap:wrap"><span>Sugar ' + fmt(t.sugar_g) + ' g</span><span>Fiber ' + fmt(t.fiber_g) + ' g</span><span>Sodium ' + fmt(t.sodium_mg) + ' mg</span><span>estimates</span></div>' : '<p class="cap" style="text-align:center">No items. Add one to save this meal.</p>') +
     when +
     (isNew ? '' : '<div class="col" style="gap:6px"><label for="rv-note" class="lb">Note</label><input id="rv-note" class="fld" data-in="draftNote" value="' + esc(m.note || '') + '" placeholder="Optional"></div>') +
     '<div class="grow"></div>' +
     // editing: the meal as shown here (edits included) can also go to today or another day; this one stays as it is
-    (isNew ? '' : '<div class="row" style="gap:10px"><button class="raised-sm grow" data-a="draftToToday"' + (D.items.length ? '' : ' disabled') + ' style="height:48px;border-radius:16px;font-size:14px;color:var(--a)">Add to today</button>' +
-      '<button class="raised-sm grow" data-a="draftToDay"' + (D.items.length ? '' : ' disabled') + ' style="height:48px;border-radius:16px;font-size:14px;color:var(--a)">Add to another day</button></div>') +
+    (isNew ? '' : '<div class="row" style="gap:10px"><button class="raised-sm grow" data-a="draftToToday"' + (D.items.length ? '' : ' disabled') + ' style="height:48px;border-radius:16px;font-size:14px;color:var(--link)">Add to today</button>' +
+      '<button class="raised-sm grow" data-a="draftToDay"' + (D.items.length ? '' : ' disabled') + ' style="height:48px;border-radius:16px;font-size:14px;color:var(--link)">Add to another day</button></div>') +
     '<div class="row">' + (isNew ? '<button class="raised-sm" data-a="discardDraft" style="height:56px;padding:0 20px;border-radius:20px;font-size:15px;color:var(--mu);white-space:nowrap">Cancel</button>' : '<button class="raised-sm" data-a="deleteMeal" data-v="' + esc(m.meal_id) + '" style="height:56px;padding:0 18px;border-radius:20px;font-size:15px;color:var(--ov);white-space:nowrap">Delete meal</button>') +
     '<button class="cta btn grow" data-a="saveDraft"' + (D.items.length ? '' : ' disabled') + '>' + (isNew ? 'Save to ' + tl : 'Save changes') + '</button></div></div>';
 };
@@ -281,7 +284,7 @@ SCREENS.edit = () => {
   const origG = num(E.orig.grams_per_unit) * (num(E.orig.quantity) || 1), nowG = g * q;
   const chk = macroCheck(it);
   const cell = (k, span) => {
-    const c = {protein_g: COLOR.p, carbs_g: COLOR.c, fat_g: '#B9AEFF'}[k];
+    const c = {protein_g: COLOR.p, carbs_g: COLOR.c, fat_g: COLOR.f2}[k];
     const lab = '<div class="vl"' + (c ? ' style="color:' + c + '"' : '') + '>' + VALUE_LABEL[k] + '</div>';
     if (E.manual) return '<label class="v"' + (span ? ' style="grid-column:span 2"' : '') + '>' + lab + '<span class="row" style="gap:4px"><input type="number" inputmode="decimal" step="any" value="' + (has(it[k]) ? r1(it[k]) : '') + '" data-in="itemVal" data-k="' + k + '" aria-label="' + VALUE_LABEL[k] + ', ' + VALUE_UNIT[k] + '"' + (span ? ' style="font-size:22px;font-weight:250"' : '') + '><span class="cap">' + VALUE_UNIT[k] + '</span></span></label>';
     return '<div class="v"' + (span ? ' style="grid-column:span 2"' : '') + '>' + lab + '<div class="vv"' + (span ? ' style="font-size:24px;font-weight:250"' : '') + '>' + (has(it[k]) ? fmt(it[k], k === 'kcal' || k === 'sodium_mg' ? 0 : 1) + ' ' + VALUE_UNIT[k] : '—') + '</div></div>';
@@ -291,8 +294,8 @@ SCREENS.edit = () => {
   return '<div class="scr">' + backHeader(E.idx < 0 ? 'Add an item' : 'Edit item') +
     '<div class="col" style="gap:6px"><label for="ei-name" class="lb">Food</label><input id="ei-name" class="fld" data-in="itemName" value="' + esc(it.name || '') + '" placeholder="For example: grilled chicken" autocomplete="off">' +
     '<span class="cap" data-part="ei-cap">' + (nameChanged ? 'Changed from ' + esc(lc1(E.orig.name)) + '. Get new values for this item only.' : '') + '</span></div>' +
-    '<div class="row" style="gap:10px"><button data-part="ei-ask" class="raised-sm" data-a="askAI" style="flex:1;height:44px;border-radius:14px;font-size:14px;color:var(--a);font-weight:500"' + (it.name && !E.busy ? '' : ' disabled') + '>' + (E.busy ? '<span class="spinglow"><span class="spin"></span></span>' : (E.orig.name ? 'Ask the AI again' : 'Ask the AI')) + '</button>' +
-    '<button class="' + (E.manual ? 'pressed-sm' : 'raised-sm') + '" data-a="manual" aria-pressed="' + !!E.manual + '" style="flex:1;height:44px;border-radius:14px;font-size:14px;' + (E.manual ? 'color:var(--a)' : '') + '">Enter my own</button></div>' +
+    '<div class="row" style="gap:10px"><button data-part="ei-ask" class="raised-sm" data-a="askAI" style="flex:1;height:44px;border-radius:14px;font-size:14px;color:var(--link);font-weight:500"' + (it.name && !E.busy ? '' : ' disabled') + '>' + (E.busy ? '<span class="spinglow"><span class="spin"></span></span>' : (E.orig.name ? 'Ask the AI again' : 'Ask the AI')) + '</button>' +
+    '<button class="' + (E.manual ? 'pressed-sm' : 'raised-sm') + '" data-a="manual" aria-pressed="' + !!E.manual + '" style="flex:1;height:44px;border-radius:14px;font-size:14px;' + (E.manual ? 'color:var(--link)' : '') + '">Enter my own</button></div>' +
     '<div class="col" style="gap:8px"><span class="lb">Serving</span>' + chips('itemUnit', units.map(x => [x, UNIT_LABEL[x] || cap1(x)]), u, 'Serving', {h: 38}) +
     '<div class="row" style="gap:12px"><label for="ei-g" style="font-size:14px;flex-shrink:0">' + (u === 'g' ? 'Portion' : '1 ' + esc(u) + ' is') + '</label>' +
     '<span class="row" style="gap:6px"><input id="ei-g" class="fld" type="number" inputmode="decimal" value="' + (g || '') + '" placeholder="—" data-in="itemGrams" style="width:84px;text-align:right"><span class="mu">g</span></span>' +
@@ -369,7 +372,7 @@ SCREENS.search = () => {
   const mealCard = x => '<div class="raised-md r20 row" style="padding:12px 12px 12px 16px"><div class="grow" style="min-width:0"><div class="cap">' + esc(relDay(x.m.date) + ', ' + lc1(x.m.meal_type)) + '</div>' +
     '<div style="font-size:15px">' + esc(x.name) + '</div><div class="cap">' + fmt(mealKcal(x.m)) + ' kcal</div></div>' +
     '<div class="col" style="gap:6px;align-items:flex-end"><button class="add w" data-a="copyPast" data-v="' + esc(x.m.meal_id) + '" aria-label="Add ' + esc(x.name) + '">Add</button>' +
-    '<button data-a="copyChange" data-v="' + esc(x.m.meal_id) + '" style="font-size:12px;color:var(--a)">Change amount</button></div></div>';
+    '<button data-a="copyChange" data-v="' + esc(x.m.meal_id) + '" style="font-size:12px;color:var(--link)">Change amount</button></div></div>';
   const foodRow = x => '<div class="lrow"><button class="grow" data-a="pastItemChange" data-v="' + esc(x.e.entry_id) + '" style="text-align:left;min-width:0">' +
     '<span style="display:block;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(x.e.name) + '</span>' +
     '<span class="cap" style="display:block">' + esc(amountLabel(x.e)) + ', had ' + (x.count === 1 ? 'once' : plural(x.count, 'time')) + '</span></button>' +
@@ -379,7 +382,7 @@ SCREENS.search = () => {
   let body;
   if (!P.meals.length) body = '<p class="cap" style="text-align:center;padding:12px 0">Meals you log show up here, so you can add them again in one tap.</p>';
   else if (words.length && !meals.length && !foods.length) body = '<p class="cap" style="text-align:center;padding:8px 0 0">Nothing you\'ve logged matches “' + esc(q) + '”.</p>' +
-    '<button class="raised-sm btn2" data-a="newFood" style="color:var(--a)">Add “' + esc(q) + '” as a new food</button>';
+    '<button class="raised-sm btn2" data-a="newFood" style="color:var(--link)">Add “' + esc(q) + '” as a new food</button>';
   else body = (meals.length ? head(words.length ? 'Meals' : 'Recent meals') + meals.map(mealCard).join('') : '') +
     (foods.length ? head(words.length ? 'Foods' : 'Foods you have most') + '<section class="raised r22" style="padding:4px 0;display:flex;flex-direction:column">' + foods.map(foodRow).join('<div class="sep" style="margin:0 14px"></div>') + '</section>' : '');
   return '<div class="scr">' + backHeader('Search past meals') +
