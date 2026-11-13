@@ -362,9 +362,8 @@ const A = {
   tgMode: el => { tgState().mode = el.dataset.v; render(); },
   tgToggle: el => { const k = el.dataset.v, t = tgState(), key = k.split('_')[0] + '_on'; t[key] = !t[key]; render(); },
   async saveTargets() {
-    const t = tgState(); if (S.ui.busy) return;
-    const row = {effective_date: today(), kcal: r0(t.kcal), protein_g: r0(t.protein_g), carbs_g: r0(t.carbs_g), fat_g: r0(t.fat_g),
-      fiber_min_g: t.fiber_on ? r0(t.fiber_min_g) : 0, sugar_max_g: t.sugar_on ? r0(t.sugar_max_g) : 0, sodium_max_mg: t.sodium_on ? r0(t.sodium_max_mg) : 0};
+    const t = tgState(); if (S.ui.busy || !tgChanged()) return;
+    const row = tgRow(t);
     S.ui.busy = true; render();
     try { await API.saveTargets(row); S.data.targets = S.data.targets.filter(x => x.effective_date !== row.effective_date).concat([row]); S.dirty = true; S.ui.busy = false; S.ui.tg = null; home('Targets saved'); }
     catch (e) { S.ui.busy = false; toast(friendly(e)); }

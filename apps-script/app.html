@@ -733,6 +733,15 @@ function tgState() {
     fiber_min_g: num(currentTarget().fiber_min_g) || 25, sugar_max_g: num(currentTarget().sugar_max_g) || 50, sodium_max_mg: num(currentTarget().sodium_max_mg) || 2300});
   return S.ui.tg;
 }
+/* what Save targets would write, and whether it differs from the target in force today */
+function tgRow(t) {
+  return {effective_date: today(), kcal: r0(t.kcal), protein_g: r0(t.protein_g), carbs_g: r0(t.carbs_g), fat_g: r0(t.fat_g),
+    fiber_min_g: t.fiber_on ? r0(t.fiber_min_g) : 0, sugar_max_g: t.sugar_on ? r0(t.sugar_max_g) : 0, sodium_max_mg: t.sodium_on ? r0(t.sodium_max_mg) : 0};
+}
+function tgChanged() {
+  const row = tgRow(tgState()), cur = currentTarget();
+  return ['kcal', 'protein_g', 'carbs_g', 'fat_g', 'fiber_min_g', 'sugar_max_g', 'sodium_max_mg'].some(k => row[k] !== r0(num(cur[k])));
+}
 SCREENS.targets = () => {
   const t = tgState(), k = num(t.kcal), mk = macroKcal(t), pct = (g, f) => k ? Math.round(g * f / k * 100) : 0;
   const macro = (key, label, f, color) => {
@@ -758,7 +767,9 @@ SCREENS.targets = () => {
     '<p class="cap" data-part="tgsum">These add up to ' + fmt(mk) + ' kcal (4 per gram of protein and carbs, 9 per gram of fat)' + (Math.abs(diff) < 5 ? ', matching your calorie target.' : ', ' + fmt(Math.abs(diff)) + (diff < 0 ? ' under' : ' over') + ' your calorie target.') + '</p>' +
     '<div class="raised r22 col" style="padding:6px 16px">' + lim('fiber_min_g', t.fiber_on, 'Fiber, at least', 'g') + '<div class="sep"></div>' + lim('sugar_max_g', t.sugar_on, 'Sugar, at most', 'g') + '<div class="sep"></div>' + lim('sodium_max_mg', t.sodium_on, 'Sodium, at most', 'mg') + '</div>' +
     '<p class="cap">Changes apply from today. Past days are still compared with the target they had.</p>' +
-    '<button class="cta btn" data-a="saveTargets" style="height:54px">' + (S.ui.busy ? '<span class="spinglow"><span class="spin"></span></span>' : 'Save targets') + '</button>' +
+    // greyed out until something would actually change; a marked part, so it updates while typing
+    (S.ui.busy || tgChanged() ? '<button data-part="tg-save" class="cta btn" data-a="saveTargets" style="height:54px">' + (S.ui.busy ? '<span class="spinglow"><span class="spin"></span></span>' : 'Save targets') + '</button>'
+      : '<button data-part="tg-save" class="cta btn idle" disabled style="height:54px">Save targets</button>') +
     '</div>' + tabBar('targets');
 };
 
@@ -1712,9 +1723,8 @@ const A = {
   tgMode: el => { tgState().mode = el.dataset.v; render(); },
   tgToggle: el => { const k = el.dataset.v, t = tgState(), key = k.split('_')[0] + '_on'; t[key] = !t[key]; render(); },
   async saveTargets() {
-    const t = tgState(); if (S.ui.busy) return;
-    const row = {effective_date: today(), kcal: r0(t.kcal), protein_g: r0(t.protein_g), carbs_g: r0(t.carbs_g), fat_g: r0(t.fat_g),
-      fiber_min_g: t.fiber_on ? r0(t.fiber_min_g) : 0, sugar_max_g: t.sugar_on ? r0(t.sugar_max_g) : 0, sodium_max_mg: t.sodium_on ? r0(t.sodium_max_mg) : 0};
+    const t = tgState(); if (S.ui.busy || !tgChanged()) return;
+    const row = tgRow(t);
     S.ui.busy = true; render();
     try { await API.saveTargets(row); S.data.targets = S.data.targets.filter(x => x.effective_date !== row.effective_date).concat([row]); S.dirty = true; S.ui.busy = false; S.ui.tg = null; home('Targets saved'); }
     catch (e) { S.ui.busy = false; toast(friendly(e)); }
