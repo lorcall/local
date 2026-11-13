@@ -1250,9 +1250,9 @@ SCREENS.goals = () => {
     '</div></section>' +
     '<section class="col" style="gap:8px"><div class="between" style="align-items:baseline"><label for="gc-notes" style="font-size:14px;font-weight:500">Notes for the AI</label>' +
     '<span data-part="gc-nclr">' + (String(p.notes || '').trim() ? '<a href="#" data-a="gcClear" style="font-size:13px">Clear notes</a>' : '') + '</span></div>' +
-    '<textarea id="gc-notes" rows="3" maxlength="600" class="fld" data-in="gcNotes" placeholder="For example: I run twice a week and lift weights on Saturdays. I want to eat more fibre. My doctor says not too much protein.">' + esc(p.notes || '') + '</textarea>' +
+    '<textarea id="gc-notes" rows="4" maxlength="4000" class="fld" data-in="gcNotes" placeholder="For example: Light most weeks, moderate when I feel like it. I run twice a week. I want to lose fat but keep muscle, down to about 20% body fat. My doctor says not too much protein.">' + esc(p.notes || '') + '</textarea>' +
     '<span class="cap" data-part="gc-nfrom">' + (p.notesFrom && String(p.notes || '') === p.notesFrom.notes ? 'Your notes from ' + esc(monthDay(p.notesFrom.date)) + '. Keep them, add to them, or clear them for new ones.'
-      : 'Optional. How you exercise, health conditions, goals or food preferences. The AI checks the targets above against them and suggests changes.') + '</span></section>' +
+      : 'Optional. Anything the choices above can\'t say: how your activity really varies, keeping muscle while losing fat, a body fat goal, health conditions, food preferences. The AI adjusts the targets above to fit.') + '</span></section>' +
     '<div data-part="gc-ai" class="col" style="gap:12px">' + gcAiPart(p) + '</div>' +
     '<p class="cap" style="text-align:center;line-height:1.5">Estimated with the Mifflin-St Jeor formula' + (String(p.notes || '').trim() ? ', then checked by AI against your notes' : '') + '. A starting point, not medical advice.</p></div>';
 };

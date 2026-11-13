@@ -318,7 +318,7 @@ function run_(action, p) {
         target_weight_kg: n(pr.target_weight, 25, 400), pace_kg_per_week: n(pr.pace, 0, 1.5)},
       base: {kcal: n(bs.kcal, 800, 6000), maintenance: n(bs.maintenance, 800, 7000), protein_g: n(bs.protein_g, 0, 500), carbs_g: n(bs.carbs_g, 0, 900), fat_g: n(bs.fat_g, 0, 400),
         fiber_min_g: n(bs.fiber_min_g, 0, 100), sugar_max_g: n(bs.sugar_max_g, 0, 300), sodium_max_mg: n(bs.sodium_max_mg, 0, 9000)},
-      notes: clip_(p.notes, 600)
+      notes: clip_(p.notes, 4000)   // generous for any real description; stops a pasted essay running up Gemini use
     });
   }
   if (action === 'weeklySummary') {
