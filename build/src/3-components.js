@@ -184,9 +184,10 @@ function mealRow(m) {
     '<button class="ib del" data-a="deleteMeal" data-v="' + id + '" aria-label="Delete ' + esc(lc1(t)) + '">' + icon('trash', 18, 2) + '</button>' +
     '</div>' +
     '<button class="front mrow" data-a="editMeal" data-v="' + id + '">' +
-    '<span class="mdot"></span><span class="grow" style="min-width:0"><span style="display:block;font-size:15px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(mealName(m)) + '</span>' +
-    '<span class="cap" style="display:block">' + esc(t) + ', ' + time12(m.time) + (m.edited === true || m.edited === 'TRUE' ? ', edited by you' : '') + '</span></span>' +
-    '<span style="font-size:15px">' + fmt(mealKcal(m)) + '</span></button></div>';
+    // same layout as a day's meals in History: picture, when, what, kcal
+    thumbEl(m) + '<span class="grow" style="min-width:0"><span class="cap" style="display:block">' + esc(t) + ', ' + time12(m.time) + (m.edited === true || m.edited === 'TRUE' ? ', edited by you' : '') + '</span>' +
+    '<span style="display:block;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(mealName(m)) + '</span></span>' +
+    '<span class="num" style="font-size:15px">' + fmt(mealKcal(m)) + '</span></button></div>';
 }
 
 /* simple sparkle-free empty icon tile */

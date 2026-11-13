@@ -173,11 +173,14 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .mrow{border-radius:18px;padding:12px 14px;display:flex;align-items:center;gap:12px;width:100%;text-align:left;min-height:62px}
 .mdot{width:8px;height:8px;border-radius:50%;background:var(--a);box-shadow:0 0 8px var(--a);flex-shrink:0}
 .mdot.empty{background:none;box-shadow:inset 0 0 0 1.5px var(--mu)}
-.swipe{position:relative;border-radius:18px;overflow:hidden;box-shadow:inset 4px 4px 8px var(--lo),inset -4px -4px 8px var(--hi)}
+/* A meal card: raised at rest (on the row itself, so the clipping that hides the actions can't
+   cut it off); swiped open, it becomes the pressed channel the actions sit in. */
+.swipe{position:relative;border-radius:18px;overflow:hidden;box-shadow:4px 4px 8px var(--lo),-4px -4px 8px var(--hi);transition:box-shadow .18s ease}
+.swipe.open,.swipe.dragging,.swipe:has(.acts:focus-within){box-shadow:inset 4px 4px 8px var(--lo),inset -4px -4px 8px var(--hi)}
 .swipe .acts{position:absolute;right:8px;top:0;bottom:0;display:flex;align-items:center;gap:8px}
 .swipe .acts .ib{width:44px;height:44px;color:var(--a)}
 .swipe .acts .ib.del{color:var(--ov)}
-.swipe .front{position:relative;background:var(--g);transition:transform .18s ease;touch-action:pan-y;box-shadow:4px 4px 8px var(--lo),-4px -4px 8px var(--hi)}
+.swipe .front{position:relative;background:var(--g);transition:transform .18s ease;touch-action:pan-y}
 .swipe.open .front,.swipe .acts:focus-within+.front{transform:translateX(-158px);box-shadow:6px 0 12px var(--lo)}
 .swipe.dragging .front{transition:none}
 
@@ -990,9 +993,10 @@ function mealRow(m) {
     '<button class="ib del" data-a="deleteMeal" data-v="' + id + '" aria-label="Delete ' + esc(lc1(t)) + '">' + icon('trash', 18, 2) + '</button>' +
     '</div>' +
     '<button class="front mrow" data-a="editMeal" data-v="' + id + '">' +
-    '<span class="mdot"></span><span class="grow" style="min-width:0"><span style="display:block;font-size:15px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(mealName(m)) + '</span>' +
-    '<span class="cap" style="display:block">' + esc(t) + ', ' + time12(m.time) + (m.edited === true || m.edited === 'TRUE' ? ', edited by you' : '') + '</span></span>' +
-    '<span style="font-size:15px">' + fmt(mealKcal(m)) + '</span></button></div>';
+    // same layout as a day's meals in History: picture, when, what, kcal
+    thumbEl(m) + '<span class="grow" style="min-width:0"><span class="cap" style="display:block">' + esc(t) + ', ' + time12(m.time) + (m.edited === true || m.edited === 'TRUE' ? ', edited by you' : '') + '</span>' +
+    '<span style="display:block;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(mealName(m)) + '</span></span>' +
+    '<span class="num" style="font-size:15px">' + fmt(mealKcal(m)) + '</span></button></div>';
 }
 
 /* simple sparkle-free empty icon tile */
