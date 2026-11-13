@@ -152,7 +152,7 @@ function switchBtn(on, act, label, arg) {
 
 function tabBar(active) {
   const nb = (name, ic, label) => '<button class="nb" data-a="tab" data-v="' + name + '" aria-label="' + label + '"' + (active === name ? ' aria-current="page"' : '') + '>' + icon(ic, 22) + '</button>';
-  return '<div class="tabfade" aria-hidden="true"></div><nav class="tabbar" aria-label="Main">' + nb('today', 'today', 'Today') + nb('trends', 'bars', 'Trends') +
+  return '<div class="tabfade" aria-hidden="true"></div><nav class="tabbar" aria-label="Main"><span class="tabind" aria-hidden="true"></span>' + nb('today', 'today', 'Today') + nb('trends', 'bars', 'Trends') +
     '<button class="fab" data-a="go" data-v="log" aria-label="Log a meal">' + icon('plus', 24, 2.4) + '</button>' +
     nb('history', 'clock', 'History') + nb('targets', 'flag', 'Goals') + '</nav>';
 }

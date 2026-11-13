@@ -590,7 +590,7 @@ function switchBtn(on, act, label, arg) {
 
 function tabBar(active) {
   const nb = (name, ic, label) => '<button class="nb" data-a="tab" data-v="' + name + '" aria-label="' + label + '"' + (active === name ? ' aria-current="page"' : '') + '>' + icon(ic, 22) + '</button>';
-  return '<div class="tabfade" aria-hidden="true"></div><nav class="tabbar" aria-label="Main">' + nb('today', 'today', 'Today') + nb('trends', 'bars', 'Trends') +
+  return '<div class="tabfade" aria-hidden="true"></div><nav class="tabbar" aria-label="Main"><span class="tabind" aria-hidden="true"></span>' + nb('today', 'today', 'Today') + nb('trends', 'bars', 'Trends') +
     '<button class="fab" data-a="go" data-v="log" aria-label="Log a meal">' + icon('plus', 24, 2.4) + '</button>' +
     nb('history', 'clock', 'History') + nb('targets', 'flag', 'Goals') + '</nav>';
 }
@@ -1356,6 +1356,7 @@ function render() {
   let sel = null; try { if (a && a.setSelectionRange && a.type !== 'number') sel = [a.selectionStart, a.selectionEnd]; } catch (e) { /* ignore */ }
   const name = route().name, same = name === lastRoute, y = window.scrollY;
   app().innerHTML = (SCREENS[name] || SCREENS.today)() + overlays();
+  placeTile();
   if (S.ui.openSwipe) { const s = app().querySelector('[data-swipe="' + CSS.escape(S.ui.openSwipe) + '"]'); if (s) s.classList.add('open'); }
   if (same) window.scrollTo(0, y); else { window.scrollTo(0, 0); const h = app().querySelector('h1'); if (h && !fid) { h.setAttribute('tabindex', '-1'); h.focus({preventScroll: true}); } }
   if (fid && same) { const el = document.getElementById(fid); if (el) { el.focus({preventScroll: true}); try { if (sel) el.setSelectionRange(sel[0], sel[1]); } catch (e) { /* ignore */ } } }
@@ -1396,6 +1397,70 @@ function confirmBox(title, text, label, fn) { menu({title, text, items: [{label,
 function go(name, p = {}) { S.stack.push({name, p}); S.ui.openSwipe = null; pushHistory(); render(); }
 function replace(name, p = {}) { S.stack[S.stack.length - 1] = {name, p}; render(); }
 /* After stepping a period, slide the new one in from the side it came from. */
+/* ---------- tab switching ----------
+   The whole app redraws on every change, so a tab switch is animated from a snapshot: where the
+   tile sat and the screen that was showing, taken just before the redraw. The tile then stretches
+   to the new tab (front edge first, back edge catching up) and the screens glide: the old one
+   drifts out toward the side being left while the new one drifts in from the side tapped toward. */
+const TAB_ORDER = ['today', 'trends', 'history', 'targets'];
+const calmMotion = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
+let tabGhost = null;
+function placeTile() {
+  const bar = app().querySelector('.tabbar'), ind = bar && bar.querySelector('.tabind');
+  if (!ind) return null;
+  const on = bar.querySelector('.nb[aria-current]');
+  if (!on) { ind.style.opacity = '0'; return null; }
+  const x = on.offsetLeft + on.offsetWidth / 2 - 24;
+  ind.style.transform = 'translateX(' + x + 'px)'; ind.style.width = '48px'; ind.style.opacity = '1';
+  return {ind, x};
+}
+function tabSnapshot() {
+  if (tabGhost) { tabGhost.remove(); tabGhost = null; }
+  const bar = app().querySelector('.tabbar'), ind = bar && bar.querySelector('.tabind'), scr = app().querySelector(':scope > .scr');
+  const snap = {name: route().name, tile: null, scr: null};
+  if (ind && ind.style.opacity !== '0') {
+    const r = ind.getBoundingClientRect(), b = bar.getBoundingClientRect();
+    snap.tile = {x: r.left - b.left, w: r.width};          // mid-stretch included, so quick taps carry on
+  }
+  if (scr) {
+    const cs = getComputedStyle(scr), a = app().getBoundingClientRect();
+    snap.scr = {el: scr, top: scr.getBoundingClientRect().top, left: a.left, width: a.width, opacity: cs.opacity, transform: cs.transform === 'none' ? 'translateX(0px)' : cs.transform};
+  }
+  return snap;
+}
+function tabMotion(snap) {
+  const name = route().name;
+  if (!snap || snap.name === name || calmMotion()) return;
+  const i0 = TAB_ORDER.indexOf(snap.name), i1 = TAB_ORDER.indexOf(name);
+  const dir = i0 < 0 || i1 < 0 ? 1 : i1 > i0 ? 1 : -1;
+  // tile: stretch from where it was
+  const t = placeTile();
+  if (t && snap.tile && t.ind.animate) {
+    const from = snap.tile.x, left = Math.min(from, t.x), span = Math.abs(t.x - from) + 48;
+    t.ind.animate([
+      {transform: 'translateX(' + from + 'px)', width: snap.tile.w + 'px'},
+      {transform: 'translateX(' + left + 'px)', width: span + 'px', offset: .46, easing: 'cubic-bezier(.3,0,.2,1)'},
+      {transform: 'translateX(' + t.x + 'px)', width: '48px'}
+    ], {duration: 460, easing: 'cubic-bezier(.55,0,.3,1)'});
+  }
+  // screens: glide
+  const scr = app().querySelector(':scope > .scr');
+  if (scr && scr.animate) scr.animate([{opacity: 0, transform: 'translateX(' + (dir * 28) + 'px)'}, {opacity: 1, transform: 'translateX(0px)'}],
+    {duration: 360, delay: 80, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards'});
+  if (snap.scr && snap.scr.el.animate) {
+    const old = snap.scr.el;
+    old.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+    old.setAttribute('aria-hidden', 'true'); old.setAttribute('inert', '');
+    old.style.marginTop = snap.scr.top + 'px';
+    const g = document.createElement('div');
+    g.className = 'tabghost'; g.style.left = snap.scr.left + 'px'; g.style.width = snap.scr.width + 'px';
+    g.appendChild(old); document.body.appendChild(g); tabGhost = g;
+    const a = old.animate([{opacity: snap.scr.opacity, transform: snap.scr.transform}, {opacity: 0, transform: 'translateX(' + (-dir * 28) + 'px)'}],
+      {duration: 200, easing: 'ease-in', fill: 'forwards'});
+    a.onfinish = () => { if (tabGhost === g) tabGhost = null; g.remove(); };
+  }
+}
+
 function slideIn(act, dir) {
   const el = document.querySelector('[data-hswipe="' + act + '"] .swmove'); if (!el) return;
   el.classList.remove('swin-fwd', 'swin-back'); void el.offsetWidth; el.classList.add(dir > 0 ? 'swin-fwd' : 'swin-back');
@@ -1531,7 +1596,7 @@ const stepQ = (q, d, u) => {
 /* ---------- click actions ---------- */
 const A = {
   back: () => back(),
-  tab: el => { S.stack = [{name: el.dataset.v, p: {}}]; S.ui.openSwipe = null; pushHistory(); render(); },
+  tab: el => { const snap = tabSnapshot(); S.stack = [{name: el.dataset.v, p: {}}]; S.ui.openSwipe = null; pushHistory(); render(); tabMotion(snap); },
   go: el => {
     const v = el.dataset.v;
     if (['log', 'search', 'describe'].includes(v)) {
