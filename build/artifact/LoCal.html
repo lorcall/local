@@ -512,6 +512,59 @@ function weightSeries() {
   let ema = null;
   return rows.map(w => { ema = ema == null ? num(w.kg) : ema + 0.1 * (num(w.kg) - ema); return {date: w.date, kg: num(w.kg), trend: ema, note: w.note}; });
 }
+/* ---------- estimated weight ----------
+   Energy balance, day by day, from the first weigh-in (the goal calculator's weight counts as one):
+   each finished day moves the estimate by (eaten − burned) / 7,700 kcal per kg, where burned is
+   Mifflin-St Jeor at the current estimate × activity × k. A day with no log is counted at that day's
+   target. A real weigh-in pulls the estimate a third of the way to the scale (scales are noisy), and
+   once weigh-ins span two weeks k is fitted to them, so the burn reflects the person, not the formula.
+   On top, water: yesterday's carbs and sodium against the person's usual hold or shed water for a day
+   or two (about 3 g of water per g of glycogen carbs; sodium at roughly half of isotonic retention). */
+function bmrAt(p, kg) { return 10 * kg + 6.25 * num(p.height) - 5 * num(p.age) + (p.sex === 'Female' ? -161 : 5); }
+function weightModel() {
+  const p = profile(), t = today(), meas = weightSeries();
+  if (!meas.length || !num(p.height) || !num(p.age)) return null;
+  const act = (ACTIVITY.find(x => x[0] === p.activity) || ACTIVITY[1])[1], start = meas[0].date;
+  const scale = {}; meas.forEach(w => { scale[w.date] = w.kg; });
+  const days = rangeDays(start, t);
+  const run = (k, pull) => {
+    let est = meas[0].kg, assumed = 0, counted = 0, eaten = 0, burned = 0;
+    const out = [], miss = [];
+    days.forEach(d => {
+      if (scale[d] != null && d !== start) { miss.push([scale[d], est]); est += pull * (scale[d] - est); }
+      out.push({date: d, kg: est});
+      if (d === t) return;                                   // today isn't over yet
+      const lg = logged(d), intake = lg ? totalsOn(d).kcal : (num(targetFor(d).kcal) || bmrAt(p, est) * act);
+      const burn = bmrAt(p, est) * act * k;
+      if (lg) counted++; else assumed++;
+      if (d >= addDays(t, -14)) { eaten += intake; burned += burn; }
+      est += (intake - burn) / KCAL_PER_KG;
+    });
+    return {series: out, assumed, counted, miss, eaten, burned};
+  };
+  // fit k to the weigh-ins once there's enough to go on: the k whose pure prediction misses them least
+  const later = meas.filter(w => w.date !== start), span = later.length ? daysBetween(start, later[later.length - 1].date) : 0;
+  let k = 1, calibrated = false;
+  if (later.length >= 2 && span >= 12) {
+    let best = Infinity;
+    for (let c = 0.8; c <= 1.2001; c += 0.01) {
+      const e = run(c, 0).miss.reduce((s, m) => s + (m[0] - m[1]) * (m[0] - m[1]), 0);
+      if (e < best) { best = e; k = c; }
+    }
+    calibrated = true;
+  }
+  const r = run(k, 0.35), now = r.series[r.series.length - 1].kg;
+  // water from yesterday's carbs and sodium against the last two weeks' usual
+  const y = addDays(t, -1), base = rangeDays(addDays(t, -14), y).filter(logged);
+  let water = 0;
+  if (logged(y) && base.length >= 4) {
+    const avgOf = f => base.reduce((s, d) => s + f(totalsOn(d)), 0) / base.length, ty = totalsOn(y);
+    water = clamp(0.003 * (ty.carbs_g - avgOf(x => x.carbs_g)) + 0.00015 * (ty.sodium_mg - avgOf(x => x.sodium_mg)), -1.2, 1.2);
+  }
+  const n14 = Math.min(14, days.length - 1), perDay = n14 > 0 ? (r.eaten - r.burned) / n14 / KCAL_PER_KG : 0;
+  return {start, startKg: meas[0].kg, series: r.series, now, water, onScale: now + water, k, calibrated, assumed: r.assumed, counted: r.counted,
+    weekRate: perDay * 7, avgIntake: n14 > 0 ? r.eaten / n14 : 0, avgBurn: n14 > 0 ? r.burned / n14 : 0};
+}
 function trendAt(series, day) { let t = null; for (const s of series) { if (s.date <= day) t = s.trend; else break; } return t; }
 function maintenanceKcal() { const p = profile(); if (num(p.maintenance)) return num(p.maintenance); if (num(p.weight)) return goalCalc(p).maintenance; return null; }
 /* predicted change = sum of (intake − maintenance) / 7,700 over logged days in the period */
@@ -1644,50 +1697,82 @@ SCREENS.consistency = () => {
 
 /* ---------- Weight ---------- */
 SCREENS.weight = () => {
-  const ws = weightSeries(), t = today(), p = profile(), goal = num(p.target_weight);
-  const last = ws.length ? ws[ws.length - 1] : null, cur = last ? last.trend : null;
-  const from = addDays(t, -30), win = ws.filter(w => w.date >= from);
-  const startTrend = trendAt(ws, from) != null ? trendAt(ws, from) : (win.length ? win[0].trend : null);
-  const change = cur != null && startTrend != null ? cur - startTrend : null;
-  const first = ws.length ? ws[0].kg : null;
-  const prog = goal && first != null && cur != null && first !== goal ? clamp((first - cur) / (first - goal), 0, 1) : 0;
-  const pred = predictedChange(win.length ? win[0].date : from, t);
-  // chart
-  const W = 326, H = 104, x0 = 8, x1 = 318;
-  let chart = '<p class="cap">Add a few weigh-ins to see your trend.</p>';
-  if (win.length >= 2) {
-    const d0 = win[0].date, span = Math.max(1, daysBetween(d0, win[win.length - 1].date));
-    const predEnd = pred != null ? win[0].trend + pred : null;
-    const vs = win.map(w => w.kg).concat(win.map(w => w.trend)).concat(predEnd != null ? [predEnd] : []);
-    const lo = Math.min(...vs) - 0.2, hi = Math.max(...vs) + 0.2;
-    const X = d => (x0 + daysBetween(d0, d) / span * (x1 - x0)).toFixed(1), Y = v => (8 + (hi - v) / (hi - lo) * (H - 16)).toFixed(1);
-    const trendPath = win.map((w, i) => (i ? 'L' : 'M') + X(w.date) + ' ' + Y(w.trend)).join('');
-    chart = '<svg width="100%" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Weigh-ins bounce around a trend line that moves from ' + fmt(win[0].trend, 1) + ' to ' + fmt(cur, 1) + ' kilograms.' + (predEnd != null ? ' The intake estimate ends at ' + fmt(predEnd, 1) + '.' : '') + '">' +
-      '<g stroke="#2F323C" stroke-width="1"><line x1="0" y1="20" x2="' + W + '" y2="20"/><line x1="0" y1="50" x2="' + W + '" y2="50"/><line x1="0" y1="80" x2="' + W + '" y2="80"/></g>' +
-      (predEnd != null ? '<path d="M' + X(d0) + ' ' + Y(win[0].trend) + 'L' + X(win[win.length - 1].date) + ' ' + Y(predEnd) + '" stroke="#A495FF" stroke-width="2" stroke-dasharray="5 5" fill="none"/>' : '') +
-      '<path d="' + trendPath + '" stroke="#F5A524" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 5px #F5A524)"/>' +
-      '<g fill="#ECEDF2" fill-opacity=".55">' + win.map(w => '<circle cx="' + X(w.date) + '" cy="' + Y(w.kg) + '" r="3"/>').join('') + '</g>' +
-      '<circle cx="' + X(last.date) + '" cy="' + Y(cur) + '" r="5" fill="#FFD08A"/></svg>' +
-      '<div class="row cap" style="gap:14px;flex-wrap:wrap"><span class="row" style="gap:6px"><span style="width:14px;height:3px;border-radius:2px;background:var(--a)"></span>Trend</span><span class="row" style="gap:6px"><span style="width:6px;height:6px;border-radius:50%;background:#ECEDF2;opacity:.55"></span>Weigh-ins</span>' + (predEnd != null ? '<span class="row" style="gap:6px"><span style="width:14px;border-top:2px dashed var(--f)"></span>Predicted from intake</span>' : '') + '</div>';
+  const t = today(), p = profile(), goal = num(p.target_weight), M = weightModel(), ws = weightSeries();
+  const ed = S.ui.wEdit ? S.data.weight.find(w => w.date === S.ui.wEdit) : null;
+  const wDate = S.ui.wDate || (ed ? ed.date : t);
+  const mon = d => MON3[parseDay(d).getMonth()] + ' ' + parseDay(d).getDate();
+  // headline numbers
+  const now = M ? M.now : null, startKg = M ? M.startKg : null;
+  const change = M ? now - startKg : null;
+  const toGo = goal && now != null ? now - goal : null, losing = goal && startKg != null ? goal < startKg : true;
+  const prog = goal && startKg != null && now != null && startKg !== goal ? clamp((startKg - now) / (startKg - goal), 0, 1) : 0;
+  const head = '<section class="row" style="gap:18px">' +
+    ringDial(144, 112, prog, '<div class="num" style="font-size:30px">' + (now != null ? fmt(now, 1) : '—') + '</div><div class="cap">kg, estimated</div>',
+      now != null ? 'About ' + fmt(now, 1) + ' kilograms now' + (goal ? ', ' + Math.round(prog * 100) + ' percent of the way to ' + fmt(goal, 1) : '') : 'No estimate yet') +
+    '<div class="col" style="gap:10px;min-width:0"><div><div class="num" style="font-size:22px;line-height:1.2">' + (change != null ? fmtSigned(change, 1) + ' kg' : '—') + '</div><div class="cap">' + (M ? 'since ' + mon(M.start) : 'since you started') + '</div></div>' +
+    '<div><div class="num" style="font-size:22px;line-height:1.2">' + (toGo == null ? (goal ? 'Goal ' + fmt(goal, 1) + ' kg' : 'No goal yet') : Math.abs(toGo) < 0.05 || (losing ? toGo <= 0 : toGo >= 0) ? 'Goal reached' : fmt(Math.abs(toGo), 1) + ' kg to go') + '</div>' +
+    '<div class="cap">' + (goal ? 'Goal ' + fmt(goal, 1) + ' kg' : '<a href="#" data-a="go" data-v="goals">Set one in the goal calculator</a>') + '</div></div></div></section>';
+
+  // chart: the estimate as a line, real weigh-ins as dots, the goal if it's near
+  let chart = '<p class="cap" style="margin:0">Add a weigh-in, or use the goal calculator, to start the estimate.</p>';
+  if (M && M.series.length >= 2) {
+    const W = 326, H = 120, x0 = 30, x1 = 318, ser = M.series, d0 = ser[0].date, span = Math.max(1, daysBetween(d0, t));
+    const pts = ws.filter(w => w.date >= d0);
+    const vs = ser.map(x => x.kg).concat(pts.map(w => w.kg));
+    let lo = Math.min(...vs), hi = Math.max(...vs);
+    if (goal && goal >= lo - 1.5 && goal <= hi + 1.5) { lo = Math.min(lo, goal); hi = Math.max(hi, goal); }
+    const pad = Math.max(0.3, (hi - lo) * 0.12); lo -= pad; hi += pad;
+    const X = d => (x0 + daysBetween(d0, d) / span * (x1 - x0)).toFixed(1), Y = v => (10 + (hi - v) / (hi - lo) * (H - 30)).toFixed(1);
+    const path = ser.map((x, i) => (i ? 'L' : 'M') + X(x.date) + ' ' + Y(x.kg)).join('');
+    const ticks = [hi - pad, (hi + lo) / 2, lo + pad];
+    chart = '<svg width="100%" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Estimated weight from ' + fmt(ser[0].kg, 1) + ' kilograms on ' + mon(d0) + ' to ' + fmt(now, 1) + ' today, with ' + plural(pts.length, 'weigh-in') + '.">' +
+      '<g stroke="#2F323C" stroke-width="1">' + ticks.map(v => '<line x1="' + x0 + '" y1="' + Y(v) + '" x2="' + W + '" y2="' + Y(v) + '"/>').join('') + '</g>' +
+      '<g fill="#A2A7B6" font-size="10" font-family="inherit" text-anchor="end">' + ticks.map(v => '<text x="' + (x0 - 6) + '" y="' + (+Y(v) + 3.5) + '">' + fmt(v, 1) + '</text>').join('') + '</g>' +
+      (goal && goal >= lo && goal <= hi ? '<line x1="' + x0 + '" y1="' + Y(goal) + '" x2="' + W + '" y2="' + Y(goal) + '" stroke="#7BE5C4" stroke-opacity=".7" stroke-dasharray="4 5"/><text x="' + W + '" y="' + (+Y(goal) - 5) + '" fill="#7BE5C4" font-size="10" text-anchor="end">Goal ' + fmt(goal, 1) + '</text>' : '') +
+      '<path d="' + path + '" stroke="#F5A524" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 5px #F5A524)"/>' +
+      '<g fill="#ECEDF2">' + pts.map(w => '<circle cx="' + X(w.date) + '" cy="' + Y(w.kg) + '" r="3.5" fill-opacity=".85"/>').join('') + '</g>' +
+      '<circle cx="' + X(t) + '" cy="' + Y(now) + '" r="5" fill="#FFD08A"/>' +
+      '<g fill="#A2A7B6" font-size="10"><text x="' + x0 + '" y="' + (H - 4) + '">' + mon(d0) + '</text><text x="' + x1 + '" y="' + (H - 4) + '" text-anchor="end">Today</text></g></svg>' +
+      '<div class="row cap" style="gap:14px;flex-wrap:wrap"><span class="row" style="gap:6px"><span style="width:14px;height:3px;border-radius:2px;background:var(--a)"></span>Estimate</span>' +
+      '<span class="row" style="gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:#ECEDF2"></span>Weigh-ins</span></div>';
   }
-  let verdict = '';
-  if (pred != null && change != null && win.length >= 2) {
-    const agree = Math.abs(pred - change) <= Math.max(0.3, Math.abs(change) * 0.35);
-    verdict = 'Your intake predicted a ' + fmt(Math.abs(pred), 1) + ' kg ' + (pred <= 0 ? 'drop' : 'gain') + ' (about 7,700 kcal per kg). The trend shows ' + fmt(Math.abs(change), 1) + ' kg' + (change <= 0 ? ' down' : ' up') + ', so ' +
-      (agree ? 'your target looks right.' : (Math.abs(change) < Math.abs(pred) ? 'real results are slower than the estimate. Logging may be missing something, or maintenance is lower than calculated.' : 'you are losing faster than the estimate. Maintenance may be higher than calculated.')) + ' <a href="#" data-a="go" data-v="goals">Re-tune target</a>';
+
+  // what the estimate is saying, in plain words
+  const facts = [];
+  if (M) {
+    if (Math.abs(M.water) >= 0.1) facts.push('On the scale this morning, more likely about <b>' + fmt(M.onScale, 1) + ' kg</b>: yesterday\'s carbs and salt ' + (M.water > 0 ? 'hold about ' + fmt(M.water, 1) + ' kg of extra water' : 'let go of about ' + fmt(-M.water, 1) + ' kg of water') + ', which passes in a day or two.');
+    if (M.avgIntake > 0) {
+      const wk = M.weekRate, dir = wk < -0.02 ? 'losing' : wk > 0.02 ? 'gaining' : 'holding steady';
+      let line = 'Over the last two weeks you ate about ' + fmt(Math.round(M.avgIntake / 10) * 10) + ' kcal a day and burned about ' + fmt(Math.round(M.avgBurn / 10) * 10) + (dir === 'holding steady' ? ', so you\'re holding steady.' : ', so you\'re ' + dir + ' about ' + fmt(Math.abs(wk), 2) + ' kg a week.');
+      if (goal && toGo != null && Math.abs(toGo) >= 0.1 && ((toGo > 0 && wk < -0.02) || (toGo < 0 && wk > 0.02))) {
+        const weeks = Math.abs(toGo / wk);
+        if (weeks < 156) line += ' At this pace you\'d reach ' + fmt(goal, 1) + ' kg around ' + mon(addDays(t, Math.round(weeks * 7))) + (weeks > 52 ? ' next year' : '') + '.';
+      }
+      facts.push(line);
+    }
+    if (M.assumed > 0) facts.push(plural(M.assumed, 'day') + ' without a log ' + (M.assumed === 1 ? 'was' : 'were') + ' counted at your calorie target.');
+    facts.push(M.calibrated ? 'Fitted to your weigh-ins: you burn about ' + Math.abs(Math.round((M.k - 1) * 100)) + '% ' + (M.k >= 1 ? 'more' : 'less') + ' than the formula says' + (Math.abs(M.k - 1) < 0.015 ? ', so the formula fits you well.' : '.')
+      : 'Weigh in now and then, ideally in the morning: after about two weeks of weigh-ins the estimate learns how much you really burn.');
   }
-  const recent = ws.slice().reverse().slice(0, 4);
-  return '<div class="scr">' + backHeader('Weight') +
-    '<section class="row" style="gap:18px">' + ringDial(144, 112, prog, '<div class="num" style="font-size:30px">' + (cur != null ? fmt(cur, 1) : '—') + '</div><div class="cap">kg, trend</div>', goal && cur != null ? Math.round(prog * 100) + ' percent of the way from ' + fmt(first, 1) + ' to ' + fmt(goal, 1) + ' kilograms' : 'Weight trend', {raised: true, inset: 7}) +
-    '<div class="col" style="gap:10px"><div><div class="num" style="font-size:22px;line-height:1.2">' + (change != null ? fmtSigned(change, 1) + ' kg' : '—') + '</div><div class="cap">in 30 days</div></div>' +
-    '<div><div class="num" style="font-size:22px;line-height:1.2">' + (goal && cur != null ? fmt(Math.abs(cur - goal), 1) + ' kg to go' : 'No goal set') + '</div><div class="cap">' + (goal ? 'Goal ' + fmt(goal, 1) + ' kg' : '<a href="#" data-a="go" data-v="goals">Set one</a>') + '</div></div></div></section>' +
-    '<section class="raised r24" style="padding:14px 16px;display:flex;flex-direction:column;gap:8px"><div class="between"><h2 class="sec15">Last 30 days</h2>' + (win.length >= 2 ? '<span class="cap">' + fmt(win[0].trend, 1) + ' to ' + fmt(cur, 1) + ' kg</span>' : '') + '</div>' + chart + '</section>' +
-    (verdict ? '<div class="pressed-sm r18" style="padding:12px 14px;font-size:13px;line-height:1.5;color:var(--soft)">' + verdict + '</div>' : '') +
-    '<section class="raised r22" style="padding:12px 14px;display:flex;flex-direction:column;gap:10px"><div class="row" style="gap:10px">' +
-    '<label for="wt-in" class="grow" style="font-size:15px">Add today\'s weight</label><input id="wt-in" class="fld" type="number" inputmode="decimal" step="0.1" value="' + esc(S.ui.wIn != null ? S.ui.wIn : (last ? r1(last.kg) : '')) + '" data-in="wIn" style="width:80px;height:44px;text-align:right;padding:0 12px">' +
-    '<span class="mu" style="font-size:14px">kg</span><button class="cta btn-sm" data-a="saveWeight">Save</button></div>' +
-    '<input class="fld sm" data-in="wNote" value="' + esc(S.ui.wNote || '') + '" placeholder="Note, optional" aria-label="Note for this weigh-in" style="font-size:14px">' +
-    recent.map(w => '<div class="sep"></div><div class="row" style="height:44px;font-size:14px"><span class="grow">' + shortDay(w.date) + (w.note ? ' <span class="cap">' + esc(w.note) + '</span>' : '') + '</span><span>' + fmt(w.kg, 1) + ' kg</span></div>').join('') + '</section></div>';
+  const factBox = facts.length ? '<div class="pressed-sm r18" style="padding:12px 14px;font-size:13px;line-height:1.55;color:var(--soft);display:flex;flex-direction:column;gap:8px">' + facts.map(f => '<p style="margin:0">' + f + '</p>').join('') + '</div>' : '';
+
+  // weigh-ins: add for any day, tap one to change or delete it
+  const list = S.data.weight.filter(w => has(w.kg)).slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const shown = S.ui.wAll ? list : list.slice(0, 6);
+  const form = '<div class="col" style="gap:10px">' +
+    '<div class="row" style="gap:10px;flex-wrap:wrap"><label class="col" style="gap:4px;flex:1.3;min-width:130px"><span class="lb">Date</span><input id="wt-date" class="fld sm" type="date" max="' + t + '" value="' + esc(wDate) + '" data-in="wDate" style="font-size:14px"></label>' +
+    '<label class="col" style="gap:4px;flex:1;min-width:90px"><span class="lb">Weight, kg</span><input id="wt-in" class="fld sm" type="number" inputmode="decimal" step="0.1" value="' + esc(S.ui.wIn != null ? S.ui.wIn : (ed ? r1(ed.kg) : '')) + '" data-in="wIn" placeholder="' + (now != null ? fmt(now, 1) : '70.0') + '" style="text-align:right"></label></div>' +
+    '<input class="fld sm" data-in="wNote" value="' + esc(S.ui.wNote != null ? S.ui.wNote : (ed ? ed.note || '' : '')) + '" placeholder="Note, optional" aria-label="Note for this weigh-in" style="font-size:14px">' +
+    '<div class="row" style="gap:10px">' + (ed ? '<button class="raised-sm" data-a="wCancel" style="height:44px;padding:0 16px;border-radius:14px;font-size:14px;color:var(--mu)">Cancel</button><button class="raised-sm" data-a="wDelete" style="height:44px;padding:0 16px;border-radius:14px;font-size:14px;color:var(--ov)">Delete</button>' : '') +
+    '<button class="cta btn-sm grow" data-a="saveWeight" style="height:44px">' + (ed ? 'Save changes' : 'Add weigh-in') + '</button></div></div>';
+  const rows = shown.map(w => '<div class="sep"></div><button class="row" data-a="wEdit" data-v="' + esc(w.date) + '" aria-label="Change the weigh-in on ' + shortDay(w.date) + '" style="min-height:46px;font-size:14px;text-align:left;gap:10px' + (ed && ed.date === w.date ? ';color:var(--a)' : '') + '">' +
+    '<span class="grow" style="min-width:0">' + shortDay(w.date) + (w.note ? ' <span class="cap">' + esc(w.note) + '</span>' : '') + '</span><span class="num">' + fmt(w.kg, 1) + ' kg</span><span class="mu" style="display:flex">' + icon('next', 14, 2) + '</span></button>').join('') +
+    (list.length > shown.length ? '<div class="sep"></div><button data-a="wAll" class="mango" style="height:40px;font-size:14px">Show all ' + list.length + '</button>' : '');
+
+  return '<div class="scr">' + backHeader('Weight') + head +
+    '<section class="raised r24" style="padding:14px 16px;display:flex;flex-direction:column;gap:8px"><div class="between"><h2 class="sec15">' + (M ? 'Since ' + mon(M.start) : 'Your weight') + '</h2>' + (M ? '<span class="cap">' + fmt(M.series[0].kg, 1) + ' to ' + fmt(now, 1) + ' kg</span>' : '') + '</div>' + chart + '</section>' +
+    factBox +
+    '<section class="raised r22" style="padding:14px;display:flex;flex-direction:column;gap:10px"><h2 class="sec15" id="wt-form">' + (ed ? 'Change weigh-in' : 'Weigh-ins') + '</h2>' + form + rows + '</section></div>';
 };
 
 /* ---------- router, rendering, events ---------- */
@@ -1743,6 +1828,19 @@ function confirmBox(title, text, label, fn) { menu({title, text, items: [{label,
 function go(name, p = {}) { S.stack.push({name, p}); S.ui.openSwipe = null; pushHistory(); render(); }
 function replace(name, p = {}) { S.stack[S.stack.length - 1] = {name, p}; render(); }
 /* After stepping a period, slide the new one in from the side it came from. */
+/* The goal calculator's weight is a weigh-in too. Older profiles never wrote one, so once, if the
+   Weight sheet is empty, it's added on the day the first target was set (when the calculator ran). */
+function seedWeight() {
+  const p = profile();
+  if (S.data.weight.length || !(num(p.weight) >= 20) || setting('weight_seeded', '') === 'yes') return;
+  const firstTarget = S.data.targets.map(x => x.effective_date).filter(Boolean).sort()[0];
+  const date = p.measured_on || firstTarget || firstDay() || today();
+  const row = {date: date > today() ? today() : date, kg: r1(num(p.weight)), note: 'From goal calculator'};
+  S.data.weight = [row]; S.data.settings.weight_seeded = 'yes';
+  queueJob({kind: 'weight', row, label: 'starting weight'});
+  queueJob({kind: 'settings', values: {weight_seeded: 'yes'}, label: 'starting weight'});
+}
+
 /* ---------- background saving ----------
    Every write is a job: kept in order, run one at a time, and stored on the device until done, so
    a save survives the app being closed mid-way (it's replayed and finished on the next open). A
@@ -1758,6 +1856,8 @@ function syncApplyLocal(j) {
   else if (j.kind === 'deleteMeal') { S.data.meals = S.data.meals.filter(x => x.meal_id !== j.mealId); S.data.entries = S.data.entries.filter(x => x.meal_id !== j.mealId); }
   else if (j.kind === 'targets') S.data.targets = S.data.targets.filter(x => x.effective_date !== j.row.effective_date).concat([j.row]);
   else if (j.kind === 'weight') S.data.weight = S.data.weight.filter(w => w.date !== j.row.date).concat([j.row]);
+  else if (j.kind === 'weightDelete') S.data.weight = S.data.weight.filter(w => w.date !== j.date);
+  else if (j.kind === 'settings') Object.assign(S.data.settings, j.values);
 }
 async function syncJob(j) {
   if (j.kind === 'meal') {
@@ -1771,6 +1871,8 @@ async function syncJob(j) {
   } else if (j.kind === 'deleteMeal') await API.deleteMeal(j.mealId);
   else if (j.kind === 'targets') await API.saveTargets(j.row);
   else if (j.kind === 'weight') await API.addWeight(j.row);
+  else if (j.kind === 'weightDelete') await API.deleteWeight(j.date);
+  else if (j.kind === 'settings') await API.saveSettings(j.values);
 }
 async function syncRun() {
   if (SYNC.running) return;
@@ -1783,7 +1885,7 @@ async function syncRun() {
   }
   SYNC.running = false; syncShow('done');
 }
-const syncVerb = j => j.kind === 'deleteMeal' ? ['Deleting', 'Deleted', 'Delete'] : ['Saving', 'Saved', 'Save'];
+const syncVerb = j => /delete/i.test(j.kind) ? ['Deleting', 'Deleted', 'Delete'] : ['Saving', 'Saved', 'Save'];
 function syncShow(state, j, err) {
   let el = document.getElementById('syncpill');
   if (!el) { el = document.createElement('div'); el.id = 'syncpill'; el.className = 'syncpill glass'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); document.body.appendChild(el); }
@@ -2114,11 +2216,14 @@ const A = {
   async useTargets() {
     const p = gcState(), g = goalCalc(p), cur = currentTarget();
     const row = {effective_date: today(), kcal: g.kcal, protein_g: g.protein, carbs_g: g.carbs, fat_g: g.fat, fiber_min_g: num(cur.fiber_min_g) || 25, sugar_max_g: num(cur.sugar_max_g) || 50, sodium_max_mg: num(cur.sodium_max_mg) || 2300};
-    const prof = Object.assign({}, p, {maintenance: g.maintenance});
+    const prof = Object.assign({}, p, {maintenance: g.maintenance, measured_on: today()});
+    const wRow = num(p.weight) >= 20 ? {date: today(), kg: r1(num(p.weight)), note: 'From goal calculator'} : null;
     try {
       await Promise.all([API.saveTargets(row), API.saveSettings({profile: JSON.stringify(prof), onboarded: 'yes'})]);
       S.data.targets = S.data.targets.filter(t => t.effective_date !== row.effective_date).concat([row]);
       S.data.settings.profile = JSON.stringify(prof); S.data.settings.onboarded = 'yes'; S.dirty = true; S.ui.tg = null;
+      if (wRow) { const had = S.data.weight.find(w => w.date === wRow.date); if (!had || r1(had.kg) !== wRow.kg) { S.data.weight = S.data.weight.filter(w => w.date !== wRow.date).concat([wRow]); queueJob({kind: 'weight', row: wRow, label: fmt(wRow.kg, 1) + ' kg'}); } }
+      S.data.settings.weight_seeded = 'yes';
       S.stack = [{name: 'targets', p: {}}]; toast('Targets set from the calculator');
     } catch (e) { toast(friendly(e)); }
   },
@@ -2384,12 +2489,32 @@ const A = {
     } catch (e) { S.ui.sumErr = friendly(e); }
     S.ui.sumBusy = false; render();
   },
+  // a weigh-in for any day up to today; when changing one, a new date moves it
   async saveWeight() {
-    const kg = num(S.ui.wIn != null ? S.ui.wIn : (document.getElementById('wt-in') || {}).value);
+    const ed = S.ui.wEdit ? S.data.weight.find(w => w.date === S.ui.wEdit) : null;
+    const kg = num(S.ui.wIn != null ? S.ui.wIn : (document.getElementById('wt-in') || {}).value || (ed ? ed.kg : ''));
     if (!(kg >= 20 && kg <= 400)) { toast('Enter a weight in kilograms, such as 72.4'); return; }
-    const row = {date: today(), kg: r1(kg), note: (S.ui.wNote || '').trim()};
-    S.data.weight = S.data.weight.filter(w => w.date !== row.date).concat([row]); S.ui.wNote = ''; S.ui.wIn = null;
+    const date = S.ui.wDate || (document.getElementById('wt-date') || {}).value || (ed ? ed.date : today());
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > today()) { toast('Pick a date up to today'); return; }
+    const note = (S.ui.wNote != null ? S.ui.wNote : (ed ? ed.note || '' : '')).trim();
+    const row = {date, kg: r1(kg), note};
+    if (ed && ed.date !== date) { S.data.weight = S.data.weight.filter(w => w.date !== ed.date); queueJob({kind: 'weightDelete', date: ed.date, label: 'weigh-in'}); }
+    S.data.weight = S.data.weight.filter(w => w.date !== row.date).concat([row]);
+    S.ui.wEdit = null; S.ui.wIn = null; S.ui.wNote = null; S.ui.wDate = null;
     queueJob({kind: 'weight', row, label: fmt(row.kg, 1) + ' kg'}); render();
+  },
+  wEdit: el => {
+    const w = S.data.weight.find(x => x.date === el.dataset.v); if (!w) return;
+    S.ui.wEdit = w.date; S.ui.wIn = null; S.ui.wNote = null; S.ui.wDate = null; render();
+    const f = document.getElementById('wt-form'); if (f) f.scrollIntoView({block: 'start', behavior: calmMotion() ? 'auto' : 'smooth'});
+  },
+  wCancel: () => { S.ui.wEdit = null; S.ui.wIn = null; S.ui.wNote = null; S.ui.wDate = null; render(); },
+  wAll: () => { S.ui.wAll = true; render(); },
+  wDelete: () => {
+    const d = S.ui.wEdit; if (!d) return;
+    S.data.weight = S.data.weight.filter(w => w.date !== d);
+    S.ui.wEdit = null; S.ui.wIn = null; S.ui.wNote = null; S.ui.wDate = null;
+    queueJob({kind: 'weightDelete', date: d, label: 'weigh-in'}); render();
   }
 };
 
@@ -2416,6 +2541,7 @@ const I = {
   custom: el => { const r = trendRange(); S.ui.custom = {from: r.from, to: r.to}; S.ui.custom[el.dataset.k] = el.value; if (S.ui.custom.from > S.ui.custom.to) S.ui.custom.from = S.ui.custom.to; },
   wIn: el => { S.ui.wIn = el.value; },
   wNote: el => { S.ui.wNote = el.value; },
+  wDate: el => { S.ui.wDate = el.value; },
   async setting(el) {
     const k = el.dataset.k, v = el.value; S.data.settings[k] = v;
     const patch = {[k]: v};
@@ -2565,6 +2691,7 @@ async function boot() {
     loadData(r);
     // saves still waiting from last time: show them as made, then finish them
     SYNC.jobs = syncLoad(); SYNC.jobs.forEach(syncApplyLocal);
+    seedWeight();
     if (SYNC.jobs.length) setTimeout(syncRun, 300);
     if (setting('onboarded', '') !== 'yes') S.stack = [{name: 'welcome', p: {}}];
     render();

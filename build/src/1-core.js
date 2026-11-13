@@ -211,6 +211,59 @@ function weightSeries() {
   let ema = null;
   return rows.map(w => { ema = ema == null ? num(w.kg) : ema + 0.1 * (num(w.kg) - ema); return {date: w.date, kg: num(w.kg), trend: ema, note: w.note}; });
 }
+/* ---------- estimated weight ----------
+   Energy balance, day by day, from the first weigh-in (the goal calculator's weight counts as one):
+   each finished day moves the estimate by (eaten − burned) / 7,700 kcal per kg, where burned is
+   Mifflin-St Jeor at the current estimate × activity × k. A day with no log is counted at that day's
+   target. A real weigh-in pulls the estimate a third of the way to the scale (scales are noisy), and
+   once weigh-ins span two weeks k is fitted to them, so the burn reflects the person, not the formula.
+   On top, water: yesterday's carbs and sodium against the person's usual hold or shed water for a day
+   or two (about 3 g of water per g of glycogen carbs; sodium at roughly half of isotonic retention). */
+function bmrAt(p, kg) { return 10 * kg + 6.25 * num(p.height) - 5 * num(p.age) + (p.sex === 'Female' ? -161 : 5); }
+function weightModel() {
+  const p = profile(), t = today(), meas = weightSeries();
+  if (!meas.length || !num(p.height) || !num(p.age)) return null;
+  const act = (ACTIVITY.find(x => x[0] === p.activity) || ACTIVITY[1])[1], start = meas[0].date;
+  const scale = {}; meas.forEach(w => { scale[w.date] = w.kg; });
+  const days = rangeDays(start, t);
+  const run = (k, pull) => {
+    let est = meas[0].kg, assumed = 0, counted = 0, eaten = 0, burned = 0;
+    const out = [], miss = [];
+    days.forEach(d => {
+      if (scale[d] != null && d !== start) { miss.push([scale[d], est]); est += pull * (scale[d] - est); }
+      out.push({date: d, kg: est});
+      if (d === t) return;                                   // today isn't over yet
+      const lg = logged(d), intake = lg ? totalsOn(d).kcal : (num(targetFor(d).kcal) || bmrAt(p, est) * act);
+      const burn = bmrAt(p, est) * act * k;
+      if (lg) counted++; else assumed++;
+      if (d >= addDays(t, -14)) { eaten += intake; burned += burn; }
+      est += (intake - burn) / KCAL_PER_KG;
+    });
+    return {series: out, assumed, counted, miss, eaten, burned};
+  };
+  // fit k to the weigh-ins once there's enough to go on: the k whose pure prediction misses them least
+  const later = meas.filter(w => w.date !== start), span = later.length ? daysBetween(start, later[later.length - 1].date) : 0;
+  let k = 1, calibrated = false;
+  if (later.length >= 2 && span >= 12) {
+    let best = Infinity;
+    for (let c = 0.8; c <= 1.2001; c += 0.01) {
+      const e = run(c, 0).miss.reduce((s, m) => s + (m[0] - m[1]) * (m[0] - m[1]), 0);
+      if (e < best) { best = e; k = c; }
+    }
+    calibrated = true;
+  }
+  const r = run(k, 0.35), now = r.series[r.series.length - 1].kg;
+  // water from yesterday's carbs and sodium against the last two weeks' usual
+  const y = addDays(t, -1), base = rangeDays(addDays(t, -14), y).filter(logged);
+  let water = 0;
+  if (logged(y) && base.length >= 4) {
+    const avgOf = f => base.reduce((s, d) => s + f(totalsOn(d)), 0) / base.length, ty = totalsOn(y);
+    water = clamp(0.003 * (ty.carbs_g - avgOf(x => x.carbs_g)) + 0.00015 * (ty.sodium_mg - avgOf(x => x.sodium_mg)), -1.2, 1.2);
+  }
+  const n14 = Math.min(14, days.length - 1), perDay = n14 > 0 ? (r.eaten - r.burned) / n14 / KCAL_PER_KG : 0;
+  return {start, startKg: meas[0].kg, series: r.series, now, water, onScale: now + water, k, calibrated, assumed: r.assumed, counted: r.counted,
+    weekRate: perDay * 7, avgIntake: n14 > 0 ? r.eaten / n14 : 0, avgBurn: n14 > 0 ? r.burned / n14 : 0};
+}
 function trendAt(series, day) { let t = null; for (const s of series) { if (s.date <= day) t = s.trend; else break; } return t; }
 function maintenanceKcal() { const p = profile(); if (num(p.maintenance)) return num(p.maintenance); if (num(p.weight)) return goalCalc(p).maintenance; return null; }
 /* predicted change = sum of (intake − maintenance) / 7,700 over logged days in the period */

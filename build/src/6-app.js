@@ -51,6 +51,19 @@ function confirmBox(title, text, label, fn) { menu({title, text, items: [{label,
 function go(name, p = {}) { S.stack.push({name, p}); S.ui.openSwipe = null; pushHistory(); render(); }
 function replace(name, p = {}) { S.stack[S.stack.length - 1] = {name, p}; render(); }
 /* After stepping a period, slide the new one in from the side it came from. */
+/* The goal calculator's weight is a weigh-in too. Older profiles never wrote one, so once, if the
+   Weight sheet is empty, it's added on the day the first target was set (when the calculator ran). */
+function seedWeight() {
+  const p = profile();
+  if (S.data.weight.length || !(num(p.weight) >= 20) || setting('weight_seeded', '') === 'yes') return;
+  const firstTarget = S.data.targets.map(x => x.effective_date).filter(Boolean).sort()[0];
+  const date = p.measured_on || firstTarget || firstDay() || today();
+  const row = {date: date > today() ? today() : date, kg: r1(num(p.weight)), note: 'From goal calculator'};
+  S.data.weight = [row]; S.data.settings.weight_seeded = 'yes';
+  queueJob({kind: 'weight', row, label: 'starting weight'});
+  queueJob({kind: 'settings', values: {weight_seeded: 'yes'}, label: 'starting weight'});
+}
+
 /* ---------- background saving ----------
    Every write is a job: kept in order, run one at a time, and stored on the device until done, so
    a save survives the app being closed mid-way (it's replayed and finished on the next open). A
@@ -66,6 +79,8 @@ function syncApplyLocal(j) {
   else if (j.kind === 'deleteMeal') { S.data.meals = S.data.meals.filter(x => x.meal_id !== j.mealId); S.data.entries = S.data.entries.filter(x => x.meal_id !== j.mealId); }
   else if (j.kind === 'targets') S.data.targets = S.data.targets.filter(x => x.effective_date !== j.row.effective_date).concat([j.row]);
   else if (j.kind === 'weight') S.data.weight = S.data.weight.filter(w => w.date !== j.row.date).concat([j.row]);
+  else if (j.kind === 'weightDelete') S.data.weight = S.data.weight.filter(w => w.date !== j.date);
+  else if (j.kind === 'settings') Object.assign(S.data.settings, j.values);
 }
 async function syncJob(j) {
   if (j.kind === 'meal') {
@@ -79,6 +94,8 @@ async function syncJob(j) {
   } else if (j.kind === 'deleteMeal') await API.deleteMeal(j.mealId);
   else if (j.kind === 'targets') await API.saveTargets(j.row);
   else if (j.kind === 'weight') await API.addWeight(j.row);
+  else if (j.kind === 'weightDelete') await API.deleteWeight(j.date);
+  else if (j.kind === 'settings') await API.saveSettings(j.values);
 }
 async function syncRun() {
   if (SYNC.running) return;
@@ -91,7 +108,7 @@ async function syncRun() {
   }
   SYNC.running = false; syncShow('done');
 }
-const syncVerb = j => j.kind === 'deleteMeal' ? ['Deleting', 'Deleted', 'Delete'] : ['Saving', 'Saved', 'Save'];
+const syncVerb = j => /delete/i.test(j.kind) ? ['Deleting', 'Deleted', 'Delete'] : ['Saving', 'Saved', 'Save'];
 function syncShow(state, j, err) {
   let el = document.getElementById('syncpill');
   if (!el) { el = document.createElement('div'); el.id = 'syncpill'; el.className = 'syncpill glass'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); document.body.appendChild(el); }
@@ -422,11 +439,14 @@ const A = {
   async useTargets() {
     const p = gcState(), g = goalCalc(p), cur = currentTarget();
     const row = {effective_date: today(), kcal: g.kcal, protein_g: g.protein, carbs_g: g.carbs, fat_g: g.fat, fiber_min_g: num(cur.fiber_min_g) || 25, sugar_max_g: num(cur.sugar_max_g) || 50, sodium_max_mg: num(cur.sodium_max_mg) || 2300};
-    const prof = Object.assign({}, p, {maintenance: g.maintenance});
+    const prof = Object.assign({}, p, {maintenance: g.maintenance, measured_on: today()});
+    const wRow = num(p.weight) >= 20 ? {date: today(), kg: r1(num(p.weight)), note: 'From goal calculator'} : null;
     try {
       await Promise.all([API.saveTargets(row), API.saveSettings({profile: JSON.stringify(prof), onboarded: 'yes'})]);
       S.data.targets = S.data.targets.filter(t => t.effective_date !== row.effective_date).concat([row]);
       S.data.settings.profile = JSON.stringify(prof); S.data.settings.onboarded = 'yes'; S.dirty = true; S.ui.tg = null;
+      if (wRow) { const had = S.data.weight.find(w => w.date === wRow.date); if (!had || r1(had.kg) !== wRow.kg) { S.data.weight = S.data.weight.filter(w => w.date !== wRow.date).concat([wRow]); queueJob({kind: 'weight', row: wRow, label: fmt(wRow.kg, 1) + ' kg'}); } }
+      S.data.settings.weight_seeded = 'yes';
       S.stack = [{name: 'targets', p: {}}]; toast('Targets set from the calculator');
     } catch (e) { toast(friendly(e)); }
   },
@@ -692,12 +712,32 @@ const A = {
     } catch (e) { S.ui.sumErr = friendly(e); }
     S.ui.sumBusy = false; render();
   },
+  // a weigh-in for any day up to today; when changing one, a new date moves it
   async saveWeight() {
-    const kg = num(S.ui.wIn != null ? S.ui.wIn : (document.getElementById('wt-in') || {}).value);
+    const ed = S.ui.wEdit ? S.data.weight.find(w => w.date === S.ui.wEdit) : null;
+    const kg = num(S.ui.wIn != null ? S.ui.wIn : (document.getElementById('wt-in') || {}).value || (ed ? ed.kg : ''));
     if (!(kg >= 20 && kg <= 400)) { toast('Enter a weight in kilograms, such as 72.4'); return; }
-    const row = {date: today(), kg: r1(kg), note: (S.ui.wNote || '').trim()};
-    S.data.weight = S.data.weight.filter(w => w.date !== row.date).concat([row]); S.ui.wNote = ''; S.ui.wIn = null;
+    const date = S.ui.wDate || (document.getElementById('wt-date') || {}).value || (ed ? ed.date : today());
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > today()) { toast('Pick a date up to today'); return; }
+    const note = (S.ui.wNote != null ? S.ui.wNote : (ed ? ed.note || '' : '')).trim();
+    const row = {date, kg: r1(kg), note};
+    if (ed && ed.date !== date) { S.data.weight = S.data.weight.filter(w => w.date !== ed.date); queueJob({kind: 'weightDelete', date: ed.date, label: 'weigh-in'}); }
+    S.data.weight = S.data.weight.filter(w => w.date !== row.date).concat([row]);
+    S.ui.wEdit = null; S.ui.wIn = null; S.ui.wNote = null; S.ui.wDate = null;
     queueJob({kind: 'weight', row, label: fmt(row.kg, 1) + ' kg'}); render();
+  },
+  wEdit: el => {
+    const w = S.data.weight.find(x => x.date === el.dataset.v); if (!w) return;
+    S.ui.wEdit = w.date; S.ui.wIn = null; S.ui.wNote = null; S.ui.wDate = null; render();
+    const f = document.getElementById('wt-form'); if (f) f.scrollIntoView({block: 'start', behavior: calmMotion() ? 'auto' : 'smooth'});
+  },
+  wCancel: () => { S.ui.wEdit = null; S.ui.wIn = null; S.ui.wNote = null; S.ui.wDate = null; render(); },
+  wAll: () => { S.ui.wAll = true; render(); },
+  wDelete: () => {
+    const d = S.ui.wEdit; if (!d) return;
+    S.data.weight = S.data.weight.filter(w => w.date !== d);
+    S.ui.wEdit = null; S.ui.wIn = null; S.ui.wNote = null; S.ui.wDate = null;
+    queueJob({kind: 'weightDelete', date: d, label: 'weigh-in'}); render();
   }
 };
 
@@ -724,6 +764,7 @@ const I = {
   custom: el => { const r = trendRange(); S.ui.custom = {from: r.from, to: r.to}; S.ui.custom[el.dataset.k] = el.value; if (S.ui.custom.from > S.ui.custom.to) S.ui.custom.from = S.ui.custom.to; },
   wIn: el => { S.ui.wIn = el.value; },
   wNote: el => { S.ui.wNote = el.value; },
+  wDate: el => { S.ui.wDate = el.value; },
   async setting(el) {
     const k = el.dataset.k, v = el.value; S.data.settings[k] = v;
     const patch = {[k]: v};
@@ -873,6 +914,7 @@ async function boot() {
     loadData(r);
     // saves still waiting from last time: show them as made, then finish them
     SYNC.jobs = syncLoad(); SYNC.jobs.forEach(syncApplyLocal);
+    seedWeight();
     if (SYNC.jobs.length) setTimeout(syncRun, 300);
     if (setting('onboarded', '') !== 'yes') S.stack = [{name: 'welcome', p: {}}];
     render();

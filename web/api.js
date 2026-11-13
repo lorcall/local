@@ -608,6 +608,7 @@ function WebAPI() {
     saveFavorite: f => upsert('Favorites', f),
     saveTargets: t => upsert('Targets', t),
     addWeight: w => upsert('Weight', w),
+    deleteWeight: date => deleteWhere('Weight', 'date', String(date)),
     async saveSettings(obj) {
       for (const k of Object.keys(obj || {})) await upsert('Settings', {key: k, value: obj[k] == null ? '' : String(obj[k])});
       const fresh = await readAll();
