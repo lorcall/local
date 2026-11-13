@@ -73,7 +73,7 @@ SCREENS.trends = () => {
   const days = rangeDays(from, to), done = days.filter(d => logged(d) && d !== t);
   const loggedN = days.filter(logged).length;
   const can = trendCan({from, to}), dis = ' disabled style="color:var(--mu);opacity:.5"';
-  const head = '<header class="between" style="align-items:center"><h1 class="title">Trends</h1>' + track('range', ['7 days', '30 days', 'Custom'], r, 'Range', {tight: true}) + '</header>' +
+  const head = '<header class="between" style="align-items:center"><h1 class="title">Trends</h1>' + track('range', ['7 days', '30 days', 'Custom'], r, 'Range', {tight: true, view: true}) + '</header>' +
     '<div class="between" style="align-items:center"><button class="ib ib40" data-a="trendStep" data-v="-1" aria-label="Earlier period"' + (can.prev ? '' : dis) + '>' + icon('back', 16, 2) + '</button>' +
     '<span style="font-size:15px" aria-live="polite">' + periodLabel(from, to) + '</span>' +
     '<button class="ib ib40" data-a="trendStep" data-v="1" aria-label="Later period"' + (can.next ? '' : dis) + '>' + icon('next', 16, 2) + '</button></div>' +
@@ -208,7 +208,7 @@ SCREENS.topfoods = () => {
   const foods = Object.values(byFood).sort((a, b) => b.v - a.v).slice(0, 5);
   const amt = f => f.unit === 'g' ? fmt(f.q, 1) + ' portions' : f.label && /piece|stick|sachet|plate/.test(f.label) ? plural(f.q, f.label.replace(/^1 /, '').split(',')[0]) : plural(f.q, f.unit || 'serving');
   return '<div class="scr">' + backHeader('Where ' + (m === 'Calories' ? 'calories come' : 'your ' + m.toLowerCase() + ' comes') + ' from', {sub: 'Last 30 days', small: true}) +
-    chips('measure', Object.keys(MEASURES), m, 'Measure', {scroll: true}) +  // macros and micros: seven don't fit a track, so a scrolling chip row
+    chips('measure', Object.keys(MEASURES), m, 'Measure', {scroll: true, view: true}) +  // macros and micros: seven don't fit a track, so a scrolling chip row
     (total > 0 ? '<section class="raised r26" style="padding:16px;display:flex;flex-direction:column;gap:12px"><h2 class="sec15">By category</h2>' +
       cats.map(([c, v], i) => { const p = total ? v / total : 0; return '<div class="col" style="gap:5px"><div class="between" style="font-size:13px"><span>' + CATEGORY_LABEL[c] + '</span><span>' + Math.round(p * 100) + '%</span></div><div class="tk"><div style="width:' + (top ? v / top * 100 : 0).toFixed(1) + '%;' + (i === 0 ? 'box-shadow:0 0 8px var(--a)' : 'opacity:' + Math.max(.5, .85 - i * .1)) + '"></div></div></div>'; }).join('') + '</section>' +
       '<section class="raised r26" style="padding:10px 16px;display:flex;flex-direction:column"><h2 class="sec15" style="margin:6px 0 2px">Your top five foods</h2>' +
@@ -241,7 +241,7 @@ SCREENS.consistency = () => {
   const u = measure === 'kcal' ? 'kcal' : VALUE_UNIT[M.v] + ' of ' + M.label.toLowerCase(), step = measure === 'kcal' ? 10 : measure === 'sodium' ? 50 : 1;
   const bestWhen = si.bestEnd ? (si.bestEnd >= addDays(t, -1) ? 'your current run' : 'set in ' + MONTHS[parseDay(si.bestEnd).getMonth()]) : '';
   const name = measure === 'kcal' ? 'calorie' : M.label.toLowerCase();
-  return '<div class="scr">' + backHeader('Consistency') + chips('cm', tracked.map(k => [k, MEASURE[k].label]), measure, 'Target', {scroll: true}) +
+  return '<div class="scr">' + backHeader('Consistency') + chips('cm', tracked.map(k => [k, MEASURE[k].label]), measure, 'Target', {scroll: true, view: true}) +
     '<section class="row" style="gap:16px">' + ringDial(150, 118, si.best ? si.cur / si.best : 0, '<div class="num" style="font-size:44px">' + si.cur + '</div><div class="cap">day streak</div>', 'Streak of ' + si.cur + ' days, best ' + si.best, {raised: true, inset: 7}) +
     '<div class="col" style="gap:12px"><div><div class="num" style="font-size:24px;line-height:1.2">' + plural(si.best, 'day') + '</div><div class="cap">Best streak' + (bestWhen ? ', ' + bestWhen : '') + '</div></div>' +
     '<div><div class="num" style="font-size:24px;line-height:1.2">' + pct + '%</div><div class="cap">' + (measure === 'kcal' ? 'of days within 10% of target in 30 days' : 'of days on ' + name + ' target in 30 days') + '</div></div></div></section>' +

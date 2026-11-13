@@ -127,17 +127,17 @@ function confDots(level, small) {
 
 /* chips: separate raised buttons; the selected one is pressed in and mango */
 function chips(act, options, selected, label, o = {}) {
-  return '<div class="chips' + (o.scroll ? ' scroll' : '') + '" role="radiogroup" aria-label="' + esc(label) + '">' + options.map(opt => {
+  return '<div class="chips' + (o.scroll ? ' scroll' : '') + '" role="radiogroup" aria-label="' + esc(label) + '"' + (o.view ? ' data-view' : '') + '><span class="selind" aria-hidden="true"></span>' + options.map(opt => {
     const [v, t] = Array.isArray(opt) ? opt : [opt, opt];
-    return '<button class="chip" role="radio" aria-checked="' + (v === selected) + '" data-a="' + act + '" data-v="' + esc(v) + '"' + (o.h ? ' style="height:' + o.h + 'px"' : '') + '>' + esc(t) + '</button>';
+    return '<button class="chip" role="radio" aria-checked="' + (v === selected) + '" data-a="' + act + '" data-v="' + esc(v) + '"' + (o.h ? ' style="height:' + o.h + 'px"' : '') + '><span class="cl">' + esc(t) + '</span></button>';
   }).join('') + '</div>';
 }
 /* track: a pressed track with the selected option raised */
 function track(act, options, selected, label, o = {}) {
   const role = o.tabs ? 'tab' : 'radio', attr = o.tabs ? 'aria-selected' : 'aria-checked';
-  return '<div class="track' + (o.tight ? ' tight' : '') + '" role="' + (o.tabs ? 'tablist' : 'radiogroup') + '" aria-label="' + esc(label) + '"' + (o.style ? ' style="' + o.style + '"' : '') + '>' + options.map(opt => {
+  return '<div class="track' + (o.tight ? ' tight' : '') + '" role="' + (o.tabs ? 'tablist' : 'radiogroup') + '" aria-label="' + esc(label) + '"' + (o.style ? ' style="' + o.style + '"' : '') + (o.view ? ' data-view' : '') + '><span class="selind" aria-hidden="true"></span>' + options.map(opt => {
     const [v, t] = Array.isArray(opt) ? opt : [opt, opt];
-    return '<button role="' + role + '" ' + attr + '="' + (v === selected) + '" data-a="' + act + '" data-v="' + esc(v) + '">' + esc(t) + '</button>';
+    return '<button role="' + role + '" ' + attr + '="' + (v === selected) + '" data-a="' + act + '" data-v="' + esc(v) + '"><span class="cl">' + esc(t) + '</span></button>';
   }).join('') + '</div>';
 }
 function stepper(val, act, label, o = {}) {

@@ -564,17 +564,17 @@ function confDots(level, small) {
 
 /* chips: separate raised buttons; the selected one is pressed in and mango */
 function chips(act, options, selected, label, o = {}) {
-  return '<div class="chips' + (o.scroll ? ' scroll' : '') + '" role="radiogroup" aria-label="' + esc(label) + '">' + options.map(opt => {
+  return '<div class="chips' + (o.scroll ? ' scroll' : '') + '" role="radiogroup" aria-label="' + esc(label) + '"' + (o.view ? ' data-view' : '') + '><span class="selind" aria-hidden="true"></span>' + options.map(opt => {
     const [v, t] = Array.isArray(opt) ? opt : [opt, opt];
-    return '<button class="chip" role="radio" aria-checked="' + (v === selected) + '" data-a="' + act + '" data-v="' + esc(v) + '"' + (o.h ? ' style="height:' + o.h + 'px"' : '') + '>' + esc(t) + '</button>';
+    return '<button class="chip" role="radio" aria-checked="' + (v === selected) + '" data-a="' + act + '" data-v="' + esc(v) + '"' + (o.h ? ' style="height:' + o.h + 'px"' : '') + '><span class="cl">' + esc(t) + '</span></button>';
   }).join('') + '</div>';
 }
 /* track: a pressed track with the selected option raised */
 function track(act, options, selected, label, o = {}) {
   const role = o.tabs ? 'tab' : 'radio', attr = o.tabs ? 'aria-selected' : 'aria-checked';
-  return '<div class="track' + (o.tight ? ' tight' : '') + '" role="' + (o.tabs ? 'tablist' : 'radiogroup') + '" aria-label="' + esc(label) + '"' + (o.style ? ' style="' + o.style + '"' : '') + '>' + options.map(opt => {
+  return '<div class="track' + (o.tight ? ' tight' : '') + '" role="' + (o.tabs ? 'tablist' : 'radiogroup') + '" aria-label="' + esc(label) + '"' + (o.style ? ' style="' + o.style + '"' : '') + (o.view ? ' data-view' : '') + '><span class="selind" aria-hidden="true"></span>' + options.map(opt => {
     const [v, t] = Array.isArray(opt) ? opt : [opt, opt];
-    return '<button role="' + role + '" ' + attr + '="' + (v === selected) + '" data-a="' + act + '" data-v="' + esc(v) + '">' + esc(t) + '</button>';
+    return '<button role="' + role + '" ' + attr + '="' + (v === selected) + '" data-a="' + act + '" data-v="' + esc(v) + '"><span class="cl">' + esc(t) + '</span></button>';
   }).join('') + '</div>';
 }
 function stepper(val, act, label, o = {}) {
@@ -1116,7 +1116,7 @@ SCREENS.trends = () => {
   const days = rangeDays(from, to), done = days.filter(d => logged(d) && d !== t);
   const loggedN = days.filter(logged).length;
   const can = trendCan({from, to}), dis = ' disabled style="color:var(--mu);opacity:.5"';
-  const head = '<header class="between" style="align-items:center"><h1 class="title">Trends</h1>' + track('range', ['7 days', '30 days', 'Custom'], r, 'Range', {tight: true}) + '</header>' +
+  const head = '<header class="between" style="align-items:center"><h1 class="title">Trends</h1>' + track('range', ['7 days', '30 days', 'Custom'], r, 'Range', {tight: true, view: true}) + '</header>' +
     '<div class="between" style="align-items:center"><button class="ib ib40" data-a="trendStep" data-v="-1" aria-label="Earlier period"' + (can.prev ? '' : dis) + '>' + icon('back', 16, 2) + '</button>' +
     '<span style="font-size:15px" aria-live="polite">' + periodLabel(from, to) + '</span>' +
     '<button class="ib ib40" data-a="trendStep" data-v="1" aria-label="Later period"' + (can.next ? '' : dis) + '>' + icon('next', 16, 2) + '</button></div>' +
@@ -1251,7 +1251,7 @@ SCREENS.topfoods = () => {
   const foods = Object.values(byFood).sort((a, b) => b.v - a.v).slice(0, 5);
   const amt = f => f.unit === 'g' ? fmt(f.q, 1) + ' portions' : f.label && /piece|stick|sachet|plate/.test(f.label) ? plural(f.q, f.label.replace(/^1 /, '').split(',')[0]) : plural(f.q, f.unit || 'serving');
   return '<div class="scr">' + backHeader('Where ' + (m === 'Calories' ? 'calories come' : 'your ' + m.toLowerCase() + ' comes') + ' from', {sub: 'Last 30 days', small: true}) +
-    chips('measure', Object.keys(MEASURES), m, 'Measure', {scroll: true}) +  // macros and micros: seven don't fit a track, so a scrolling chip row
+    chips('measure', Object.keys(MEASURES), m, 'Measure', {scroll: true, view: true}) +  // macros and micros: seven don't fit a track, so a scrolling chip row
     (total > 0 ? '<section class="raised r26" style="padding:16px;display:flex;flex-direction:column;gap:12px"><h2 class="sec15">By category</h2>' +
       cats.map(([c, v], i) => { const p = total ? v / total : 0; return '<div class="col" style="gap:5px"><div class="between" style="font-size:13px"><span>' + CATEGORY_LABEL[c] + '</span><span>' + Math.round(p * 100) + '%</span></div><div class="tk"><div style="width:' + (top ? v / top * 100 : 0).toFixed(1) + '%;' + (i === 0 ? 'box-shadow:0 0 8px var(--a)' : 'opacity:' + Math.max(.5, .85 - i * .1)) + '"></div></div></div>'; }).join('') + '</section>' +
       '<section class="raised r26" style="padding:10px 16px;display:flex;flex-direction:column"><h2 class="sec15" style="margin:6px 0 2px">Your top five foods</h2>' +
@@ -1284,7 +1284,7 @@ SCREENS.consistency = () => {
   const u = measure === 'kcal' ? 'kcal' : VALUE_UNIT[M.v] + ' of ' + M.label.toLowerCase(), step = measure === 'kcal' ? 10 : measure === 'sodium' ? 50 : 1;
   const bestWhen = si.bestEnd ? (si.bestEnd >= addDays(t, -1) ? 'your current run' : 'set in ' + MONTHS[parseDay(si.bestEnd).getMonth()]) : '';
   const name = measure === 'kcal' ? 'calorie' : M.label.toLowerCase();
-  return '<div class="scr">' + backHeader('Consistency') + chips('cm', tracked.map(k => [k, MEASURE[k].label]), measure, 'Target', {scroll: true}) +
+  return '<div class="scr">' + backHeader('Consistency') + chips('cm', tracked.map(k => [k, MEASURE[k].label]), measure, 'Target', {scroll: true, view: true}) +
     '<section class="row" style="gap:16px">' + ringDial(150, 118, si.best ? si.cur / si.best : 0, '<div class="num" style="font-size:44px">' + si.cur + '</div><div class="cap">day streak</div>', 'Streak of ' + si.cur + ' days, best ' + si.best, {raised: true, inset: 7}) +
     '<div class="col" style="gap:12px"><div><div class="num" style="font-size:24px;line-height:1.2">' + plural(si.best, 'day') + '</div><div class="cap">Best streak' + (bestWhen ? ', ' + bestWhen : '') + '</div></div>' +
     '<div><div class="num" style="font-size:24px;line-height:1.2">' + pct + '%</div><div class="cap">' + (measure === 'kcal' ? 'of days within 10% of target in 30 days' : 'of days on ' + name + ' target in 30 days') + '</div></div></div></section>' +
@@ -1354,14 +1354,14 @@ function render() {
   const a = document.activeElement, fid = a && a.id;
   let sel = null; try { if (a && a.setSelectionRange && a.type !== 'number') sel = [a.selectionStart, a.selectionEnd]; } catch (e) { /* ignore */ }
   const name = route().name, same = name === lastRoute, y = window.scrollY;
+  const before = same ? selSnapshot() : null;
   app().innerHTML = (SCREENS[name] || SCREENS.today)() + overlays();
   placeTile();
   if (S.ui.openSwipe) { const s = app().querySelector('[data-swipe="' + CSS.escape(S.ui.openSwipe) + '"]'); if (s) s.classList.add('open'); }
   if (same) window.scrollTo(0, y); else { window.scrollTo(0, 0); const h = app().querySelector('h1'); if (h && !fid) { h.setAttribute('tabindex', '-1'); h.focus({preventScroll: true}); } }
   if (fid && same) { const el = document.getElementById(fid); if (el) { el.focus({preventScroll: true}); try { if (sel) el.setSelectionRange(sel[0], sel[1]); } catch (e) { /* ignore */ } } }
   lastRoute = name;
-  // a scrolling chip row keeps its selected chip in view, centred where it can be
-  app().querySelectorAll('.chips.scroll').forEach(c => { const on = c.querySelector('[aria-checked="true"]'); if (on) c.scrollLeft = on.offsetLeft - (c.clientWidth - on.offsetWidth) / 2; });
+  selMotion(before);
   flushThumbs();
 }
 /* Swap only computed regions, so a field being typed in keeps focus and the keyboard stays up. */
@@ -1372,6 +1372,7 @@ function refreshParts() {
     const n = tpl.querySelector('[data-part="' + el.getAttribute('data-part') + '"]');
     if (n) el.replaceWith(n);
   });
+  placeAllSel();
 }
 function overlays() {
   let h = '';
@@ -1434,30 +1435,103 @@ function tabMotion(snap) {
   const dir = i0 < 0 || i1 < 0 ? 1 : i1 > i0 ? 1 : -1;
   // tile: stretch from where it was
   const t = placeTile();
-  if (t && snap.tile && t.ind.animate) {
-    const from = snap.tile.x, left = Math.min(from, t.x), span = Math.abs(t.x - from) + 48;
-    t.ind.animate([
-      {transform: 'translateX(' + from + 'px)', width: snap.tile.w + 'px'},
-      {transform: 'translateX(' + left + 'px)', width: span + 'px', offset: .46, easing: 'cubic-bezier(.3,0,.2,1)'},
-      {transform: 'translateX(' + t.x + 'px)', width: '48px'}
-    ], {duration: 460, easing: 'cubic-bezier(.55,0,.3,1)'});
-  }
+  if (t && snap.tile && t.ind.animate) stretchTo(t.ind, snap.tile.x, snap.tile.w, t.x, 48);
   // screens: glide
   const scr = app().querySelector(':scope > .scr');
-  if (scr && scr.animate) scr.animate([{opacity: 0, transform: 'translateX(' + (dir * 28) + 'px)'}, {opacity: 1, transform: 'translateX(0px)'}],
-    {duration: 360, delay: 80, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards'});
-  if (snap.scr && snap.scr.el.animate) {
-    const old = snap.scr.el;
-    old.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
-    old.setAttribute('aria-hidden', 'true'); old.setAttribute('inert', '');
-    old.style.marginTop = snap.scr.top + 'px';
-    const g = document.createElement('div');
-    g.className = 'tabghost'; g.style.left = snap.scr.left + 'px'; g.style.width = snap.scr.width + 'px';
-    g.appendChild(old); document.body.appendChild(g); tabGhost = g;
-    const a = old.animate([{opacity: snap.scr.opacity, transform: snap.scr.transform}, {opacity: 0, transform: 'translateX(' + (-dir * 28) + 'px)'}],
-      {duration: 200, easing: 'ease-in', fill: 'forwards'});
-    a.onfinish = () => { if (tabGhost === g) tabGhost = null; g.remove(); };
+  if (scr) glideIn(scr, dir);
+  ghostOut(snap.scr, dir, 0);
+}
+/* Lays the screen being left over the new one and lets it drift out. clip hides everything above
+   that line, for a change that only swaps the lower part of a screen. */
+function ghostOut(s, dir, clip) {
+  if (!s || !s.el.animate) return;
+  if (tabGhost) { tabGhost.remove(); tabGhost = null; }
+  const old = s.el;
+  old.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+  old.setAttribute('aria-hidden', 'true'); old.setAttribute('inert', '');
+  old.style.marginTop = s.top + 'px';
+  const g = document.createElement('div');
+  g.className = 'tabghost'; g.style.left = s.left + 'px'; g.style.width = s.width + 'px';
+  if (clip > 0) g.style.clipPath = 'inset(' + clip + 'px 0 0 0)';
+  g.appendChild(old); document.body.appendChild(g); tabGhost = g;
+  const a = old.animate([{opacity: s.opacity, transform: s.transform}, {opacity: 0, transform: 'translateX(' + (-dir * 28) + 'px)'}],
+    {duration: 200, easing: 'ease-in', fill: 'forwards'});
+  a.onfinish = () => { if (tabGhost === g) tabGhost = null; g.remove(); };
+}
+const glideIn = (el, dir) => el.animate && el.animate([{opacity: 0, transform: 'translateX(' + (dir * 28) + 'px)'}, {opacity: 1, transform: 'translateX(0px)'}],
+  {duration: 360, delay: 80, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards'});
+function stretchTo(ind, from, fromW, to, toW) {
+  const left = Math.min(from, to), span = Math.max(from + fromW, to + toW) - left;
+  ind.animate([
+    {transform: 'translateX(' + from + 'px)', width: fromW + 'px'},
+    {transform: 'translateX(' + left + 'px)', width: span + 'px', offset: .46, easing: 'cubic-bezier(.3,0,.2,1)'},
+    {transform: 'translateX(' + to + 'px)', width: toW + 'px'}
+  ], {duration: 460, easing: 'cubic-bezier(.55,0,.3,1)'});
+}
+
+/* ---------- chip rows and tracks ----------
+   Same pair of motions inside a screen: the selection stretches to the new choice, and rows that
+   switch what the screen shows (data-view) glide everything below them. Every render places the
+   indicators; a render that changed a selection animates from a snapshot taken just before it. */
+const selGroups = () => [...app().querySelectorAll('.chips, .track')];
+const selItems = g => [...g.querySelectorAll(':scope > [data-v]')];
+const selOn = g => g.querySelector(':scope > [aria-checked="true"], :scope > [aria-selected="true"]');
+const selKey = (g, i) => i + '|' + (g.getAttribute('aria-label') || '') + '|' + ((selItems(g)[0] || {dataset: {}}).dataset.a || '');
+function placeSel(g) {
+  const ind = g.querySelector(':scope > .selind'), on = selOn(g);
+  if (!ind) return null;
+  if (!on) { ind.style.opacity = '0'; return null; }
+  // exact sub-pixel boxes: chips that share a row's width are fractions of a pixel wide
+  const r = on.getBoundingClientRect(), b = g.getBoundingClientRect();
+  const box = {x: r.left - b.left - g.clientLeft + g.scrollLeft, y: r.top - b.top - g.clientTop + g.scrollTop, w: r.width, h: r.height};
+  ind.style.transform = 'translateX(' + box.x + 'px)'; ind.style.top = box.y + 'px';
+  ind.style.width = box.w + 'px'; ind.style.height = box.h + 'px';
+  ind.style.borderRadius = getComputedStyle(on).borderRadius; ind.style.opacity = '1';
+  return {ind, box};
+}
+function placeAllSel() { selGroups().forEach(placeSel); placeTile(); }
+function selSnapshot() {
+  const groups = selGroups();
+  if (!groups.length) return null;
+  const scr = app().querySelector(':scope > .scr');
+  const snap = {groups: groups.map((g, i) => {
+    const on = selOn(g), ind = g.querySelector(':scope > .selind');
+    let x = null, w = null;
+    if (ind && ind.style.opacity !== '0') {                  // where it's drawn now, mid-stretch included
+      const r = ind.getBoundingClientRect(), b = g.getBoundingClientRect();
+      x = r.left - b.left - g.clientLeft + g.scrollLeft; w = r.width;
+    }
+    let a = g; while (a.parentElement && a.parentElement !== scr) a = a.parentElement;
+    return {key: selKey(g, i), idx: on ? selItems(g).indexOf(on) : -1, x, w, scroll: g.scrollLeft, view: g.hasAttribute('data-view'), below: a.getBoundingClientRect().bottom};
+  }), scr: null};
+  if (scr) {
+    const cs = getComputedStyle(scr), ar = app().getBoundingClientRect();
+    snap.scr = {el: scr, top: scr.getBoundingClientRect().top, left: ar.left, width: ar.width, opacity: cs.opacity, transform: cs.transform === 'none' ? 'translateX(0px)' : cs.transform};
   }
+  return snap;
+}
+function selMotion(before) {
+  const calm = calmMotion(), scr = app().querySelector(':scope > .scr');
+  let glide = null;
+  selGroups().forEach((g, i) => {
+    const now = placeSel(g), on = selOn(g), idx = on ? selItems(g).indexOf(on) : -1;
+    const old = before && before.groups.find(o => o.key === selKey(g, i));
+    const moved = !!(old && now && idx >= 0 && old.idx >= 0 && old.idx !== idx);
+    if (g.classList.contains('scroll')) {
+      // the chosen chip comes into view, centred where it can be; unchanged rows stay where they were scrolled
+      const target = on ? Math.max(0, on.offsetLeft - (g.clientWidth - on.offsetWidth) / 2) : 0;
+      if (old && !moved) g.scrollLeft = old.scroll;
+      else if (moved && !calm) { g.scrollLeft = old.scroll; try { g.scrollTo({left: target, behavior: 'smooth'}); } catch (e) { g.scrollLeft = target; } }
+      else g.scrollLeft = target;
+    }
+    if (!moved || calm || old.x == null || !now.ind.animate) return;
+    stretchTo(now.ind, old.x, old.w, now.box.x, now.box.w);
+    if (old.view && !glide) glide = {g, dir: idx > old.idx ? 1 : -1, clip: old.below};
+  });
+  if (!glide || !scr || !before.scr) return;
+  ghostOut(before.scr, glide.dir, glide.clip);
+  let a = glide.g; while (a.parentElement && a.parentElement !== scr) a = a.parentElement;
+  for (let el = a.nextElementSibling; el; el = el.nextElementSibling) glideIn(el, glide.dir);
 }
 
 function slideIn(act, dir) {
@@ -2029,6 +2103,10 @@ function bindEvents() {
   /* system back button */
   const onBack = () => { if (S.menu) { S.menu = null; render(); return; } if (S.stack.length > 1) back(); };
   try { if (IN_GAS) google.script.history.setChangeHandler(onBack); else window.addEventListener('popstate', onBack); } catch (e) { /* ignore */ }
+  // widths change with the window and once the font arrives; the selection indicators follow
+  let resizeT = 0;
+  window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(placeAllSel, 80); });
+  try { document.fonts.ready.then(placeAllSel); } catch (e) { /* ignore */ }
 }
 
 function loadData(r) {

@@ -103,13 +103,21 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 /* selection: chips (pressed when selected) and tracks (raised when selected) */
 .chips{display:flex;gap:8px}
 .chip{flex:1;height:40px;border-radius:14px;font-size:13px;color:var(--mu);background:var(--g);box-shadow:4px 4px 8px var(--lo),-4px -4px 8px var(--hi);white-space:nowrap;padding:0 8px}
-.chip[aria-checked=true],.chip[aria-selected=true]{color:var(--a);font-weight:600;box-shadow:inset 3px 3px 6px var(--lo),inset -3px -3px 6px var(--hi)}
+.chip[aria-checked=true],.chip[aria-selected=true]{color:var(--a);font-weight:600;box-shadow:none}
 .chips.scroll{overflow-x:auto;margin:0 -20px;padding:4px 20px 8px;scrollbar-width:none}
 .chips.scroll::-webkit-scrollbar{display:none}
 .chips.scroll .chip{flex:0 0 auto;height:36px;padding:0 14px;border-radius:12px}
 .track{display:flex;gap:4px;padding:4px;border-radius:16px;background:var(--g);box-shadow:inset 3px 3px 6px var(--lo),inset -3px -3px 6px var(--hi)}
 .track button{flex:1;height:36px;border-radius:12px;font-size:13px;color:var(--mu);padding:0 10px;white-space:nowrap}
-.track button[aria-checked=true],.track button[aria-selected=true]{color:var(--a);font-weight:500;background:var(--g);box-shadow:4px 4px 8px var(--lo),-4px -4px 8px var(--hi)}
+.track button[aria-checked=true],.track button[aria-selected=true]{color:var(--a);font-weight:500}
+/* The selection in a chip row (a pressed well) or a track (a raised tile) is one element that
+   stretches from choice to choice (see selMotion). It paints over the chips' faces and under
+   their labels: buttons stay unpositioned so their label spans can sit above it. */
+.chips,.track{position:relative}
+.selind{position:absolute;left:0;top:0;width:0;height:0;opacity:0;pointer-events:none;z-index:1;background:var(--g)}
+.chips .selind{box-shadow:inset 3px 3px 6px var(--lo),inset -3px -3px 6px var(--hi)}
+.track .selind{box-shadow:4px 4px 8px var(--lo),-4px -4px 8px var(--hi)}
+.cl{position:relative;z-index:2}
 .track.tight button{flex:0 0 auto;height:32px;border-radius:10px}
 
 /* switch */
