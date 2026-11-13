@@ -5,6 +5,7 @@ SCREENS.welcome = () => {
   return '<div class="scr" style="align-items:center;padding:80px 24px 36px">' +
     logoTile(150) +
     wordmark(56, 'margin-top:36px') +
+    '<div class="tagline" style="margin-top:10px">AI calorie tracker</div>' +
     '<p style="margin-top:12px;font-size:16px;font-weight:300;color:var(--mu);text-align:center;line-height:1.5;max-width:280px">Snap a meal, see what\'s left for the day.</p>' +
     '<div class="col" style="gap:14px;width:100%;margin-top:40px">' +
     [['camera', 'Photograph a plate or a label to get calories and macros'], ['target', 'Check each day against your own target'], ['sheet', 'Every meal saves as a row in your Google Sheet']]
