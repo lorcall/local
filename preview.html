@@ -267,6 +267,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 /* background-save status: a small pill where toasts appear; it doesn't block taps around it */
 .syncpill{position:fixed;left:50vw;transform:translateX(-50%);bottom:calc(100px + env(safe-area-inset-bottom));z-index:55;height:34px;padding:0 14px;border-radius:17px;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--soft);white-space:nowrap;max-width:calc(min(100vw,430px) - 40px);animation:up .18s ease-out}
 .syncpill[hidden]{display:none}
+.syncpill{transition:bottom .2s ease,top .2s ease}
 .syncpill.out{opacity:0;transition:opacity .3s ease}
 .syncpill.notab{bottom:auto;top:calc(12px + env(safe-area-inset-top));animation-name:down}
 .syncpill span{overflow:hidden;text-overflow:ellipsis}
@@ -1832,13 +1833,12 @@ function overlays() {
   return h;
 }
 let toastTimer = null;
-function toast(text, undo) { S.toast = {text, undo}; clearTimeout(toastTimer); toastTimer = setTimeout(() => { S.toast = null; const t = document.querySelector('.toast'); if (t) t.remove(); }, undo ? 5000 : 2600); render(); }
+function toast(text, undo) { S.toast = {text, undo}; clearTimeout(toastTimer); toastTimer = setTimeout(() => { S.toast = null; const t = document.querySelector('.toast'); if (t) t.remove(); syncPlace(); }, undo ? 5000 : 2600); render(); }
 function menu(m) { S.menu = m; render(); const b = document.querySelector('.menu button'); if (b) b.focus(); }
 function confirmBox(title, text, label, fn) { menu({title, text, items: [{label, danger: true, fn}]}); }
 
 function go(name, p = {}) { S.stack.push({name, p}); S.ui.openSwipe = null; pushHistory(); render(); }
 function replace(name, p = {}) { S.stack[S.stack.length - 1] = {name, p}; render(); }
-/* After stepping a period, slide the new one in from the side it came from. */
 /* The goal calculator's weight is a weigh-in too. Older profiles never wrote one, so once, if the
    Weight sheet is empty, it's added on the day the first target was set (when the calculator ran). */
 function seedWeight() {
@@ -1907,7 +1907,20 @@ function syncShow(state, j, err) {
   else { const l = SYNC.last; el.dataset.state = 'done'; el.title = ''; el.innerHTML = '<span class="mango" style="display:flex">' + icon('check', 14, 2.4) + '</span><span>' + (l ? syncVerb(l)[1] + ' ' + esc(l.label || '') : 'Saved') + '</span>'; SYNC.hideT = setTimeout(() => { el.classList.add('out'); SYNC.outT = setTimeout(() => { el.hidden = true; el.classList.remove('out'); }, 320); }, 1600); }
 }
 /* above the tab bar where there is one, at the top otherwise, like toasts */
-function syncPlace() { const el = document.getElementById('syncpill'); if (el) el.classList.toggle('notab', !app().querySelector('.tabbar')); }
+function syncPlace() {
+  const el = document.getElementById('syncpill'); if (!el) return;
+  const top = !app().querySelector('.tabbar'); el.classList.toggle('notab', top);
+  // a toast in the same spot: sit just beyond it instead of on top of it, and slide back after
+  const t = document.querySelector('#app .toast');
+  el.style.bottom = ''; el.style.top = '';
+  if (t && !el.hidden) {
+    // from where the toast settles, not where its slide-in has got to
+    const cs = getComputedStyle(t), h = t.offsetHeight;
+    if (t.classList.contains('notab')) el.style.top = (parseFloat(cs.top) + h + 10) + 'px';
+    else el.style.bottom = (parseFloat(cs.bottom) + h + 10) + 'px';
+    if (t.classList.contains('notab') !== top) el.classList.toggle('notab', t.classList.contains('notab'));
+  }
+}
 
 /* ---------- tab switching ----------
    The whole app redraws on every change, so a tab switch is animated from a snapshot: where the
@@ -2055,6 +2068,7 @@ function showOpenDay() {
   const row = p.closest('.hrow'), r = row.getBoundingClientRect(), bottom = window.innerHeight - 110;   // clear of the tab bar
   if (r.bottom > bottom) window.scrollBy({top: Math.min(r.bottom - bottom, r.top - 80), behavior: calmMotion() ? 'auto' : 'smooth'});
 }
+/* After stepping a period, slide the new one in from the side it came from. */
 function slideIn(act, dir) {
   const el = document.querySelector('[data-hswipe="' + act + '"] .swmove'); if (!el) return;
   el.classList.remove('swin-fwd', 'swin-back'); void el.offsetWidth; el.classList.add(dir > 0 ? 'swin-fwd' : 'swin-back');

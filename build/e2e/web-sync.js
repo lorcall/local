@@ -93,7 +93,7 @@ const DATA = {
   const pill = () => page.evaluate(() => { const p = document.getElementById('syncpill'); return p && getComputedStyle(p).display !== 'none' ? p.dataset.state + ': ' + p.textContent : 'hidden'; });
   const mealsToday = () => page.evaluate(() => mealsOn(today()).length);
   await page.waitForTimeout(800);
-  const start = await mealsToday();
+  let start = await mealsToday();
 
   // 1. analysed but not saved: nothing stored
   await photograph();
@@ -121,6 +121,27 @@ const DATA = {
   check(/^done: Saved/.test(await pill()), 'it stays a moment so it can be read');
   await page.waitForTimeout(1300);
   check(await pill() === 'hidden', 'then actually disappears from the screen');
+
+  // 2b. a toast and the save status at the same time sit apart, on screens with and without the tab bar
+  const apart = () => page.evaluate(() => {
+    const p = document.getElementById('syncpill'), t = document.querySelector('#app .toast');
+    if (!p || !t || getComputedStyle(p).display === 'none') return 'missing';
+    const a = p.getBoundingClientRect(), b = t.getBoundingClientRect();
+    return a.bottom <= b.top + 0.5 || b.bottom <= a.top + 0.5 ? 'apart' : 'overlap';
+  });
+  for (const where of ['today', 'settings']) {
+    NET.delay = 1500;
+    await photograph(); await page.click('[data-a="saveDraft"]'); await page.waitForTimeout(150);
+    if (where !== 'today') { await page.evaluate(w => go(w, {}), where); await page.waitForTimeout(150); }
+    await page.evaluate(() => toast('Copied to today\'s lunch')); await page.waitForTimeout(350);
+    check(await apart() === 'apart', where + ': the toast and the save status don\'t overlap');
+    await page.waitForTimeout(2700);
+    const back = await page.evaluate(() => { const p = document.getElementById('syncpill'); return !p.style.top && !p.style.bottom; });
+    check(back, where + ': once the toast is gone the status returns to its usual spot');
+    await page.waitForFunction(() => !SYNC.jobs.length, null, {timeout: 15000});
+    await page.evaluate(() => { S.stack = [{name: 'today', p: {}}]; render(); });
+  }
+  NET.delay = 0; await page.waitForTimeout(2200); start = await mealsToday() - 1;
 
   // 3. delete is instant too
   const id = await page.evaluate(() => mealsOn(today()).slice(-1)[0].meal_id);
