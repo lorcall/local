@@ -106,6 +106,8 @@ h1,h2,h3,p{margin:0}
 .title22{font-size:22px;font-weight:500;line-height:1.2}
 .sec{font-size:17px;font-weight:500}
 .sec15{font-size:15px;font-weight:500}
+.gc-cmp{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:7px 16px;font-size:14px;align-items:baseline}
+.gc-why{grid-column:1/-1;font-size:12px;line-height:1.4;color:var(--mu);margin:-3px 0 3px}
 .h13{font-size:13px;font-weight:400;color:var(--mu);padding:0 4px}
 .num{font-weight:250;letter-spacing:-.03em;line-height:1}
 

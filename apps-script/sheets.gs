@@ -10,7 +10,7 @@ var SCHEMA = {
   Favorites: ['food_id', 'name', 'category', 'serving_unit', 'grams_per_unit', 'serving_label',
     'kcal', 'protein_g', 'carbs_g', 'fat_g', 'sugar_g', 'fiber_g', 'sodium_mg',
     'pinned', 'use_count', 'usual_hour', 'last_used', 'is_local_dish', 'dish_group', 'user_corrected'],
-  Targets: ['effective_date', 'kcal', 'protein_g', 'carbs_g', 'fat_g', 'fiber_min_g', 'sugar_max_g', 'sodium_max_mg'],
+  Targets: ['effective_date', 'kcal', 'protein_g', 'carbs_g', 'fat_g', 'fiber_min_g', 'sugar_max_g', 'sodium_max_mg', 'basis', 'notes', 'ai_summary'],
   Weight: ['date', 'kg', 'note'],
   Settings: ['key', 'value']
 };

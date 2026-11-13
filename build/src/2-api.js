@@ -22,7 +22,8 @@ const API = IN_GAS ? {
   saveTargets: t => gasCall('saveTargets', t),
   addWeight: w => gasCall('addWeight', w),
   saveSettings: s => gasCall('saveSettings', s),
-  weeklySummary: n => gasCall('weeklySummary', n)
+  weeklySummary: n => gasCall('weeklySummary', n),
+  adjustTargets: p => gasCall('adjustTargets', p)
 } : (typeof WebAPI === 'function' ? WebAPI() : DemoAPI());
 /* Three implementations behind one interface: Apps Script (google.script.run),
    the static web build (WebAPI, defined in web/api.js and loaded before this
@@ -92,7 +93,17 @@ function DemoAPI() {
     async saveTargets(t) { load(); db.targets = db.targets.filter(x => x.effective_date !== t.effective_date).concat([t]); save(); return t; },
     async addWeight(w) { load(); db.weight = db.weight.filter(x => x.date !== w.date).concat([w]); save(); return w; },
     async saveSettings(s) { load(); Object.assign(db.settings, s); save(); return db.settings; },
-    async weeklySummary(n) { await wait(1200); return demoSummary(n); }
+    async weeklySummary(n) { await wait(1200); return demoSummary(n); },
+    async adjustTargets(p) {
+      await wait(1100);
+      const b = p.base, t = Object.assign({}, b), n = String(p.notes).toLowerCase(), changes = [];
+      if (/fib(re|er)/.test(n)) { t.fiber_min_g = Math.max(b.fiber_min_g, 35); changes.push({field: 'fiber_min_g', reason: 'You asked to eat more fibre'}); }
+      if (/protein/.test(n)) { t.protein_g = Math.round(b.protein_g * 0.7); changes.push({field: 'protein_g', reason: 'Lower protein for the condition you mentioned'}); }
+      t.carbs_g = Math.max(50, Math.round((t.kcal - t.protein_g * 4 - t.fat_g * 9) / 4));
+      if (t.carbs_g !== b.carbs_g) changes.push({field: 'carbs_g', reason: 'Carbs fill the calories protein no longer covers'});
+      return {result: Object.assign(t, {changes, summary: changes.length ? 'Demo check: adjusted for your notes.' : 'Demo check: your notes need no changes.',
+        caution: 'This is the offline preview. A doctor or dietitian should confirm targets for a health condition.'})};
+    }
   };
 }
 

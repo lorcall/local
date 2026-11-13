@@ -39,9 +39,57 @@ function wordmark(fs, style) {
 function gcState() {
   if (!S.ui.gc) {
     const p = profile(), ws = weightSeries(), lastW = ws.length ? ws[ws.length - 1].kg : null;
-    S.ui.gc = Object.assign({age: 30, sex: 'Male', height: 170, weight: 70, activity: 'Light', goal: 'Lose', target_weight: 65, pace: 0.35}, p, lastW ? {weight: r1(lastW)} : {});
+    const ln = lastNotes();
+    S.ui.gc = Object.assign({age: 30, sex: 'Male', height: 170, weight: 70, activity: 'Light', goal: 'Lose', target_weight: 65, pace: 0.35}, p, lastW ? {weight: r1(lastW)} : {},
+      {notes: ln ? ln.notes : '', notesFrom: ln && ln.notes ? ln : null, ai: null, aiBusy: false, aiErr: ''});
   }
   return S.ui.gc;
+}
+/* the profile part of the calculator, as saved in Settings and sent to the AI */
+const GC_KEYS = ['age', 'sex', 'height', 'weight', 'activity', 'goal', 'target_weight', 'pace'];
+const gcProfile = p => GC_KEYS.reduce((o, k) => (o[k] = p[k], o), {});
+/* the seven targets the calculator would save, before any AI check */
+function gcBase(p) {
+  const g = goalCalc(p), cur = currentTarget();
+  return {kcal: g.kcal, maintenance: g.maintenance, protein_g: g.protein, carbs_g: g.carbs, fat_g: g.fat,
+    fiber_min_g: num(cur.fiber_min_g) || 25, sugar_max_g: num(cur.sugar_max_g) || 50, sodium_max_mg: num(cur.sodium_max_mg) || 2300};
+}
+/* what an AI check was made against: if any of it changes, the check is out of date */
+const gcKey = p => JSON.stringify(GC_KEYS.map(k => String(p[k])).concat([String(p.notes || '').trim()]));
+const gcFresh = p => !!(p.ai && p.ai.key === gcKey(p));
+/* notes from the last time the calculator set the targets; cleared notes stay cleared */
+function lastNotes() {
+  const r = S.data.targets.filter(t => /^Calculator/.test(String(t.basis || ''))).sort((a, b) => String(b.effective_date).localeCompare(String(a.effective_date)))[0];
+  return r ? {notes: String(r.notes || ''), date: r.effective_date} : null;
+}
+const TG_FIELDS = [['kcal', 'Calories', ' kcal'], ['protein_g', 'Protein', ' g'], ['carbs_g', 'Carbs', ' g'], ['fat_g', 'Fat', ' g'],
+  ['fiber_min_g', 'Fiber, at least', ' g'], ['sugar_max_g', 'Sugar, at most', ' g'], ['sodium_max_mg', 'Sodium, at most', ' mg']];
+function gcAiPart(p) {
+  const notes = String(p.notes || '').trim(), fresh = gcFresh(p), a = p.ai;
+  let card = '';
+  if (a) {
+    const why = {}; (a.changes || []).forEach(c => { if (c && c.field) why[c.field] = c.reason; });
+    const rows = TG_FIELDS.map(([k, label, unit]) => {
+      const b = r0(num(a.base[k])), v = r0(num(a[k])), ch = b !== v;
+      return '<span>' + label + '</span><span class="mu" style="text-align:right">' + fmt(b) + '</span>' +
+        '<span style="text-align:right;white-space:nowrap;' + (ch ? 'color:var(--ai);font-weight:500' : '') + '">' + fmt(v) + unit + '</span>' +
+        (ch && why[k] ? '<span class="gc-why">' + esc(why[k]) + '</span>' : '');
+    }).join('');
+    card = '<section class="raised r26 col" style="padding:16px;gap:12px' + (fresh ? '' : ';opacity:.55') + '" aria-label="AI check of your targets">' +
+      '<div class="between" style="align-items:baseline"><h2 class="sec15" style="margin:0">Checked with AI</h2>' +
+      (fresh ? '' : '<span class="cap">Out of date</span>') + '</div>' +
+      '<div class="gc-cmp"><span class="cap">Daily</span><span class="cap" style="text-align:right">Calculated</span><span class="cap" style="text-align:right">With your notes</span>' + rows + '</div>' +
+      (a.summary ? '<p style="margin:0;font-size:14px;line-height:1.5">' + esc(a.summary) + '</p>' : '') +
+      (a.caution ? '<p class="cap" style="margin:0;line-height:1.5">' + esc(a.caution) + '</p>' : '') +
+      (fresh ? '' : '<p class="cap" style="margin:0">Your details or notes changed after this check. Check again to update it.</p>') + '</section>';
+  }
+  const err = p.aiErr ? '<div class="warn" role="alert"><div class="ov" style="font-weight:500">' + esc(p.aiErr) + '</div><div class="mu" style="margin-top:2px">Your notes are kept.</div></div>' : '';
+  let btns;
+  if (p.aiBusy) btns = '<button class="cta btn" disabled><span class="spinglow"><span class="spin"></span></span><span style="margin-left:10px">Checking with AI</span></button>';
+  else if (fresh) btns = '<button class="cta btn" data-a="useTargets" data-v="ai">Use adjusted targets</button><button class="raised-sm btn2" data-a="useTargets">Use calculated targets</button>';
+  else if (notes) btns = '<button class="cta btn" data-a="gcAsk">' + (a ? 'Check again with AI' : 'Check with AI') + '</button><button class="raised-sm btn2" data-a="useTargets">Use calculated targets</button>';
+  else btns = '<button class="cta btn" data-a="useTargets">Use these targets</button>';
+  return card + err + btns;
 }
 SCREENS.goals = () => {
   const p = gcState(), g = goalCalc(p), keep = p.goal === 'Keep';
@@ -70,8 +118,13 @@ SCREENS.goals = () => {
     '</div></div><div class="row" style="gap:10px">' +
     [['Protein', g.protein, COLOR.p], ['Carbs', g.carbs, COLOR.c], ['Fat', g.fat, COLOR.f2]].map(([l, v, c]) => '<div class="pressed-sm r14" style="flex:1;padding:8px 10px"><div style="font-size:11px;color:' + c + '">' + l + '</div><div style="font-size:16px">' + fmt(v) + ' g</div></div>').join('') +
     '</div></section>' +
-    '<button class="cta btn" data-a="useTargets">Use these targets</button>' +
-    '<p class="cap" style="text-align:center;line-height:1.5">Estimated with the Mifflin-St Jeor formula. A starting point, not medical advice.</p></div>';
+    '<section class="col" style="gap:8px"><div class="between" style="align-items:baseline"><label for="gc-notes" style="font-size:14px;font-weight:500">Notes for the AI</label>' +
+    '<span data-part="gc-nclr">' + (String(p.notes || '').trim() ? '<a href="#" data-a="gcClear" style="font-size:13px">Clear notes</a>' : '') + '</span></div>' +
+    '<textarea id="gc-notes" rows="3" maxlength="600" class="fld" data-in="gcNotes" placeholder="For example: I want to eat more fibre. I have a health condition, so my doctor says not too much protein.">' + esc(p.notes || '') + '</textarea>' +
+    '<span class="cap" data-part="gc-nfrom">' + (p.notesFrom && String(p.notes || '') === p.notesFrom.notes ? 'Your notes from ' + esc(monthDay(p.notesFrom.date)) + '. Keep them, add to them, or clear them for new ones.'
+      : 'Optional. Health conditions, goals or food preferences. The AI checks the targets above against them and suggests changes.') + '</span></section>' +
+    '<div data-part="gc-ai" class="col" style="gap:12px">' + gcAiPart(p) + '</div>' +
+    '<p class="cap" style="text-align:center;line-height:1.5">Estimated with the Mifflin-St Jeor formula' + (String(p.notes || '').trim() ? ', then checked by AI against your notes' : '') + '. A starting point, not medical advice.</p></div>';
 };
 
 /* ---------- Daily targets ---------- */
@@ -85,6 +138,11 @@ function tgState() {
 function tgRow(t) {
   return {effective_date: today(), kcal: r0(t.kcal), protein_g: r0(t.protein_g), carbs_g: r0(t.carbs_g), fat_g: r0(t.fat_g),
     fiber_min_g: t.fiber_on ? r0(t.fiber_min_g) : 0, sugar_max_g: t.sugar_on ? r0(t.sugar_max_g) : 0, sodium_max_mg: t.sodium_on ? r0(t.sodium_max_mg) : 0};
+}
+function tgBasis() {
+  const b = String(currentTarget().basis || '');
+  return b === 'Calculator + AI' ? 'From the goal calculator, adjusted by AI for your notes' : b === 'Calculator' ? 'From the goal calculator'
+    : b === 'Manual' ? 'Set by you' : profile().maintenance ? 'From the goal calculator' : 'Set by you';
 }
 function tgChanged() {
   const row = tgRow(tgState()), cur = currentTarget();
@@ -109,7 +167,8 @@ SCREENS.targets = () => {
     '<button class="ib m" data-a="tgKcal" data-v="-50" aria-label="Lower by 50" style="font-size:20px">−</button>' +
     '<div class="grow" style="text-align:center"><div class="num" style="font-size:44px;letter-spacing:-.04em">' + fmt(k) + '</div><div class="cap13" style="margin-top:4px">kcal a day</div></div>' +
     '<button class="ib m" data-a="tgKcal" data-v="50" aria-label="Raise by 50" style="font-size:20px">+</button></section>' +
-    '<div class="between" style="font-size:13px;margin-top:-4px;padding:0 4px"><span class="mu">' + (profile().maintenance ? 'From the goal calculator' : 'Set by you') + '</span><a href="#" data-a="go" data-v="goals">Recalculate</a></div>' +
+    '<div class="between" style="font-size:13px;margin-top:-4px;padding:0 4px"><span class="mu">' + tgBasis() + '</span><a href="#" data-a="go" data-v="goals">Recalculate</a></div>' +
+    (currentTarget().basis === 'Calculator + AI' && currentTarget().ai_summary ? '<p class="cap" style="margin:-6px 4px 0;line-height:1.5">' + esc(currentTarget().ai_summary) + '</p>' : '') +
     '<div class="between" style="align-items:center"><h2 class="sec">Macros</h2>' + track('tgMode', ['Grams', 'Percent'], t.mode, 'Enter macros as', {tight: true, style: 'border-radius:14px'}) + '</div>' +
     '<div class="col" style="gap:14px">' + macro('protein_g', 'Protein', 4, COLOR.p) + macro('carbs_g', 'Carbs', 4, COLOR.c) + macro('fat_g', 'Fat', 9, COLOR.f) + '</div>' +
     '<p class="cap" data-part="tgsum">These add up to ' + fmt(mk) + ' kcal (4 per gram of protein and carbs, 9 per gram of fat)' + (Math.abs(diff) < 5 ? ', matching your calorie target.' : ', ' + fmt(Math.abs(diff)) + (diff < 0 ? ' under' : ' over') + ' your calorie target.') + '</p>' +

@@ -449,19 +449,37 @@ const A = {
   gcSex: el => { gcState().sex = el.dataset.v; render(); },
   gcAct: el => { gcState().activity = el.dataset.v; render(); },
   gcGoal: el => { gcState().goal = el.dataset.v; render(); },
-  async useTargets() {
-    const p = gcState(), g = goalCalc(p), cur = currentTarget();
-    const row = {effective_date: today(), kcal: g.kcal, protein_g: g.protein, carbs_g: g.carbs, fat_g: g.fat, fiber_min_g: num(cur.fiber_min_g) || 25, sugar_max_g: num(cur.sugar_max_g) || 50, sodium_max_mg: num(cur.sodium_max_mg) || 2300};
-    const prof = Object.assign({}, p, {maintenance: g.maintenance, measured_on: today()});
+  /* Saved like every other change: applied here at once, written to the Sheet in the background.
+     The notes and how the targets were reached go in the same Targets row. */
+  useTargets(el) {
+    const p = gcState(), g = goalCalc(p), base = gcBase(p), useAi = el && el.dataset.v === 'ai' && gcFresh(p);
+    const src = useAi ? p.ai : base, notes = String(p.notes || '').trim();
+    const row = {effective_date: today(), basis: useAi ? 'Calculator + AI' : 'Calculator', notes, ai_summary: useAi ? String(p.ai.summary || '') : ''};
+    TG_FIELDS.forEach(([k]) => { row[k] = r0(num(src[k])); });
+    const prof = Object.assign(gcProfile(p), {maintenance: g.maintenance, measured_on: today()});
     const wRow = num(p.weight) >= 20 ? {date: today(), kg: r1(num(p.weight)), note: 'From goal calculator'} : null;
-    try {
-      await Promise.all([API.saveTargets(row), API.saveSettings({profile: JSON.stringify(prof), onboarded: 'yes'})]);
-      S.data.targets = S.data.targets.filter(t => t.effective_date !== row.effective_date).concat([row]);
-      S.data.settings.profile = JSON.stringify(prof); S.data.settings.onboarded = 'yes'; S.dirty = true; S.ui.tg = null;
-      if (wRow) { const had = S.data.weight.find(w => w.date === wRow.date); if (!had || r1(had.kg) !== wRow.kg) { S.data.weight = S.data.weight.filter(w => w.date !== wRow.date).concat([wRow]); queueJob({kind: 'weight', row: wRow, label: fmt(wRow.kg, 1) + ' kg'}); } }
-      S.data.settings.weight_seeded = 'yes';
-      S.stack = [{name: 'targets', p: {}}]; toast('Targets set from the calculator');
-    } catch (e) { toast(friendly(e)); }
+    S.data.targets = S.data.targets.filter(t => t.effective_date !== row.effective_date).concat([row]);
+    queueJob({kind: 'targets', row, label: 'targets'});
+    const sv = {profile: JSON.stringify(prof), onboarded: 'yes'}; Object.assign(S.data.settings, sv);
+    queueJob({kind: 'settings', values: sv, label: 'profile'});
+    if (wRow) { const had = S.data.weight.find(w => w.date === wRow.date); if (!had || r1(had.kg) !== wRow.kg) { S.data.weight = S.data.weight.filter(w => w.date !== wRow.date).concat([wRow]); queueJob({kind: 'weight', row: wRow, label: fmt(wRow.kg, 1) + ' kg'}); } }
+    S.data.settings.weight_seeded = 'yes'; S.dirty = true; S.ui.tg = null; S.ui.gc = null;
+    S.stack = [{name: 'targets', p: {}}]; toast(useAi ? 'Targets set with your notes' : 'Targets set from the calculator');
+  },
+  async gcAsk() {
+    const p = gcState(), notes = String(p.notes || '').trim();
+    if (p.aiBusy || !notes) return;
+    const key = gcKey(p), base = gcBase(p);
+    p.aiBusy = true; p.aiErr = ''; render();
+    const res = await API.adjustTargets({profile: gcProfile(p), base, notes});
+    p.aiBusy = false;
+    if (res.error) p.aiErr = /NO_NOTES/.test(res.error) ? 'Add a note for the AI to check against.' : friendly(res.error);
+    else { p.ai = Object.assign({}, res.result, {key, base}); if (res.analysesToday != null) S.meta.analysesToday = res.analysesToday; }
+    if (S.ui.gc === p && route().name === 'goals') render();
+  },
+  gcClear() {
+    const p = gcState(); p.notes = ''; p.ai = null; p.aiErr = ''; render();
+    const t = document.getElementById('gc-notes'); if (t) t.focus({preventScroll: true});
   },
 
   tgKcal: el => { const t = tgState(); t.kcal = Math.max(800, num(t.kcal) + +el.dataset.v); render(); },
@@ -469,7 +487,7 @@ const A = {
   tgToggle: el => { const k = el.dataset.v, t = tgState(), key = k.split('_')[0] + '_on'; t[key] = !t[key]; render(); },
   async saveTargets() {
     const t = tgState(); if (S.ui.busy || !tgChanged()) return;
-    const row = tgRow(t);
+    const row = Object.assign(tgRow(t), {basis: 'Manual'});
     S.data.targets = S.data.targets.filter(x => x.effective_date !== row.effective_date).concat([row]); S.dirty = true; S.ui.tg = null;
     queueJob({kind: 'targets', row, label: 'targets'}); home();
   },
@@ -783,6 +801,7 @@ const A = {
 const I = {
   gc: el => { gcState()[el.dataset.k] = el.value; },
   gcPace: el => { gcState().pace = num(el.value); },
+  gcNotes: el => { gcState().notes = el.value; },
   tg: el => { tgState()[el.dataset.k] = el.value; },
   tgMacro: el => { const t = tgState(), k = el.dataset.k, f = +el.dataset.f; t[k] = t.mode === 'Grams' ? num(el.value) : Math.round(num(el.value) / 100 * num(t.kcal) / f); },
   logNote: el => { logState().note = el.value; },
