@@ -57,6 +57,16 @@
   --th:#D6DBE3; --ph:#7A8293; --fut:#A3AAB8; --knob-off:#C5CCD7; --over-fill:#E39B92;
   --wm-dark:none; --wm-light:block;
 }
+:root[data-theme="dark"]{--lt-a:#1B1C21;--lt-b:#111216;--lt-sheen:rgba(255,255,255,.04)}
+:root[data-theme="light"]{--lt-a:#F4F6F9;--lt-b:#DADFE6;--lt-sheen:rgba(255,255,255,.9)}
+/* The app icon tile (loading screen, welcome): colours set here, not in its SVG, so the static
+   loading screen follows the theme from its first frame. Default keeps the SVG's own colours. */
+:root[data-theme="dark"] .lt-s1{stop-color:#0A0B0D}:root[data-theme="dark"] .lt-s2{stop-color:#24262C}
+:root[data-theme="dark"] .lt-face{fill:#141519}:root[data-theme="dark"] .lt-groove{stroke:#0B0C0E}
+:root[data-theme="dark"] .lt-core{fill-opacity:.035;stroke-opacity:.1}
+:root[data-theme="light"] .lt-s1{stop-color:#C3CAD5}:root[data-theme="light"] .lt-s2{stop-color:#FFFFFF}
+:root[data-theme="light"] .lt-face{fill:#E4E7ED}:root[data-theme="light"] .lt-groove{stroke:#CFD5DE}
+:root[data-theme="light"] .lt-core{fill:#FFFFFF;fill-opacity:.7;stroke:#AEB6C3;stroke-opacity:.45}
 /* while the theme changes, colours ease across instead of snapping */
 :root.theming *,:root.theming *::before{transition:background-color .35s ease,color .35s ease,box-shadow .35s ease,border-color .35s ease,fill .35s ease,stroke .35s ease!important}
 *{box-sizing:border-box}
