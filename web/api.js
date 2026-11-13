@@ -445,6 +445,17 @@ function WebAPI() {
   }
 
   /* ---------- photos ---------- */
+  /* A meal's photo goes to Drive's trash (restorable there for 30 days) once no meal uses it, and
+     only if it sits in this person's LoCal photos folder. Best effort: photos the app can't reach,
+     like ones made by the old Apps Script version, are simply left where they are. */
+  async function trashPhoto(fileId) {
+    try {
+      if (!ids.photos || !/^[-\w]{25,}$/.test(fileId)) return;
+      const f = await call(DRIVE + '/files/' + fileId + '?fields=parents,trashed');
+      if (!f || f.trashed || !(f.parents || []).includes(ids.photos)) return;
+      await call(DRIVE + '/files/' + fileId, {method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({trashed: true})});
+    } catch (e) { /* the meal is gone either way */ }
+  }
   async function uploadPhoto(b64, mime, name) {
     const boundary = 'local' + Math.random().toString(36).slice(2);
     const meta = {name, parents: [ids.photos], mimeType: mime};
@@ -528,8 +539,22 @@ function WebAPI() {
       return {meal, entries};
     },
     async deleteMeal(id) {
+      // Which photo file this meal points at, and whether any other meal still does (copies share
+      // their original's file). Read before the rows go.
+      const last = colLetter(headers.Meals.length - 1), at = headers.Meals.indexOf('photo_url'), idAt = headers.Meals.indexOf('meal_id');
+      let fileId = '', shared = true;
+      if (at >= 0 && idAt >= 0) {
+        try {
+          const rows = ((await call(SHEETS + '/' + ids.sheet + '/values/' + encodeURIComponent('Meals!A:' + last))).values || []).slice(1);
+          const fid = r => ((String(r[at] || '').match(/[-\w]{25,}/) || [])[0] || '');
+          const mine = rows.find(r => String(r[idAt]) === String(id));
+          fileId = mine ? fid(mine) : '';
+          shared = !fileId || rows.some(r => String(r[idAt]) !== String(id) && fid(r) === fileId);
+        } catch (e) { fileId = ''; }
+      }
       await deleteWhere('Meals', 'meal_id', id);
       await deleteWhere('Entries', 'meal_id', id);
+      if (fileId && !shared) await trashPhoto(fileId);
       return true;
     },
     async getThumbs(idList) {
