@@ -210,7 +210,18 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .th{width:46px;height:46px;border-radius:14px;flex-shrink:0;box-shadow:inset 2px 2px 4px var(--lo),inset -2px -2px 4px var(--hi);background:#2B2E37 center/cover no-repeat;display:flex;align-items:center;justify-content:center;color:var(--mu)}
 .day{height:40px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:13px;color:var(--tx)}
 .day.fut{color:#6B7080}
-.day.today{box-shadow:inset 3px 3px 6px var(--lo),inset -3px -3px 6px var(--hi);color:var(--a);font-weight:600}
+.day.today{color:var(--a);font-weight:600}
+.day.sel{box-shadow:inset 3px 3px 6px var(--lo),inset -3px -3px 6px var(--hi);font-weight:600}
+/* History's week of days: one opens in place like a drawer */
+.hrow{border-radius:18px}
+.hrow .mrow{min-height:58px}
+.hrow.empty .mrow{min-height:46px;padding-top:8px;padding-bottom:8px;opacity:.7}
+.hrow .chev{display:flex;transition:transform .2s ease}
+.hrow.open .chev{transform:rotate(90deg)}
+.hpanel{padding:0 14px 14px;display:flex;flex-direction:column;gap:12px}
+.hpanel.anim{animation:hopen .26s cubic-bezier(.2,.8,.2,1)}
+@keyframes hopen{from{opacity:0;transform:translateY(-6px)}}
+@media (prefers-reduced-motion:reduce){.hpanel.anim{animation:none}.hrow .chev{transition:none}}
 .dot{width:6px;height:6px;border-radius:50%}
 .dot.on{background:var(--a);box-shadow:0 0 6px var(--a)}
 .dot.over{background:var(--ov)}
@@ -1346,10 +1357,16 @@ SCREENS.describe = () => {
 
 /* ---------- screens: history and insights ---------- */
 
+/* History stays on one page: tapping a date selects it, and below the calendar a week of days
+   ends at that date (hAnchor), with one day open in place (hOpen) showing its meals. Tapping a
+   row opens it without moving the week, so rows never shuffle under a finger. */
 SCREENS.history = () => {
   const t = today(), ym = S.ui.month || t.slice(0, 7);
   const [y, mo] = ym.split('-').map(Number);
   const first = ymd(new Date(y, mo - 1, 1)), daysIn = new Date(y, mo, 0).getDate(), ws = weekStart();
+  const monthEnd = ym === t.slice(0, 7) ? t : first.slice(0, 8) + pad(daysIn);
+  if (!S.ui.hSel || S.ui.hSel.slice(0, 7) !== ym) { S.ui.hSel = S.ui.hAnchor = S.ui.hOpen = monthEnd; }
+  const sel = S.ui.hSel, anim = S.ui.hAnim; S.ui.hAnim = null;
   const lead = (parseDay(first).getDay() - ws + 7) % 7;
   const heads = (ws ? ['M', 'T', 'W', 'T', 'F', 'S', 'S'] : ['S', 'M', 'T', 'W', 'T', 'F', 'S']);
   let cells = '';
@@ -1358,15 +1375,27 @@ SCREENS.history = () => {
     const d = first.slice(0, 8) + pad(n), fut = d > t, st = fut ? '' : dayStatus(d);
     const lab = longDay(d) + (fut ? '' : st === 'on' ? ', on target' : st === 'over' ? ', over target' : ', nothing logged');
     cells += fut ? '<span class="day fut" aria-label="' + lab + '"><span>' + n + '</span><span class="dot"></span></span>'
-      : '<button class="day' + (d === t ? ' today' : '') + '" data-a="go" data-v="day" data-d="' + d + '" aria-label="' + lab + '"><span>' + n + '</span><span class="dot ' + st + '"></span></button>';
+      : '<button class="day' + (d === t ? ' today' : '') + (d === sel ? ' sel' : '') + '" data-a="hDate" data-d="' + d + '" aria-label="' + lab + '"' + (d === sel ? ' aria-pressed="true"' : '') + '><span>' + n + '</span><span class="dot ' + st + '"></span></button>';
   }
   const prevM = ymd(new Date(y, mo - 2, 1)).slice(0, 7), nextM = ymd(new Date(y, mo, 1)).slice(0, 7), canNext = nextM <= t.slice(0, 7), canPrev = prevM >= firstDay().slice(0, 7);
-  const end = ym === t.slice(0, 7) ? t : first.slice(0, 8) + pad(daysIn);
-  const list = rangeDays(first, end).reverse().filter(logged).slice(0, 8);
-  const dayRow = (d, i) => {
-    const st = dayStatus(d), tt = totalsOn(d), tg = num(targetFor(d).kcal);
-    return '<button class="dr mrow ' + (i === 0 && d === t ? 'pressed-sm' : 'raised-sm') + '" data-a="go" data-v="day" data-d="' + d + '"><span class="grow"><span style="display:block;font-size:15px">' + (d === t ? 'Today, ' + MON3[parseDay(d).getMonth()] + ' ' + parseDay(d).getDate() : longDay(d)) + '</span>' +
-      '<span class="cap" style="display:block' + (st === 'over' ? ';color:var(--ov)' : '') + '">' + (st === 'over' ? fmt(tt.kcal - tg) + ' kcal over' : plural(tt.meals, 'meal') + ', on target') + '</span></span><span style="font-size:15px">' + fmt(tt.kcal) + '</span><span class="mu">' + icon('next', 16, 2) + '</span></button>';
+  // the week ending at the anchor, never before the first day with any data
+  const start0 = firstDay(), list = rangeDays(addDays(S.ui.hAnchor, -6), S.ui.hAnchor).filter(d => !start0 || d >= start0 || d === S.ui.hAnchor).reverse();
+  const dayRow = d => {
+    const st = dayStatus(d), tt = totalsOn(d), tg = num(targetFor(d).kcal), has = logged(d), open = d === S.ui.hOpen;
+    const name = d === t ? 'Today, ' + MON3[parseDay(d).getMonth()] + ' ' + parseDay(d).getDate() : longDay(d);
+    const sub = !has ? 'Nothing logged' : st === 'over' ? fmt(tt.kcal - tg) + ' kcal over' : plural(tt.meals, 'meal') + ', on target';
+    const meals = open ? mealsOn(d).slice().sort((a, b) => String(a.time).localeCompare(String(b.time))) : [];
+    const panel = !open ? '' : '<div class="hpanel' + (anim === d ? ' anim' : '') + '" id="hp-' + d + '">' +
+      (has ? '<div class="cap row" style="gap:14px;flex-wrap:wrap"><span>Protein ' + fmt(tt.protein_g) + ' g</span><span>Carbs ' + fmt(tt.carbs_g) + ' g</span><span>Fat ' + fmt(tt.fat_g) + ' g</span><span>of ' + fmt(tg) + ' kcal</span></div>' : '') +
+      (meals.length ? meals.map(m => '<div class="row" style="gap:10px"><button class="row grow" data-a="editMeal" data-v="' + esc(m.meal_id) + '" style="gap:12px;text-align:left;min-width:0">' + thumbEl(m) +
+        '<span class="grow" style="min-width:0"><span class="cap" style="display:block">' + esc(m.meal_type) + ', ' + time12(m.time) + '</span><span style="display:block;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(mealName(m)) + '</span></span>' +
+        '<span class="num" style="font-size:14px">' + fmt(mealKcal(m)) + '</span></button>' +
+        (d === t ? '' : '<button class="raised-sm" data-a="copyToToday" data-v="' + esc(m.meal_id) + '" aria-label="Add this meal to today" style="height:34px;padding:0 10px;border-radius:11px;font-size:12px;color:var(--a);flex-shrink:0">Add to today</button>') + '</div>').join('')
+        : '<p class="cap" style="margin:0">Nothing logged on this day.</p>') + '</div>';
+    return '<div class="hrow ' + (open ? 'open pressed-sm' : 'raised-sm') + (has ? '' : ' empty') + '">' +
+      '<button class="mrow" data-a="hPick" data-d="' + d + '" aria-expanded="' + open + '"' + (open ? ' aria-controls="hp-' + d + '"' : '') + '><span class="grow"><span style="display:block;font-size:15px' + (d === sel ? ';color:var(--a)' : '') + '">' + name + '</span>' +
+      '<span class="cap" style="display:block' + (st === 'over' && has ? ';color:var(--ov)' : '') + '">' + sub + '</span></span>' + (has ? '<span style="font-size:15px">' + fmt(tt.kcal) + '</span>' : '') +
+      '<span class="mu chev">' + icon('next', 16, 2) + '</span></button>' + panel + '</div>';
   };
   return '<div class="scr tabbed" style="gap:16px"><header class="between" style="align-items:center"><h1 class="title">History</h1><div class="row" style="gap:8px">' +
     '<button class="ib ib40" data-a="monthStep" data-v="-1" aria-label="Previous month"' + (canPrev ? '' : ' disabled style="color:var(--mu);opacity:.5"') + '>' + icon('back', 16, 2) + '</button>' +
@@ -1377,7 +1406,7 @@ SCREENS.history = () => {
     '<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px">' + cells + '</div>' +
     '<div class="row" style="gap:14px;font-size:11px;color:var(--mu);margin-top:6px;padding:0 4px;flex-wrap:wrap">' +
     '<span class="row" style="gap:5px"><span class="dot on"></span>On target</span><span class="row" style="gap:5px"><span class="dot over"></span>Over</span><span class="row" style="gap:5px"><span class="dot none"></span>Nothing logged</span></div></div></section>' +
-    '<section class="col" style="gap:12px">' + (list.length ? list.map(dayRow).join('') : '<p class="cap" style="text-align:center">Nothing logged in ' + MONTHS[mo - 1] + '.</p>') + '</section>' +
+    '<section class="col" style="gap:10px">' + list.map(dayRow).join('') + '</section>' +
     '</div>' + tabBar('history');
 };
 
@@ -1837,6 +1866,12 @@ function selMotion(before) {
   for (let el = a.nextElementSibling; el; el = el.nextElementSibling) glideIn(el, glide.dir);
 }
 
+/* bring History's open day into view if it's below the fold, without jumping */
+function showOpenDay() {
+  const p = S.ui.hOpen && document.getElementById('hp-' + S.ui.hOpen); if (!p) return;
+  const row = p.closest('.hrow'), r = row.getBoundingClientRect(), bottom = window.innerHeight - 110;   // clear of the tab bar
+  if (r.bottom > bottom) window.scrollBy({top: Math.min(r.bottom - bottom, r.top - 80), behavior: calmMotion() ? 'auto' : 'smooth'});
+}
 function slideIn(act, dir) {
   const el = document.querySelector('[data-hswipe="' + act + '"] .swmove'); if (!el) return;
   el.classList.remove('swin-fwd', 'swin-back'); void el.offsetWidth; el.classList.add(dir > 0 ? 'swin-fwd' : 'swin-back');
@@ -2232,6 +2267,13 @@ const A = {
     S.draft = {mode: 'new', source: 'copy', meal, items: copyItems(m.meal_id, meal.meal_id), ai: null}; go('review');
   },
 
+  // History: pick a date on the calendar (the week below moves to end there) or a row (the week stays put)
+  hDate: el => { const d = el.dataset.d; S.ui.hSel = S.ui.hAnchor = S.ui.hOpen = S.ui.hAnim = d; render(); showOpenDay(); },
+  hPick: el => {
+    const d = el.dataset.d;
+    if (S.ui.hOpen === d) S.ui.hOpen = null; else S.ui.hOpen = S.ui.hAnim = d;
+    S.ui.hSel = d; S.ui.month = d.slice(0, 7); render(); showOpenDay();
+  },
   monthStep: el => {
     const dir = +el.dataset.v, t = today(), [y, mo] = (S.ui.month || t.slice(0, 7)).split('-').map(Number);
     const m = ymd(new Date(y, mo - 1 + dir, 1)).slice(0, 7);

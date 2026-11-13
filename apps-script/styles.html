@@ -199,7 +199,18 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .th{width:46px;height:46px;border-radius:14px;flex-shrink:0;box-shadow:inset 2px 2px 4px var(--lo),inset -2px -2px 4px var(--hi);background:#2B2E37 center/cover no-repeat;display:flex;align-items:center;justify-content:center;color:var(--mu)}
 .day{height:40px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:13px;color:var(--tx)}
 .day.fut{color:#6B7080}
-.day.today{box-shadow:inset 3px 3px 6px var(--lo),inset -3px -3px 6px var(--hi);color:var(--a);font-weight:600}
+.day.today{color:var(--a);font-weight:600}
+.day.sel{box-shadow:inset 3px 3px 6px var(--lo),inset -3px -3px 6px var(--hi);font-weight:600}
+/* History's week of days: one opens in place like a drawer */
+.hrow{border-radius:18px}
+.hrow .mrow{min-height:58px}
+.hrow.empty .mrow{min-height:46px;padding-top:8px;padding-bottom:8px;opacity:.7}
+.hrow .chev{display:flex;transition:transform .2s ease}
+.hrow.open .chev{transform:rotate(90deg)}
+.hpanel{padding:0 14px 14px;display:flex;flex-direction:column;gap:12px}
+.hpanel.anim{animation:hopen .26s cubic-bezier(.2,.8,.2,1)}
+@keyframes hopen{from{opacity:0;transform:translateY(-6px)}}
+@media (prefers-reduced-motion:reduce){.hpanel.anim{animation:none}.hrow .chev{transition:none}}
 .dot{width:6px;height:6px;border-radius:50%}
 .dot.on{background:var(--a);box-shadow:0 0 6px var(--a)}
 .dot.over{background:var(--ov)}

@@ -187,6 +187,12 @@ function selMotion(before) {
   for (let el = a.nextElementSibling; el; el = el.nextElementSibling) glideIn(el, glide.dir);
 }
 
+/* bring History's open day into view if it's below the fold, without jumping */
+function showOpenDay() {
+  const p = S.ui.hOpen && document.getElementById('hp-' + S.ui.hOpen); if (!p) return;
+  const row = p.closest('.hrow'), r = row.getBoundingClientRect(), bottom = window.innerHeight - 110;   // clear of the tab bar
+  if (r.bottom > bottom) window.scrollBy({top: Math.min(r.bottom - bottom, r.top - 80), behavior: calmMotion() ? 'auto' : 'smooth'});
+}
 function slideIn(act, dir) {
   const el = document.querySelector('[data-hswipe="' + act + '"] .swmove'); if (!el) return;
   el.classList.remove('swin-fwd', 'swin-back'); void el.offsetWidth; el.classList.add(dir > 0 ? 'swin-fwd' : 'swin-back');
@@ -582,6 +588,13 @@ const A = {
     S.draft = {mode: 'new', source: 'copy', meal, items: copyItems(m.meal_id, meal.meal_id), ai: null}; go('review');
   },
 
+  // History: pick a date on the calendar (the week below moves to end there) or a row (the week stays put)
+  hDate: el => { const d = el.dataset.d; S.ui.hSel = S.ui.hAnchor = S.ui.hOpen = S.ui.hAnim = d; render(); showOpenDay(); },
+  hPick: el => {
+    const d = el.dataset.d;
+    if (S.ui.hOpen === d) S.ui.hOpen = null; else S.ui.hOpen = S.ui.hAnim = d;
+    S.ui.hSel = d; S.ui.month = d.slice(0, 7); render(); showOpenDay();
+  },
   monthStep: el => {
     const dir = +el.dataset.v, t = today(), [y, mo] = (S.ui.month || t.slice(0, 7)).split('-').map(Number);
     const m = ymd(new Date(y, mo - 1 + dir, 1)).slice(0, 7);

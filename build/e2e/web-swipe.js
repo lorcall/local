@@ -64,9 +64,8 @@ const DATA = {Settings: [['key','value'],['onboarded','yes']], Targets: [['effec
   await drag('[data-hswipe=monthStep]', -200);
   check((await monthLabel()) === thisM, 'swiping left comes back');
   await page.locator('[data-hswipe=monthStep] button.day').first().click(); await page.waitForTimeout(300);
-  check(!(await page.$('[data-hswipe=monthStep]')), 'a plain tap on a day still opens it');
+  check(!!(await page.$('[data-hswipe=monthStep] .day.sel')) && !!(await page.$('[data-hswipe=monthStep]')), 'a plain tap on a day selects it, staying on History');
 
-  await page.click('[data-a=back]'); await page.waitForTimeout(300);
   console.log('Bar graph');
   await page.click('[data-a=tab][data-v=trends]'); await page.waitForTimeout(400);
   const period = () => page.locator('[data-a=trendStep][data-v="-1"] + span').innerText();
