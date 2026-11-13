@@ -589,6 +589,23 @@ const A = {
         setTimeout(() => { const f = document.getElementById('draft-date'); if (f) { f.scrollIntoView({block: 'center'}); f.focus({preventScroll: true}); } }, 60);
       }}]});
   },
+  // from the edit screen: a copy of the meal as shown (edits included), the original untouched
+  draftToToday: async () => {
+    const D = S.draft; if (!D || !D.items.length) return;
+    const orig = S.data.meals.find(x => x.meal_id === D.meal.meal_id) || D.meal;
+    const nm = Object.assign({}, D.meal, {meal_id: uid('meal'), date: today(), time: nowHM(), source: 'copy', edited: 'FALSE', thumb: await thumbOf(orig)});
+    persistMeal(nm, D.items.map(e => Object.assign({}, e, {entry_id: uid('ent'), meal_id: nm.meal_id})));
+    S.draft = null; S.ui.day = null; home('Added to today\'s ' + lc1(nm.meal_type));
+  },
+  draftToDay: async () => {
+    const D = S.draft; if (!D || !D.items.length) return;
+    const orig = S.data.meals.find(x => x.meal_id === D.meal.meal_id) || D.meal;
+    const L = logState(); L.date = today(); L.time = D.meal.time; L.timeAuto = false;
+    const meal = newMeal(D.meal.meal_type, {source: 'copy', note: D.meal.note, photo_url: D.meal.photo_url, thumb: await thumbOf(orig)});
+    S.draft = {mode: 'new', source: 'copy', meal, items: D.items.map(e => Object.assign({}, e, {entry_id: uid('ent'), meal_id: meal.meal_id})), ai: null};
+    replace('review');
+    setTimeout(() => { const f = document.getElementById('draft-date'); if (f) { f.scrollIntoView({block: 'center'}); f.focus({preventScroll: true}); } }, 60);
+  },
   deleteMeal: el => {
     const id = el.dataset.v, m = S.data.meals.find(x => x.meal_id === id);
     const t = m ? lc1(m.meal_type) : 'meal';

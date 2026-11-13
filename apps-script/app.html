@@ -986,6 +986,9 @@ SCREENS.review = () => {
     when +
     (isNew ? '' : '<div class="col" style="gap:6px"><label for="rv-note" class="lb">Note</label><input id="rv-note" class="fld" data-in="draftNote" value="' + esc(m.note || '') + '" placeholder="Optional"></div>') +
     '<div class="grow"></div>' +
+    // editing: the meal as shown here (edits included) can also go to today or another day; this one stays as it is
+    (isNew ? '' : '<div class="row" style="gap:10px"><button class="raised-sm grow" data-a="draftToToday"' + (D.items.length ? '' : ' disabled') + ' style="height:48px;border-radius:16px;font-size:14px;color:var(--a)">Add to today</button>' +
+      '<button class="raised-sm grow" data-a="draftToDay"' + (D.items.length ? '' : ' disabled') + ' style="height:48px;border-radius:16px;font-size:14px;color:var(--a)">Add to another day</button></div>') +
     '<div class="row">' + (isNew ? '<button class="raised-sm" data-a="discardDraft" style="height:56px;padding:0 20px;border-radius:20px;font-size:15px;color:var(--mu);white-space:nowrap">Cancel</button>' : '<button class="raised-sm" data-a="deleteMeal" data-v="' + esc(m.meal_id) + '" style="height:56px;padding:0 18px;border-radius:20px;font-size:15px;color:var(--ov);white-space:nowrap">Delete meal</button>') +
     '<button class="cta btn grow" data-a="saveDraft"' + (D.items.length ? '' : ' disabled') + '>' + (isNew ? 'Save to ' + tl : 'Save changes') + '</button></div></div>';
 };
@@ -2071,6 +2074,23 @@ const A = {
         S.draft = {mode: 'new', source: 'copy', meal, items: copyItems(id, meal.meal_id), ai: null}; go('review');
         setTimeout(() => { const f = document.getElementById('draft-date'); if (f) { f.scrollIntoView({block: 'center'}); f.focus({preventScroll: true}); } }, 60);
       }}]});
+  },
+  // from the edit screen: a copy of the meal as shown (edits included), the original untouched
+  draftToToday: async () => {
+    const D = S.draft; if (!D || !D.items.length) return;
+    const orig = S.data.meals.find(x => x.meal_id === D.meal.meal_id) || D.meal;
+    const nm = Object.assign({}, D.meal, {meal_id: uid('meal'), date: today(), time: nowHM(), source: 'copy', edited: 'FALSE', thumb: await thumbOf(orig)});
+    persistMeal(nm, D.items.map(e => Object.assign({}, e, {entry_id: uid('ent'), meal_id: nm.meal_id})));
+    S.draft = null; S.ui.day = null; home('Added to today\'s ' + lc1(nm.meal_type));
+  },
+  draftToDay: async () => {
+    const D = S.draft; if (!D || !D.items.length) return;
+    const orig = S.data.meals.find(x => x.meal_id === D.meal.meal_id) || D.meal;
+    const L = logState(); L.date = today(); L.time = D.meal.time; L.timeAuto = false;
+    const meal = newMeal(D.meal.meal_type, {source: 'copy', note: D.meal.note, photo_url: D.meal.photo_url, thumb: await thumbOf(orig)});
+    S.draft = {mode: 'new', source: 'copy', meal, items: D.items.map(e => Object.assign({}, e, {entry_id: uid('ent'), meal_id: meal.meal_id})), ai: null};
+    replace('review');
+    setTimeout(() => { const f = document.getElementById('draft-date'); if (f) { f.scrollIntoView({block: 'center'}); f.focus({preventScroll: true}); } }, 60);
   },
   deleteMeal: el => {
     const id = el.dataset.v, m = S.data.meals.find(x => x.meal_id === id);

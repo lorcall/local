@@ -266,6 +266,9 @@ SCREENS.review = () => {
     when +
     (isNew ? '' : '<div class="col" style="gap:6px"><label for="rv-note" class="lb">Note</label><input id="rv-note" class="fld" data-in="draftNote" value="' + esc(m.note || '') + '" placeholder="Optional"></div>') +
     '<div class="grow"></div>' +
+    // editing: the meal as shown here (edits included) can also go to today or another day; this one stays as it is
+    (isNew ? '' : '<div class="row" style="gap:10px"><button class="raised-sm grow" data-a="draftToToday"' + (D.items.length ? '' : ' disabled') + ' style="height:48px;border-radius:16px;font-size:14px;color:var(--a)">Add to today</button>' +
+      '<button class="raised-sm grow" data-a="draftToDay"' + (D.items.length ? '' : ' disabled') + ' style="height:48px;border-radius:16px;font-size:14px;color:var(--a)">Add to another day</button></div>') +
     '<div class="row">' + (isNew ? '<button class="raised-sm" data-a="discardDraft" style="height:56px;padding:0 20px;border-radius:20px;font-size:15px;color:var(--mu);white-space:nowrap">Cancel</button>' : '<button class="raised-sm" data-a="deleteMeal" data-v="' + esc(m.meal_id) + '" style="height:56px;padding:0 18px;border-radius:20px;font-size:15px;color:var(--ov);white-space:nowrap">Delete meal</button>') +
     '<button class="cta btn grow" data-a="saveDraft"' + (D.items.length ? '' : ' disabled') + '>' + (isNew ? 'Save to ' + tl : 'Save changes') + '</button></div></div>';
 };
