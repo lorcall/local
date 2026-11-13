@@ -142,6 +142,13 @@ for (let n = -14; n <= -1; n++) {
   check(fit.cal && fit.k < 0.85, 'weigh-ins that drop slower than predicted lower the fitted burn (k ' + fit.k.toFixed(2) + ')');
   check(fit.now > est + 0.5, 'and pull the estimate toward the scale (' + fit.now.toFixed(2) + ' kg)');
 
+  // Safari left stale glow behind CSS filters on SVG; glows are drawn strokes now
+  const filtered = [];
+  for (const scr of ['today', 'weight', 'trends', 'history', 'consistency', 'topfoods']) {
+    await page.evaluate(n => go(n, {}), scr); await page.waitForTimeout(300);
+    filtered.push(...await page.evaluate(n => [...document.querySelectorAll('#app svg, #app svg *')].filter(e => { const f = getComputedStyle(e).filter; return f && f !== 'none' && !/^url\(/.test(f); }).map(e => n + ' ' + e.tagName), scr));
+  }
+  check(!filtered.length, 'no SVG uses a CSS filter for its glow (' + filtered.slice(0, 4) + ')');
   check(!errs.length, 'no page errors' + (errs.length ? ': ' + errs.slice(0, 3).join(' | ') : ''));
   console.log(failures ? '\n' + failures + ' failed' : '\nall passed');
   await browser.close(); server.close(); process.exitCode = failures ? 1 : 0;

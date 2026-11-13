@@ -537,7 +537,10 @@ function backHeader(title, o = {}) {
 /* an arc on a ring: frac 0..1, starts at 6 o'clock and runs clockwise, like the LoCal icon */
 function arc(size, r, sw, frac, color, o = {}) {
   const C = 2 * Math.PI * r, L = clamp(frac, 0, 1) * C, c = size / 2;
-  return '<circle cx="' + c + '" cy="' + c + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="' + sw + '" stroke-linecap="' + (o.butt ? 'butt' : 'round') + '" stroke-dasharray="' + L.toFixed(1) + ' ' + C.toFixed(1) + '"' + (o.offset ? ' stroke-dashoffset="' + o.offset + '"' : '') + ' transform="rotate(90 ' + c + ' ' + c + ')"' + (o.cls ? ' class="' + o.cls + '"' : '') + '/>';
+  const one = (w, op) => '<circle cx="' + c + '" cy="' + c + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="' + w + '"' + (op ? ' stroke-opacity="' + op + '"' : '') + ' stroke-linecap="' + (o.butt ? 'butt' : 'round') + '" stroke-dasharray="' + L.toFixed(1) + ' ' + C.toFixed(1) + '"' + (o.offset ? ' stroke-dashoffset="' + o.offset + '"' : '') + ' transform="rotate(90 ' + c + ' ' + c + ')"' + (o.cls ? ' class="' + o.cls + '"' : '') + '/>';
+  // The glow is drawn, not filtered: two wider, faint copies under the arc. A CSS drop-shadow on
+  // SVG left stale glow behind on iOS Safari (a halo where the arc no longer was).
+  return (o.glow ? one(sw + o.glow * 2.2, 0.05) + one(sw + o.glow * 1.4, 0.08) + one(sw + o.glow * 0.7, 0.14) : '') + one(sw);
 }
 
 /* CalorieDial: raised disc with a thin pressed groove (r 80 to 96) and the glowing mango arc running along it (r 88), glass centre */
@@ -546,8 +549,8 @@ function calorieDial(eaten, target, o = {}) {
   const frac = target > 0 ? eaten / target : 0;
   const label = fmt(eaten) + ' of ' + fmt(target) + ' kcal eaten' + (over ? ', ' + fmt(-left) + ' over target' : '');
   // over target: the full ring stays mango and a coral arc runs on from 6 o'clock for the excess
-  const arcs = !over ? (frac > 0 ? '<g style="filter:drop-shadow(0 0 6px ' + COLOR.a + ')">' + arc(220, 88, 5, frac, COLOR.a, {cls: o.animate ? 'arcdraw' : ''}) + '</g>' : '')
-    : '<g opacity=".45">' + arc(220, 88, 5, 1, COLOR.a) + '</g><g style="filter:drop-shadow(0 0 7px ' + COLOR.ov + ')">' + arc(220, 88, 6, Math.min(1, -left / target), COLOR.ov, {cls: o.animate ? 'arcdraw' : ''}) + '</g>' +
+  const arcs = !over ? (frac > 0 ? arc(220, 88, 5, frac, COLOR.a, {cls: o.animate ? 'arcdraw' : '', glow: 6}) : '')
+    : '<g opacity=".45">' + arc(220, 88, 5, 1, COLOR.a) + '</g>' + arc(220, 88, 6, Math.min(1, -left / target), COLOR.ov, {cls: o.animate ? 'arcdraw' : '', glow: 7}) +
       '<line x1="110" y1="191" x2="110" y2="205" stroke="' + COLOR.ov + '" stroke-width="3" stroke-linecap="round"/>';
   return '<div class="dial raised" style="width:220px;height:220px;box-shadow:12px 12px 24px var(--lo),-10px -10px 22px var(--hi)">' +
     '<div class="well" style="width:192px;height:192px;background:#1C1E24;box-shadow:inset 6px 6px 10px #0E0F12,inset -4px -4px 8px #353844,inset 0 0 0 1px rgba(0,0,0,.35)">' +
@@ -563,7 +566,7 @@ function limitRing(size, r, sw, val, lim, color, track) {
   const frac = lim > 0 ? val / lim : 0, c = size / 2;
   let s = '<circle cx="' + c + '" cy="' + c + '" r="' + r + '" fill="none" stroke="' + (track || '#15161B') + '" stroke-width="' + sw + '"/>';
   if (frac <= 1) return s + (frac > 0 ? arc(size, r, sw, frac, color) : '');
-  return s + '<g opacity=".5">' + arc(size, r, sw, 1, color) + '</g><g style="filter:drop-shadow(0 0 4px ' + COLOR.ov + ')">' + arc(size, r, sw, Math.min(1, frac - 1), COLOR.ov) + '</g>';
+  return s + '<g opacity=".5">' + arc(size, r, sw, 1, color) + '</g>' + arc(size, r, sw, Math.min(1, frac - 1), COLOR.ov, {glow: 4});
 }
 
 /* smaller ring dial with a pressed well (Goal calculator, Day summary, Consistency, Weight) */
@@ -571,8 +574,8 @@ function ringDial(size, wellSize, frac, inner, aria, o = {}) {
   const r = size / 2 - (o.inset || 4), col = o.color || COLOR.a;
   const disc = o.raised ? 'class="dial raised" style="width:' + size + 'px;height:' + size + 'px;box-shadow:10px 10px 20px var(--lo),-8px -8px 18px var(--hi)"' : 'class="dial well" style="width:' + size + 'px;height:' + size + 'px"';
   return '<div ' + disc + '>' + (o.raised ? '<div class="well" style="width:' + wellSize + 'px;height:' + wellSize + 'px">' + inner + '</div>' : inner) +
-    '<svg class="arc" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" role="img" aria-label="' + esc(aria) + '" style="filter:drop-shadow(0 0 5px ' + col + ')">' +
-    (frac > 0 ? arc(size, r, o.sw || 4, frac, col) : '') + '</svg></div>';
+    '<svg class="arc" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" role="img" aria-label="' + esc(aria) + '">' +
+    (frac > 0 ? arc(size, r, o.sw || 4, frac, col, {glow: 5}) : '') + '</svg></div>';
 }
 
 function macroDial(label, val, target, color) {
@@ -1182,7 +1185,7 @@ SCREENS.day = () => {
   const thumb = m => thumbEl(m);
   return '<div class="scr">' + backHeader(monthDay(d), {sub: dayName(d)}) +
     '<section class="raised r26 row" style="padding:16px;gap:16px">' +
-    '<div class="dial well" style="width:112px;height:112px;flex-direction:column"><svg class="arc" width="112" height="112" viewBox="0 0 112 112" role="img" aria-label="' + fmt(t.kcal) + ' of ' + fmt(tg.kcal) + ' kcal" style="filter:drop-shadow(0 0 4px ' + (t.kcal > num(tg.kcal) ? COLOR.ov : COLOR.a) + ')">' + (t.kcal ? arc(112, 48, 5, t.kcal / num(tg.kcal), t.kcal > num(tg.kcal) ? COLOR.ov : COLOR.a) : '') + '</svg>' +
+    '<div class="dial well" style="width:112px;height:112px;flex-direction:column"><svg class="arc" width="112" height="112" viewBox="0 0 112 112" role="img" aria-label="' + fmt(t.kcal) + ' of ' + fmt(tg.kcal) + ' kcal">' + (t.kcal ? arc(112, 48, 5, t.kcal / num(tg.kcal), t.kcal > num(tg.kcal) ? COLOR.ov : COLOR.a, {glow: 4}) : '') + '</svg>' +
     '<div class="num" style="font-size:28px">' + fmt(t.kcal) + '</div><div style="font-size:11px;color:var(--mu)">of ' + fmt(tg.kcal) + ' kcal</div></div>' +
     '<div class="col grow" style="gap:8px;font-size:12px">' + bar('Protein', t.protein_g, tg.protein_g, COLOR.p) + bar('Carbs', t.carbs_g, tg.carbs_g, COLOR.c) + bar('Fat', t.fat_g, tg.fat_g, COLOR.f) + '</div></section>' +
     '<div class="pressed-sm r16" style="padding:10px 14px;display:flex;justify-content:space-between;font-size:12px;color:var(--mu)"><span>Sugar ' + fmt(t.sugar_g) + ' g</span><span>Fiber ' + fmt(t.fiber_g) + ' g</span><span>Sodium ' + fmt(t.sodium_mg) + ' mg</span></div>' +
@@ -1429,7 +1432,8 @@ SCREENS.weight = () => {
       '<g stroke="#2F323C" stroke-width="1">' + ticks.map(v => '<line x1="' + x0 + '" y1="' + Y(v) + '" x2="' + W + '" y2="' + Y(v) + '"/>').join('') + '</g>' +
       '<g fill="#A2A7B6" font-size="10" font-family="inherit" text-anchor="end">' + ticks.map(v => '<text x="' + (x0 - 6) + '" y="' + (+Y(v) + 3.5) + '">' + fmt(v, 1) + '</text>').join('') + '</g>' +
       (goal && goal >= lo && goal <= hi ? '<line x1="' + x0 + '" y1="' + Y(goal) + '" x2="' + W + '" y2="' + Y(goal) + '" stroke="#7BE5C4" stroke-opacity=".7" stroke-dasharray="4 5"/><text x="' + W + '" y="' + (+Y(goal) - 5) + '" fill="#7BE5C4" font-size="10" text-anchor="end">Goal ' + fmt(goal, 1) + '</text>' : '') +
-      '<path d="' + path + '" stroke="#F5A524" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 5px #F5A524)"/>' +
+      '<path d="' + path + '" stroke="#F5A524" stroke-opacity=".05" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="' + path + '" stroke="#F5A524" stroke-opacity=".08" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="' + path + '" stroke="#F5A524" stroke-opacity=".14" stroke-width="6.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<path d="' + path + '" stroke="#F5A524" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>' +
       '<g fill="#ECEDF2">' + pts.map(w => '<circle cx="' + X(w.date) + '" cy="' + Y(w.kg) + '" r="3.5" fill-opacity=".85"/>').join('') + '</g>' +
       '<circle cx="' + X(t) + '" cy="' + Y(now) + '" r="5" fill="#FFD08A"/>' +
       '<g fill="#A2A7B6" font-size="10"><text x="' + x0 + '" y="' + (H - 4) + '">' + mon(d0) + '</text><text x="' + x1 + '" y="' + (H - 4) + '" text-anchor="end">Today</text></g></svg>' +

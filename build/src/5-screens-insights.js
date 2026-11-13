@@ -62,7 +62,7 @@ SCREENS.day = () => {
   const thumb = m => thumbEl(m);
   return '<div class="scr">' + backHeader(monthDay(d), {sub: dayName(d)}) +
     '<section class="raised r26 row" style="padding:16px;gap:16px">' +
-    '<div class="dial well" style="width:112px;height:112px;flex-direction:column"><svg class="arc" width="112" height="112" viewBox="0 0 112 112" role="img" aria-label="' + fmt(t.kcal) + ' of ' + fmt(tg.kcal) + ' kcal" style="filter:drop-shadow(0 0 4px ' + (t.kcal > num(tg.kcal) ? COLOR.ov : COLOR.a) + ')">' + (t.kcal ? arc(112, 48, 5, t.kcal / num(tg.kcal), t.kcal > num(tg.kcal) ? COLOR.ov : COLOR.a) : '') + '</svg>' +
+    '<div class="dial well" style="width:112px;height:112px;flex-direction:column"><svg class="arc" width="112" height="112" viewBox="0 0 112 112" role="img" aria-label="' + fmt(t.kcal) + ' of ' + fmt(tg.kcal) + ' kcal">' + (t.kcal ? arc(112, 48, 5, t.kcal / num(tg.kcal), t.kcal > num(tg.kcal) ? COLOR.ov : COLOR.a, {glow: 4}) : '') + '</svg>' +
     '<div class="num" style="font-size:28px">' + fmt(t.kcal) + '</div><div style="font-size:11px;color:var(--mu)">of ' + fmt(tg.kcal) + ' kcal</div></div>' +
     '<div class="col grow" style="gap:8px;font-size:12px">' + bar('Protein', t.protein_g, tg.protein_g, COLOR.p) + bar('Carbs', t.carbs_g, tg.carbs_g, COLOR.c) + bar('Fat', t.fat_g, tg.fat_g, COLOR.f) + '</div></section>' +
     '<div class="pressed-sm r16" style="padding:10px 14px;display:flex;justify-content:space-between;font-size:12px;color:var(--mu)"><span>Sugar ' + fmt(t.sugar_g) + ' g</span><span>Fiber ' + fmt(t.fiber_g) + ' g</span><span>Sodium ' + fmt(t.sodium_mg) + ' mg</span></div>' +
@@ -309,7 +309,8 @@ SCREENS.weight = () => {
       '<g stroke="#2F323C" stroke-width="1">' + ticks.map(v => '<line x1="' + x0 + '" y1="' + Y(v) + '" x2="' + W + '" y2="' + Y(v) + '"/>').join('') + '</g>' +
       '<g fill="#A2A7B6" font-size="10" font-family="inherit" text-anchor="end">' + ticks.map(v => '<text x="' + (x0 - 6) + '" y="' + (+Y(v) + 3.5) + '">' + fmt(v, 1) + '</text>').join('') + '</g>' +
       (goal && goal >= lo && goal <= hi ? '<line x1="' + x0 + '" y1="' + Y(goal) + '" x2="' + W + '" y2="' + Y(goal) + '" stroke="#7BE5C4" stroke-opacity=".7" stroke-dasharray="4 5"/><text x="' + W + '" y="' + (+Y(goal) - 5) + '" fill="#7BE5C4" font-size="10" text-anchor="end">Goal ' + fmt(goal, 1) + '</text>' : '') +
-      '<path d="' + path + '" stroke="#F5A524" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 5px #F5A524)"/>' +
+      '<path d="' + path + '" stroke="#F5A524" stroke-opacity=".05" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="' + path + '" stroke="#F5A524" stroke-opacity=".08" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="' + path + '" stroke="#F5A524" stroke-opacity=".14" stroke-width="6.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<path d="' + path + '" stroke="#F5A524" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>' +
       '<g fill="#ECEDF2">' + pts.map(w => '<circle cx="' + X(w.date) + '" cy="' + Y(w.kg) + '" r="3.5" fill-opacity=".85"/>').join('') + '</g>' +
       '<circle cx="' + X(t) + '" cy="' + Y(now) + '" r="5" fill="#FFD08A"/>' +
       '<g fill="#A2A7B6" font-size="10"><text x="' + x0 + '" y="' + (H - 4) + '">' + mon(d0) + '</text><text x="' + x1 + '" y="' + (H - 4) + '" text-anchor="end">Today</text></g></svg>' +

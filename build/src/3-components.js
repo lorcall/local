@@ -47,7 +47,10 @@ function backHeader(title, o = {}) {
 /* an arc on a ring: frac 0..1, starts at 6 o'clock and runs clockwise, like the LoCal icon */
 function arc(size, r, sw, frac, color, o = {}) {
   const C = 2 * Math.PI * r, L = clamp(frac, 0, 1) * C, c = size / 2;
-  return '<circle cx="' + c + '" cy="' + c + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="' + sw + '" stroke-linecap="' + (o.butt ? 'butt' : 'round') + '" stroke-dasharray="' + L.toFixed(1) + ' ' + C.toFixed(1) + '"' + (o.offset ? ' stroke-dashoffset="' + o.offset + '"' : '') + ' transform="rotate(90 ' + c + ' ' + c + ')"' + (o.cls ? ' class="' + o.cls + '"' : '') + '/>';
+  const one = (w, op) => '<circle cx="' + c + '" cy="' + c + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="' + w + '"' + (op ? ' stroke-opacity="' + op + '"' : '') + ' stroke-linecap="' + (o.butt ? 'butt' : 'round') + '" stroke-dasharray="' + L.toFixed(1) + ' ' + C.toFixed(1) + '"' + (o.offset ? ' stroke-dashoffset="' + o.offset + '"' : '') + ' transform="rotate(90 ' + c + ' ' + c + ')"' + (o.cls ? ' class="' + o.cls + '"' : '') + '/>';
+  // The glow is drawn, not filtered: two wider, faint copies under the arc. A CSS drop-shadow on
+  // SVG left stale glow behind on iOS Safari (a halo where the arc no longer was).
+  return (o.glow ? one(sw + o.glow * 2.2, 0.05) + one(sw + o.glow * 1.4, 0.08) + one(sw + o.glow * 0.7, 0.14) : '') + one(sw);
 }
 
 /* CalorieDial: raised disc with a thin pressed groove (r 80 to 96) and the glowing mango arc running along it (r 88), glass centre */
@@ -56,8 +59,8 @@ function calorieDial(eaten, target, o = {}) {
   const frac = target > 0 ? eaten / target : 0;
   const label = fmt(eaten) + ' of ' + fmt(target) + ' kcal eaten' + (over ? ', ' + fmt(-left) + ' over target' : '');
   // over target: the full ring stays mango and a coral arc runs on from 6 o'clock for the excess
-  const arcs = !over ? (frac > 0 ? '<g style="filter:drop-shadow(0 0 6px ' + COLOR.a + ')">' + arc(220, 88, 5, frac, COLOR.a, {cls: o.animate ? 'arcdraw' : ''}) + '</g>' : '')
-    : '<g opacity=".45">' + arc(220, 88, 5, 1, COLOR.a) + '</g><g style="filter:drop-shadow(0 0 7px ' + COLOR.ov + ')">' + arc(220, 88, 6, Math.min(1, -left / target), COLOR.ov, {cls: o.animate ? 'arcdraw' : ''}) + '</g>' +
+  const arcs = !over ? (frac > 0 ? arc(220, 88, 5, frac, COLOR.a, {cls: o.animate ? 'arcdraw' : '', glow: 6}) : '')
+    : '<g opacity=".45">' + arc(220, 88, 5, 1, COLOR.a) + '</g>' + arc(220, 88, 6, Math.min(1, -left / target), COLOR.ov, {cls: o.animate ? 'arcdraw' : '', glow: 7}) +
       '<line x1="110" y1="191" x2="110" y2="205" stroke="' + COLOR.ov + '" stroke-width="3" stroke-linecap="round"/>';
   return '<div class="dial raised" style="width:220px;height:220px;box-shadow:12px 12px 24px var(--lo),-10px -10px 22px var(--hi)">' +
     '<div class="well" style="width:192px;height:192px;background:#1C1E24;box-shadow:inset 6px 6px 10px #0E0F12,inset -4px -4px 8px #353844,inset 0 0 0 1px rgba(0,0,0,.35)">' +
@@ -73,7 +76,7 @@ function limitRing(size, r, sw, val, lim, color, track) {
   const frac = lim > 0 ? val / lim : 0, c = size / 2;
   let s = '<circle cx="' + c + '" cy="' + c + '" r="' + r + '" fill="none" stroke="' + (track || '#15161B') + '" stroke-width="' + sw + '"/>';
   if (frac <= 1) return s + (frac > 0 ? arc(size, r, sw, frac, color) : '');
-  return s + '<g opacity=".5">' + arc(size, r, sw, 1, color) + '</g><g style="filter:drop-shadow(0 0 4px ' + COLOR.ov + ')">' + arc(size, r, sw, Math.min(1, frac - 1), COLOR.ov) + '</g>';
+  return s + '<g opacity=".5">' + arc(size, r, sw, 1, color) + '</g>' + arc(size, r, sw, Math.min(1, frac - 1), COLOR.ov, {glow: 4});
 }
 
 /* smaller ring dial with a pressed well (Goal calculator, Day summary, Consistency, Weight) */
@@ -81,8 +84,8 @@ function ringDial(size, wellSize, frac, inner, aria, o = {}) {
   const r = size / 2 - (o.inset || 4), col = o.color || COLOR.a;
   const disc = o.raised ? 'class="dial raised" style="width:' + size + 'px;height:' + size + 'px;box-shadow:10px 10px 20px var(--lo),-8px -8px 18px var(--hi)"' : 'class="dial well" style="width:' + size + 'px;height:' + size + 'px"';
   return '<div ' + disc + '>' + (o.raised ? '<div class="well" style="width:' + wellSize + 'px;height:' + wellSize + 'px">' + inner + '</div>' : inner) +
-    '<svg class="arc" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" role="img" aria-label="' + esc(aria) + '" style="filter:drop-shadow(0 0 5px ' + col + ')">' +
-    (frac > 0 ? arc(size, r, o.sw || 4, frac, col) : '') + '</svg></div>';
+    '<svg class="arc" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" role="img" aria-label="' + esc(aria) + '">' +
+    (frac > 0 ? arc(size, r, o.sw || 4, frac, col, {glow: 5}) : '') + '</svg></div>';
 }
 
 function macroDial(label, val, target, color) {
