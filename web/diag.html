@@ -17,13 +17,24 @@
   .bar { position: fixed; left: 16px; right: 16px; bottom: 16px; height: 56px; border-radius: 20px; background: #F5A524; color: #1A1206;
     display: flex; align-items: center; justify-content: center; font-weight: 600; }
   .probe { position: fixed; top: 0; left: 0; width: 1px; visibility: hidden; pointer-events: none; }
+  nav { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 14px; }
+  nav a { color: #1A1206; background: #F5A524; padding: 8px 12px; border-radius: 12px; text-decoration: none; font-weight: 600; }
+  nav a.on { background: #ECEDF2; }
+  .filler p { margin: 0; padding: 10px 0; border-bottom: 1px solid #2F323C; }
+  /* Fix A: the page itself may not scroll past its edges */
+  html.over, html.over body { overscroll-behavior: none; }
+  /* Fix B: the page never scrolls; the app column scrolls inside it */
+  html.lock, html.lock body { overflow: hidden; height: 100%; overscroll-behavior: none; }
+  html.lock #app { height: 100%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 </style>
 </head>
 <body>
 <div id="app">
   <h1>Screen check</h1>
-  <p>Take a screenshot of this as it opens, then scroll with the mouse as far as it goes and take another.</p>
+  <p id="lead">Take a screenshot of this as it opens, then scroll with the mouse as far as it goes and take another.</p>
+  <nav id="nav"></nav>
   <table id="t"></table>
+  <div class="filler" id="filler"></div>
 </div>
 <div class="bar">This bar should stay at the bottom</div>
 <div class="probe" id="vh" style="height:100vh"></div>
@@ -33,6 +44,15 @@
 <div class="probe" id="fix" style="bottom:0"></div>
 <script>
 (function () {
+  var q = new URLSearchParams(location.search), fix = q.get('fix') || '', long = q.get('long') === '1';
+  if (fix) document.documentElement.classList.add(fix);
+  var links = [['', false, 'As now'], ['over', false, 'Fix A'], ['lock', false, 'Fix B'], ['over', true, 'Fix A, long page'], ['lock', true, 'Fix B, long page']];
+  document.getElementById('nav').innerHTML = links.map(function (l) {
+    var href = '?' + (l[0] ? 'fix=' + l[0] : '') + (l[1] ? (l[0] ? '&' : '') + 'long=1' : '');
+    return '<a href="' + href + '"' + (l[0] === fix && l[1] === long ? ' class="on"' : '') + '>' + l[2] + '</a>';
+  }).join('');
+  if (fix) document.getElementById('lead').textContent = 'Scroll with the mouse. Does the orange bar stay at the bottom with no gap under it?' + (long ? ' This page is long, so it should scroll normally to the last line.' : '');
+  if (long) document.getElementById('filler').innerHTML = Array.from({length: 40}, function (_, i) { return '<p>Line ' + (i + 1) + (i === 39 ? ', the last one' : '') + '</p>'; }).join('');
   var t = document.getElementById('t'), d = document.documentElement, vv = window.visualViewport;
   var h = function (id) { return Math.round(document.getElementById(id).getBoundingClientRect().height); };
   function draw(why) {
@@ -41,7 +61,7 @@
       ['window inner', innerWidth + ' × ' + innerHeight],
       ['html client', d.clientWidth + ' × ' + d.clientHeight],
       ['page scroll height', d.scrollHeight],
-      ['scrolled by', Math.round(scrollY)],
+      ['scrolled by', Math.round(scrollY) + ' (app column ' + Math.round(document.getElementById('app').scrollTop) + ')'],
       ['visual viewport', vv ? Math.round(vv.width) + ' × ' + Math.round(vv.height) + ', scale ' + vv.scale.toFixed(2) : 'none'],
       ['visual viewport offset', vv ? Math.round(vv.offsetTop) + ' (page top ' + Math.round(vv.pageTop) + ')' : ''],
       ['100vh / dvh / svh / lvh', h('vh') + ' / ' + h('dvh') + ' / ' + h('svh') + ' / ' + h('lvh')],
@@ -54,6 +74,7 @@
   draw('load');
   addEventListener('resize', function () { draw('resize'); });
   addEventListener('scroll', function () { draw('scroll'); }, {passive: true});
+  document.getElementById('app').addEventListener('scroll', function () { draw('app scroll'); }, {passive: true});
   if (vv) { vv.addEventListener('resize', function () { draw('viewport resize'); }); vv.addEventListener('scroll', function () { draw('viewport scroll'); }); }
 })();
 </script>
