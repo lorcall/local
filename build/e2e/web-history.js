@@ -72,6 +72,7 @@ const DATA = {
   const page = await ctx.newPage();
   const errs = []; page.on('pageerror', e => errs.push(e.message));
   page.on('dialog', d => { errs.push('dialog: ' + d.message()); d.dismiss(); });
+  await page.clock.setFixedTime(new Date('2026-11-13T12:00:00'));  // the data is written around this day
   await page.goto('http://localhost:8802/web/index.html'); await page.waitForTimeout(2500);
 
 
@@ -107,6 +108,24 @@ const DATA = {
   check(await page.evaluate(() => route().name) === 'review', 'a meal in the open day opens for editing');
   await page.evaluate(() => back()); await page.waitForTimeout(300); s = await st();
   check(s.route === 'history' && s.open[0] === '2026-11-13', 'coming back, History is as it was');
+
+  // add a meal to the selected day; saving comes back to History
+  await page.click('.day[data-d="2026-11-12"]'); await page.waitForTimeout(300);
+  const addBtn = await page.$('.hpanel [data-a="go"][data-v="log"][data-day="2026-11-12"]');
+  check(addBtn && /Add a meal to Nov 12/.test(await addBtn.textContent()), 'the open day offers to add a meal to it');
+  await addBtn.click(); await page.waitForTimeout(300);
+  check(await page.evaluate(() => route().name === 'log' && logState().date === '2026-11-12' && logState().time === TYPE_TIME[logState().meal_type]), 'logging starts on that date');
+  await page.evaluate(() => { const L = logState(); addToMealToday(L.meal_type, [{entry_id: uid('ent'), name: 'Test food', category: 'other', kcal: 100, protein_g: 0, carbs_g: 0, fat_g: 0, quantity: 1, serving_unit: 'serving'}], 'manual'); home('Added'); });
+  await page.waitForTimeout(400); s = await st();
+  check(s.route === 'history' && s.open[0] === '2026-11-12', 'after saving, History is back with that day open');
+  check(await page.evaluate(() => mealsOn('2026-11-12').some(m => itemsOf(m.meal_id).some(e => e.name === 'Test food'))), 'the meal is on that date');
+  await page.click('.day[data-d="2026-11-13"]'); await page.waitForTimeout(300);
+  check(/Add a meal today/.test(await page.textContent('.hpanel')), 'on today it says today');
+  await page.evaluate(() => { document.querySelector('[data-a="tab"][data-v="today"]').click(); }); await page.waitForTimeout(300);
+  await page.evaluate(() => { document.querySelector('[data-a="go"][data-v="log"]').click(); }); await page.waitForTimeout(300);
+  await page.evaluate(() => home()); await page.waitForTimeout(300);
+  check(await page.evaluate(() => route().name) === 'today', 'logging from Today still returns to Today');
+  await page.evaluate(() => { document.querySelector('[data-a="tab"][data-v="history"]').click(); }); await page.waitForTimeout(300);
 
   // another month: the week follows it
   await page.click('[data-a="monthStep"][data-v="-1"]').catch(() => {}); await page.waitForTimeout(500); s = await st();

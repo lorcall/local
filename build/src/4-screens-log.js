@@ -440,17 +440,20 @@ SCREENS.search = () => {
   const head = t => '<h2 class="h13" style="padding:0">' + t + '</h2>';
   let body;
   if (!P.meals.length) body = '<p class="cap" style="text-align:center;padding:12px 0">Meals you log show up here, so you can add them again in one tap.</p>';
-  else if (words.length && !meals.length && !foods.length) body = '<p class="cap" style="text-align:center;padding:8px 0 0">Nothing you\'ve logged matches “' + esc(q) + '”.</p>' +
-    '<button class="raised-sm btn2" data-a="newFood" style="color:var(--link)">Add “' + esc(q) + '” as a new food</button>';
+  else if (words.length && !meals.length && !foods.length) body = '<p class="cap" style="text-align:center;padding:8px 0 0">Nothing you\'ve logged matches “' + esc(q) + '”.</p>';
   else body = (meals.length ? head(words.length ? 'Meals' : 'Recent meals') + meals.map(mealCard).join('') : '') +
     (foods.length ? head(words.length ? 'Foods' : 'Foods you have most') + '<section class="raised r22" style="padding:4px 0;display:flex;flex-direction:column">' + foods.map(foodRow).join('<div class="sep" style="margin:0 14px"></div>') + '</section>' : '');
+  // Searching for something that isn't here (no match, or not the one they meant): the AI is the next step.
+  if (words.length) body += '<div class="col" style="gap:10px">' + (meals.length || foods.length ? '<p class="cap" style="text-align:center;margin:0">Not in the list?</p>' : '') +
+    '<button class="' + (meals.length || foods.length ? 'raised-sm btn2' : 'cta btn') + '" data-a="describeQ">Describe a meal for the AI</button>' +
+    '<button class="raised-sm btn2" data-a="newFood" style="color:var(--link)">Add “' + esc(q) + '” as a new food</button></div>';
   return '<div class="scr">' + backHeader('Search past meals') +
     '<div style="position:relative"><label for="sq-s" class="sr">Search what you\'ve eaten before</label><span style="position:absolute;left:16px;top:15px;color:var(--mu)">' + icon('search', 18, 2) + '</span>' +
     '<input id="sq-s" type="search" enterkeyhint="search" class="fld" data-in="sqSearch" value="' + esc(sq.q) + '" placeholder="Search what you\'ve eaten before" style="height:48px;border-radius:16px;font-size:15px;padding-left:44px;box-shadow:inset 4px 4px 8px var(--lo),inset -4px -4px 8px var(--hi)" autocomplete="off"></div>' +
     chips('logType', MEAL_TYPES, L.meal_type, 'Add to meal', {h: 36}) + whenRow('log', L.date, L.time) +
     '<div data-part="sq-list" class="col" style="gap:14px">' + body + '</div>' +
-    '<div class="grow"></div><button class="raised-sm btn2" data-a="go" data-v="describe">Describe a meal for the AI</button>' +
-    '<p class="cap" style="text-align:center">Adding something you\'ve had before doesn\'t use the AI.</p></div>';
+    '<div class="grow"></div><div data-part="sq-ai" class="col" style="gap:14px">' + (words.length ? '' : '<button class="raised-sm btn2" data-a="go" data-v="describe">Describe a meal for the AI</button>') +
+    '<p class="cap" style="text-align:center">Adding something you\'ve had before doesn\'t use the AI.</p></div></div>';
 };
 
 /* ---------- Describe a meal (AI estimate without a photo) ---------- */

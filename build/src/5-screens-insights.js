@@ -34,7 +34,8 @@ SCREENS.history = () => {
         '<span class="grow" style="min-width:0"><span class="cap" style="display:block">' + esc(m.meal_type) + ', ' + time12(m.time) + '</span><span style="display:block;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(mealName(m)) + '</span></span>' +
         '<span class="num" style="font-size:14px">' + fmt(mealKcal(m)) + '</span></button>' +
         (d === t ? '' : '<button class="raised-sm" data-a="copyToToday" data-v="' + esc(m.meal_id) + '" aria-label="Add this meal to today" style="height:34px;padding:0 10px;border-radius:11px;font-size:12px;color:var(--link);flex-shrink:0">Add to today</button>') + '</div>').join('')
-        : '<p class="cap" style="margin:0">Nothing logged on this day.</p>') + '</div>';
+        : '<p class="cap" style="margin:0">Nothing logged on this day.</p>') +
+      '<button class="raised-sm btn-sm" data-a="go" data-v="log" data-day="' + d + '" style="color:var(--link)">' + icon('plus', 14, 2.2) + '<span style="margin-left:6px">' + (d === t ? 'Add a meal today' : 'Add a meal to ' + MON3[parseDay(d).getMonth()] + ' ' + parseDay(d).getDate()) + '</span></button></div>';
     return '<div class="hrow ' + (open ? 'open pressed-sm' : 'raised-sm') + (has ? '' : ' empty') + '">' +
       '<button class="mrow" data-a="hPick" data-d="' + d + '" aria-expanded="' + open + '"' + (open ? ' aria-controls="hp-' + d + '"' : '') + '><span class="grow"><span style="display:block;font-size:15px' + (d === sel ? ';color:var(--link)' : '') + '">' + name + '</span>' +
       '<span class="cap" style="display:block' + (st === 'over' && has ? ';color:var(--ov)' : '') + '">' + sub + '</span></span>' + (has ? '<span style="font-size:15px">' + fmt(tt.kcal) + '</span>' : '') +

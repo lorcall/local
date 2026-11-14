@@ -284,7 +284,7 @@ function slideIn(act, dir) {
   const el = document.querySelector('[data-hswipe="' + act + '"] .swmove'); if (!el) return;
   el.classList.remove('swin-fwd', 'swin-back'); void el.offsetWidth; el.classList.add(dir > 0 ? 'swin-fwd' : 'swin-back');
 }
-function home(toastText) { S.stack = [{name: 'today', p: {}}]; S.ui.openSwipe = null; if (toastText) toast(toastText); else render(); }
+function home(toastText) { const from = S.ui.logFrom; S.ui.logFrom = null; S.stack = [{name: from || 'today', p: {}}]; S.ui.openSwipe = null; if (toastText) toast(toastText); else render(); }
 function back() {
   const cur = route().name;
   if (cur === 'edit') S.edit = null;
@@ -425,12 +425,20 @@ const stepQ = (q, d, u) => {
 /* ---------- click actions ---------- */
 const A = {
   back: () => back(),
-  tab: el => { const snap = tabSnapshot(); S.stack = [{name: el.dataset.v, p: {}}]; S.ui.openSwipe = null; pushHistory(); render(); tabMotion(snap); },
+  tab: el => { const snap = tabSnapshot(); S.ui.logFrom = null; S.stack = [{name: el.dataset.v, p: {}}]; S.ui.openSwipe = null; pushHistory(); render(); tabMotion(snap); },
+  describeQ() {
+    // the search words start the description; anything already written is kept
+    const L = logState(), q = S.ui.sq ? S.ui.sq.q.trim() : '';
+    if (q && !L.text.toLowerCase().includes(q.toLowerCase())) L.text = L.text.trim() ? L.text.trim() + '\n' + q : q;
+    L.error = ''; go('describe');
+  },
   go: el => {
     const v = el.dataset.v;
     if (['log', 'search', 'describe'].includes(v)) {
-      const L = logState(), from = route().name;
-      if (TABS.includes(from) && !L.img && !L.busy) { const d = from === 'today' ? viewDay() : today(); if (L.date !== d) { L.date = d; L.time = d === today() ? nowHM() : TYPE_TIME[L.meal_type]; L.timeAuto = d !== today(); } }
+      const L = logState(), from = route().name, day = el.dataset.day;
+      // a day picked in History logs to that day, and saving goes back there
+      if (TABS.includes(from)) S.ui.logFrom = day ? from : null;
+      if ((TABS.includes(from) || day) && !L.img && !L.busy) { const d = day || (from === 'today' ? viewDay() : today()); if (L.date !== d) { L.date = d; L.time = d === today() ? nowHM() : TYPE_TIME[L.meal_type]; L.timeAuto = d !== today(); } }
       L.error = '';
     }
     if (v === 'targets') S.ui.tg = null;

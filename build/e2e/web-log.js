@@ -96,6 +96,16 @@ const DATA = {
   check(writes.length > before && /Added to/.test(await text()), 'one tap adds a past food (' + (writes.length - before) + ' writes)');
   await page.fill('#sq-s', 'lunch'); await page.waitForTimeout(300);
   check(/Chicken adobo, 1 cup rice/.test(await text()), 'searching a meal type finds those meals');
+  check(/Not in the list\?/.test(await text()) && await page.isVisible('[data-part="sq-list"] [data-a="describeQ"]') && !(await page.$('[data-part="sq-ai"] [data-a="go"][data-v="describe"]')),
+    'with results, a "not in the list" describe button follows them, and only one shows');
+  await page.fill('#sq-s', 'zzzfood'); await page.waitForTimeout(300);
+  check(await page.evaluate(() => (document.querySelector('[data-part="sq-list"] [data-a="describeQ"]') || {}).className) === 'cta btn', 'with no match, describing it for the AI is the main button');
+  await page.click('[data-a="describeQ"]'); await page.waitForTimeout(300);
+  check(await page.evaluate(() => route().name) === 'describe' && (await page.inputValue('#ds-text')) === 'zzzfood', 'describing starts with the search words');
+  await page.evaluate(() => { back(); }); await page.waitForTimeout(300);
+  await page.fill('#sq-s', ''); await page.waitForTimeout(200);
+  check(await page.isVisible('[data-part="sq-ai"] [data-a="go"][data-v="describe"]'), 'with no search, the describe button sits at the bottom');
+  await page.evaluate(() => { logState().text = ''; });
   await page.fill('#sq-s', 'zzzfood'); await page.waitForTimeout(300);
   check(/Nothing you've logged matches/.test(await text()), 'no match says so');
   await page.click('[data-a=newFood]'); await page.waitForTimeout(400);
