@@ -87,7 +87,10 @@ html,body{margin:0;height:100%}
    the column's corners (on a phone that is the screen's corners, as before) and fade out
    into plain graphite, so wider screens just get more of the same surface. */
 html{background:var(--g)}
-body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:var(--glow),var(--g)}
+/* --vh is the window's real height, measured in index.html. iPadOS Safari can keep a stale size for
+   fixed layers and viewport units after the window is resized, rotated or the toolbar changes,
+   which left a plain band at the bottom; the measured height covers that. */
+body::before{content:"";position:fixed;inset:0;min-height:var(--vh,0px);z-index:-1;pointer-events:none;background:var(--glow),var(--g)}
 body{font-family:var(--font);color:var(--tx);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
 button,input,textarea,select{font-family:inherit;font-size:inherit;color:inherit}
 button{cursor:pointer;border:0;background:none;padding:0}
@@ -102,8 +105,8 @@ h1,h2,h3,p{margin:0}
 /* Centred on the full window width (vw counts the scrollbar), not the space beside it: on computers
    with classic scrollbars, opening a tall screen adds a scrollbar, and auto margins would shift the
    whole app sideways. Reserving the scrollbar's strip instead left a plain seam beside the glow. */
-#app{position:relative;max-width:430px;min-width:320px;margin:0 0 0 max(0px,calc(50vw - 215px));min-height:100vh;min-height:100dvh;overflow-x:hidden}
-.scr{display:flex;flex-direction:column;gap:14px;padding:24px 20px 28px;min-height:100vh;min-height:100dvh}
+#app{position:relative;max-width:430px;min-width:320px;margin:0 0 0 max(0px,calc(50vw - 215px));min-height:100vh;min-height:max(100dvh,var(--vh,0px));overflow-x:hidden}
+.scr{display:flex;flex-direction:column;gap:14px;padding:24px 20px 28px;min-height:100vh;min-height:max(100dvh,var(--vh,0px))}
 .scr.tabbed{padding-bottom:112px}
 .grow{flex-grow:1}
 .row{display:flex;align-items:center;gap:12px}
@@ -368,7 +371,7 @@ button.cta:has(.spin),button[disabled].cta:has(.spin){background:var(--g);color:
 .wordmark.on-light{display:var(--wm-light)}.wordmark.on-dark{display:var(--wm-dark)}
 .wordmark{display:block;width:auto;max-width:none;user-select:none;-webkit-user-select:none;-webkit-user-drag:none;-webkit-touch-callout:none;pointer-events:none}
 .tagline{font-size:15px;font-weight:400;color:var(--soft);letter-spacing:.01em;text-align:center}
-.boot{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;color:var(--mu);font-size:14px}
+.boot{min-height:100vh;min-height:max(100dvh,var(--vh,0px));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;color:var(--mu);font-size:14px}
 
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition:none!important}
