@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>LoCal screen check</title>
+<style>
+  /* Same page setup as the app: full-height html/body, a fixed background layer, a fixed bar at the bottom. */
+  html, body { margin: 0; height: 100%; background: #23252D; color: #ECEDF2; font: 15px/1.45 -apple-system, system-ui, sans-serif; }
+  body::before { content: ""; position: fixed; inset: 0; z-index: -1; background: linear-gradient(#3A3550, #23252D 60%, #4A3A20); }
+  #app { min-height: 100vh; min-height: 100dvh; padding: 16px 16px 120px; box-sizing: border-box; }
+  h1 { font-size: 20px; font-weight: 500; margin: 0 0 4px; }
+  p { color: #A2A7B6; margin: 0 0 12px; }
+  table { border-collapse: collapse; width: 100%; max-width: 520px; font-variant-numeric: tabular-nums; }
+  td { padding: 3px 8px 3px 0; border-bottom: 1px solid #2F323C; vertical-align: top; }
+  td:first-child { color: #A2A7B6; width: 52%; }
+  .bar { position: fixed; left: 16px; right: 16px; bottom: 16px; height: 56px; border-radius: 20px; background: #F5A524; color: #1A1206;
+    display: flex; align-items: center; justify-content: center; font-weight: 600; }
+  .probe { position: fixed; top: 0; left: 0; width: 1px; visibility: hidden; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>Screen check</h1>
+  <p>Take a screenshot of this as it opens, then scroll with the mouse as far as it goes and take another.</p>
+  <table id="t"></table>
+</div>
+<div class="bar">This bar should stay at the bottom</div>
+<div class="probe" id="vh" style="height:100vh"></div>
+<div class="probe" id="dvh" style="height:100dvh"></div>
+<div class="probe" id="svh" style="height:100svh"></div>
+<div class="probe" id="lvh" style="height:100lvh"></div>
+<div class="probe" id="fix" style="bottom:0"></div>
+<script>
+(function () {
+  var t = document.getElementById('t'), d = document.documentElement, vv = window.visualViewport;
+  var h = function (id) { return Math.round(document.getElementById(id).getBoundingClientRect().height); };
+  function draw(why) {
+    var rows = [
+      ['updated on', why],
+      ['window inner', innerWidth + ' × ' + innerHeight],
+      ['html client', d.clientWidth + ' × ' + d.clientHeight],
+      ['page scroll height', d.scrollHeight],
+      ['scrolled by', Math.round(scrollY)],
+      ['visual viewport', vv ? Math.round(vv.width) + ' × ' + Math.round(vv.height) + ', scale ' + vv.scale.toFixed(2) : 'none'],
+      ['visual viewport offset', vv ? Math.round(vv.offsetTop) + ' (page top ' + Math.round(vv.pageTop) + ')' : ''],
+      ['100vh / dvh / svh / lvh', h('vh') + ' / ' + h('dvh') + ' / ' + h('svh') + ' / ' + h('lvh')],
+      ['fixed layer height', h('fix')],
+      ['screen', screen.width + ' × ' + screen.height + ' @' + devicePixelRatio + 'x'],
+      ['browser', navigator.userAgent]
+    ];
+    t.innerHTML = rows.map(function (r) { return '<tr><td>' + r[0] + '</td><td>' + String(r[1]).replace(/</g, '&lt;') + '</td></tr>'; }).join('');
+  }
+  draw('load');
+  addEventListener('resize', function () { draw('resize'); });
+  addEventListener('scroll', function () { draw('scroll'); }, {passive: true});
+  if (vv) { vv.addEventListener('resize', function () { draw('viewport resize'); }); vv.addEventListener('scroll', function () { draw('viewport scroll'); }); }
+})();
+</script>
+</body>
+</html>
