@@ -118,6 +118,8 @@ const DATA = {
   check(/1,175 kcal over|kcal over/.test(await page.textContent('.sugsheet')), 'an idea over what is left says so');
   check(await page.evaluate(() => !document.querySelector('.sugsheet b')), 'idea names are shown as text');
 
+  const mh = await page.evaluate(() => { const b = document.querySelector('.sugsheet [data-a="sugMore"]'), sh = document.querySelector('.sugsheet'); return {b: b.getBoundingClientRect().height, scroll: sh.scrollHeight > sh.clientHeight}; });
+  check(mh.b >= 49 && mh.scroll, 'a long sheet scrolls and More ideas keeps its full height (' + JSON.stringify(mh) + ')');
   await page.click('.sugsheet [data-a="sugClose"]'); await page.waitForTimeout(200);
   await page.click('[data-a="sugOpen"]'); await page.waitForTimeout(500);
   check(proxySent.filter(x => x.action === 'suggestFoods').length === 1, 'reopening keeps the same ideas without another AI call');
