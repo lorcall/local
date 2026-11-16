@@ -73,9 +73,16 @@ function sugSheet() {
   const G = S.sug; if (!G) return '';
   const notes = (lastNotes() || {}).notes;
   const head = (t, side) => '<div class="between" style="align-items:baseline"><h3 class="sec15" style="margin:0">' + t + '</h3><span class="cap">' + side + '</span></div>';
-  const ai = G.busy ? '<div class="raised r20 row" style="gap:12px;padding:16px;justify-content:center" aria-live="polite"><span class="spinglow"><span class="spin" style="--s:20px;--t:3px"></span></span><span class="cap13">Finding ideas</span></div>'
+  const ask = String(S.ui.sugAsk || '');
+  const list = G.busy ? '<div class="raised r20 row" style="gap:12px;padding:16px;justify-content:center" aria-live="polite"><span class="spinglow"><span class="spin" style="--s:20px;--t:3px"></span></span><span class="cap13">Finding ideas</span></div>'
     : G.err ? '<div class="warn" role="alert"><div class="ov" style="font-weight:500">' + esc(G.err) + '</div><div class="mu" style="margin-top:2px">Your own foods above still work without the AI.</div></div>'
     : G.ideas.length ? sugList(G.ideas.map((x, i) => sugRow(x, 'a' + i, i === 0))) : '';
+  // what to ask: optional, kept between openings; the button is the only thing that calls the AI
+  const askBox = '<label for="sug-ask" class="sr">Ask the AI</label>' +
+    '<textarea id="sug-ask" rows="3" maxlength="600" class="fld" data-in="sugAsk" placeholder="Optional. I only have eggs… I have chicken, pechay and garlic, what can I make? Where can I add protein powder?">' + esc(ask) + '</textarea>';
+  const label = G.err ? 'Try again' : G.ideas.length && ask.trim() === (G.asked || '') ? 'More ideas' : 'Ask AI for ideas';
+  const ai = list + askBox +
+    '<button class="' + (G.ideas.length ? 'raised-sm btn2' : 'cta btn') + '" data-a="sugMore"' + (G.busy ? ' disabled style="opacity:.55"' : '') + '>' + label + '</button>';
   return '<div class="scrim" data-a="sugClose"><div class="menu glass sugsheet" role="dialog" aria-modal="true" aria-label="' + G.type + ' ideas" data-stop="1">' +
     '<div aria-hidden="true" style="width:40px;height:5px;border-radius:3px;background:var(--mu);opacity:.5;align-self:center;margin-top:-6px"></div>' +
     '<div class="row" style="gap:12px;align-items:flex-start"><div class="grow"><h2 class="title22" style="margin:0">' + G.type + ' ideas</h2>' +
@@ -84,6 +91,5 @@ function sugSheet() {
     head('From your foods', 'No AI used') +
     (G.local.length ? sugList(G.local.map((x, i) => sugRow(x, 'l' + i, false))) : '<p class="cap" style="margin:0">Nothing you\'ve logged or saved fits what\'s left yet. The ideas below are made for it.</p>') +
     head('New ideas', notes ? 'From AI · fits your notes' : 'From AI') + ai +
-    '<button class="raised-sm btn2" data-a="sugMore"' + (G.busy ? ' disabled style="opacity:.55"' : '') + '>' + (G.err ? 'Try again' : 'More ideas') + '</button>' +
-    '<p class="cap" style="text-align:center;margin:0">Each new set uses 1 AI analysis. Estimates, not medical advice.</p></div></div>';
+    '<p class="cap" style="text-align:center;margin:0">Each set of ideas uses 1 AI analysis. Estimates, not medical advice.</p></div></div>';
 }

@@ -1715,9 +1715,16 @@ function sugSheet() {
   const G = S.sug; if (!G) return '';
   const notes = (lastNotes() || {}).notes;
   const head = (t, side) => '<div class="between" style="align-items:baseline"><h3 class="sec15" style="margin:0">' + t + '</h3><span class="cap">' + side + '</span></div>';
-  const ai = G.busy ? '<div class="raised r20 row" style="gap:12px;padding:16px;justify-content:center" aria-live="polite"><span class="spinglow"><span class="spin" style="--s:20px;--t:3px"></span></span><span class="cap13">Finding ideas</span></div>'
+  const ask = String(S.ui.sugAsk || '');
+  const list = G.busy ? '<div class="raised r20 row" style="gap:12px;padding:16px;justify-content:center" aria-live="polite"><span class="spinglow"><span class="spin" style="--s:20px;--t:3px"></span></span><span class="cap13">Finding ideas</span></div>'
     : G.err ? '<div class="warn" role="alert"><div class="ov" style="font-weight:500">' + esc(G.err) + '</div><div class="mu" style="margin-top:2px">Your own foods above still work without the AI.</div></div>'
     : G.ideas.length ? sugList(G.ideas.map((x, i) => sugRow(x, 'a' + i, i === 0))) : '';
+  // what to ask: optional, kept between openings; the button is the only thing that calls the AI
+  const askBox = '<label for="sug-ask" class="sr">Ask the AI</label>' +
+    '<textarea id="sug-ask" rows="3" maxlength="600" class="fld" data-in="sugAsk" placeholder="Optional. I only have eggs… I have chicken, pechay and garlic, what can I make? Where can I add protein powder?">' + esc(ask) + '</textarea>';
+  const label = G.err ? 'Try again' : G.ideas.length && ask.trim() === (G.asked || '') ? 'More ideas' : 'Ask AI for ideas';
+  const ai = list + askBox +
+    '<button class="' + (G.ideas.length ? 'raised-sm btn2' : 'cta btn') + '" data-a="sugMore"' + (G.busy ? ' disabled style="opacity:.55"' : '') + '>' + label + '</button>';
   return '<div class="scrim" data-a="sugClose"><div class="menu glass sugsheet" role="dialog" aria-modal="true" aria-label="' + G.type + ' ideas" data-stop="1">' +
     '<div aria-hidden="true" style="width:40px;height:5px;border-radius:3px;background:var(--mu);opacity:.5;align-self:center;margin-top:-6px"></div>' +
     '<div class="row" style="gap:12px;align-items:flex-start"><div class="grow"><h2 class="title22" style="margin:0">' + G.type + ' ideas</h2>' +
@@ -1726,8 +1733,7 @@ function sugSheet() {
     head('From your foods', 'No AI used') +
     (G.local.length ? sugList(G.local.map((x, i) => sugRow(x, 'l' + i, false))) : '<p class="cap" style="margin:0">Nothing you\'ve logged or saved fits what\'s left yet. The ideas below are made for it.</p>') +
     head('New ideas', notes ? 'From AI · fits your notes' : 'From AI') + ai +
-    '<button class="raised-sm btn2" data-a="sugMore"' + (G.busy ? ' disabled style="opacity:.55"' : '') + '>' + (G.err ? 'Try again' : 'More ideas') + '</button>' +
-    '<p class="cap" style="text-align:center;margin:0">Each new set uses 1 AI analysis. Estimates, not medical advice.</p></div></div>';
+    '<p class="cap" style="text-align:center;margin:0">Each set of ideas uses 1 AI analysis. Estimates, not medical advice.</p></div></div>';
 }
 
 /* ---------- screens: history and insights ---------- */
@@ -2818,20 +2824,25 @@ const A = {
     const v = el.dataset.v === 'On' ? 'on' : 'off'; if (v === setting('suggest', 'off')) return;
     S.data.settings.suggest = v; queueJob({kind: 'settings', values: {suggest: v}, label: 'suggestions'}); render();
   },
-  // The AI's ideas are kept for the same day, meal and (roughly) the same numbers, so reopening
-  // the sheet doesn't spend another analysis.
+  // Opening shows the person's own foods only; the AI is asked when they choose to. Ideas already
+  // fetched are kept for the same day, meal and (roughly) the same numbers, so reopening shows them
+  // again without spending another analysis.
   sugOpen() {
     const d = viewDay(), type = sugType(d), left = sugLeft(d);
     const key = d + '|' + type + '|' + Math.round(left.kcal / 50) + '|' + Math.round(left.protein_g / 5), c = S.ui.sugCache;
-    S.sug = {d, type, left, key, local: sugLocal(d, left, type), ideas: [], shown: [], busy: false, err: ''};
-    if (c && c.key === key) { S.sug.ideas = c.ideas; S.sug.shown = c.shown; render(); } else A.sugMore();
+    S.sug = {d, type, left, key, local: sugLocal(d, left, type), ideas: [], shown: [], asked: null, busy: false, err: ''};
+    if (c && c.key === key) Object.assign(S.sug, {ideas: c.ideas, shown: c.shown, asked: c.asked});
+    render();
   },
   sugClose: (el, ev) => { if (ev && el.classList.contains('scrim') && ev.target.closest('[data-stop]')) return; S.sug = null; render(); },
   async sugMore() {
     const G = S.sug; if (!G || G.busy) return;
+    // a different request starts over; the same one asks for ideas not shown yet
+    const ask = String(S.ui.sugAsk || '').trim();
+    if (ask !== G.asked) G.shown = [];
     G.busy = true; G.err = ''; render();
     const usual = [...new Set(S.data.favorites.slice().sort((a, b) => num(b.use_count) - num(a.use_count)).map(f => f.name).concat(pastIndex().meals.map(x => x.name)))].slice(0, 30);
-    const res = await API.suggestFoods({meal_type: G.type, left: G.left, notes: (lastNotes() || {}).notes || '', usual, eaten: mealsOn(G.d).map(mealName).slice(0, 20), exclude: G.shown.slice(-16)});
+    const res = await API.suggestFoods({meal_type: G.type, left: G.left, notes: (lastNotes() || {}).notes || '', usual, eaten: mealsOn(G.d).map(mealName).slice(0, 20), exclude: G.shown.slice(-16), ask});
     if (S.sug !== G) return;
     G.busy = false;
     if (res.error) G.err = /NO_IDEAS/.test(res.error) ? 'No ideas came back this time.' : friendly(res.error);
@@ -2839,8 +2850,8 @@ const A = {
       const tg = targetFor(G.d);
       G.ideas = ((res.result && res.result.ideas) || []).map(x => ({name: x.name, why: x.why, items: x.items || [], v: sugTotals(x.items || [])}))
         .filter(x => x.items.length).sort((a, b) => sugScore(b.v, G.left, tg) - sugScore(a.v, G.left, tg));
-      G.shown = G.shown.concat(G.ideas.map(x => x.name));
-      S.ui.sugCache = {key: G.key, ideas: G.ideas, shown: G.shown};
+      G.shown = G.shown.concat(G.ideas.map(x => x.name)); G.asked = ask;
+      S.ui.sugCache = {key: G.key, ideas: G.ideas, shown: G.shown, asked: ask};
       if (res.analysesToday != null) S.meta.analysesToday = res.analysesToday;
     }
     render();
@@ -2953,6 +2964,12 @@ const I = {
   gc: el => { gcState()[el.dataset.k] = el.value; },
   gcPace: el => { gcState().pace = num(el.value); },
   gcNotes: el => { gcState().notes = el.value; },
+  sugAsk: el => {
+    S.ui.sugAsk = el.value;
+    // the button says whether this asks something new or for more of the same (no re-render while typing)
+    const G = S.sug, b = document.querySelector('.sugsheet [data-a="sugMore"]');
+    if (G && b && !G.busy && !G.err && G.ideas.length) b.textContent = el.value.trim() === (G.asked || '') ? 'More ideas' : 'Ask AI for ideas';
+  },
   tg: el => { tgState()[el.dataset.k] = el.value; },
   tgMacro: el => { const t = tgState(), k = el.dataset.k, f = +el.dataset.f; t[k] = t.mode === 'Grams' ? num(el.value) : Math.round(num(el.value) / 100 * num(t.kcal) / f); },
   logNote: el => { logState().note = el.value; },

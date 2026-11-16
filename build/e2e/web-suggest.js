@@ -104,12 +104,17 @@ const DATA = {
     {name: 'Chicken tinola with rice', why: 'Closes the protein gap.', items: [{name: 'Chicken tinola', category: 'meat and fish', serving_unit: 'bowl', quantity: 1, grams_per_unit: 0, kcal: 300, protein_g: 30, carbs_g: 8, fat_g: 14, sugar_g: 2, fiber_g: 2, sodium_mg: 700}, {name: 'Rice', category: 'staple', serving_unit: 'cup', quantity: 0.5, grams_per_unit: 0, kcal: 105, protein_g: 2, carbs_g: 23, fat_g: 0, sugar_g: 0, fiber_g: 0, sodium_mg: 0}]},
     {name: 'Banana cue', why: 'Sweet', items: [{name: 'Banana cue', category: 'snacks and sweets', serving_unit: 'stick', quantity: 1, grams_per_unit: 0, kcal: 220, protein_g: 1, carbs_g: 45, fat_g: 5, sugar_g: 25, fiber_g: 2, sodium_mg: 5}]}]};
   aiReply = {result: IDEAS};
-  await page.click('[data-a="sugOpen"]'); await page.waitForTimeout(80);
-  check(await page.isVisible('.sugsheet') && /Finding ideas/.test(await page.textContent('.sugsheet')), 'the sheet opens straight away and shows it is finding ideas');
+  await page.click('[data-a="sugOpen"]'); await page.waitForTimeout(500);
+  check(await page.isVisible('.sugsheet') && !proxySent.some(x => x.action === 'suggestFoods'), 'opening shows your own foods and does not call the AI');
+  check(await page.evaluate(() => { const b = document.querySelector('.sugsheet [data-a="sugMore"]'); return b.textContent === 'Ask AI for ideas' && b.classList.contains('cta'); }), 'the AI is asked only with the button');
+  await page.fill('#sug-ask', 'I only have eggs and <b>tomatoes</b>');
+  await page.click('.sugsheet [data-a="sugMore"]'); await page.waitForTimeout(80);
+  check(/Finding ideas/.test(await page.textContent('.sugsheet')), 'shows it is finding ideas');
   await page.waitForTimeout(700);
   const sent = proxySent.filter(x => x.action === 'suggestFoods');
   const sp = sent[0] && sent[0].payload;
-  check(sp && sp.meal_type === 'Dinner' && sp.left.kcal === 820 && sp.left.protein_g === 74 && /Not too much protein/.test(sp.notes) && sp.eaten.length === 2 && sp.usual.includes('Greek yogurt'), 'sends what is left, the meal, the notes, what was eaten and usual foods');
+  check(sp && sp.meal_type === 'Dinner' && sp.left.kcal === 820 && sp.left.protein_g === 74 && /Not too much protein/.test(sp.notes) && sp.eaten.length === 2 && sp.usual.includes('Greek yogurt') && sp.ask === 'I only have eggs and <b>tomatoes</b>', 'sends what is left, the meal, the notes, the question, what was eaten and usual foods');
+  check(await page.inputValue('#sug-ask') === 'I only have eggs and <b>tomatoes</b>' && await page.textContent('.sugsheet [data-a="sugMore"]') === 'More ideas', 'the question stays, and the button now asks for more');
   const local = await page.$$eval('.sugsheet [data-a="sugLog"][data-v^="l"]', b => b.map(x => x.getAttribute('aria-label')));
   check(local.some(x => /omelet/i.test(x)) && local.some(x => /Tofu/.test(x)) && local.some(x => /Greek yogurt/.test(x)) && !local.some(x => /Lechon/.test(x)) && !local.some(x => /inasal|Piyaya/i.test(x)),
     'own foods: past meals and saved foods that fit, not the oversized one or what was eaten today (' + local + ')');
@@ -126,6 +131,11 @@ const DATA = {
   await page.click('.sugsheet [data-a="sugMore"]'); await page.waitForTimeout(700);
   const s2 = proxySent.filter(x => x.action === 'suggestFoods');
   check(s2.length === 2 && s2[1].payload.exclude.includes('Sinigang na hipon'), 'More ideas asks again, leaving out what was shown');
+  await page.fill('#sug-ask', 'Where can I add protein powder?');
+  check(await page.textContent('.sugsheet [data-a="sugMore"]') === 'Ask AI for ideas', 'a new question changes the button back');
+  await page.click('.sugsheet [data-a="sugMore"]'); await page.waitForTimeout(700);
+  const s3 = proxySent.filter(x => x.action === 'suggestFoods');
+  check(s3.length === 3 && s3[2].payload.exclude.length === 0 && /protein powder/.test(s3[2].payload.ask), 'a new question starts fresh');
 
   await page.click('.sugsheet [data-a="sugLog"][data-v="a0"]'); await page.waitForTimeout(400);
   const d = await page.evaluate(() => ({r: route().name, type: S.draft && S.draft.meal.meal_type, date: S.draft && S.draft.meal.date, n: S.draft && S.draft.items.length, sug: !!S.sug}));
@@ -134,7 +144,8 @@ const DATA = {
 
   aiReply = {error: 'QUOTA: used up'};
   await page.evaluate(() => { S.ui.sugCache = null; S.log = null; }); await page.evaluate(() => go('today')); await page.waitForTimeout(300);
-  await page.click('[data-a="sugOpen"]'); await page.waitForTimeout(700);
+  await page.click('[data-a="sugOpen"]'); await page.waitForTimeout(300);
+  await page.click('.sugsheet [data-a="sugMore"]'); await page.waitForTimeout(700);
   const st = await page.textContent('.sugsheet');
   check(/still work without the AI/.test(st) && /Try again/.test(st) && /omelet/i.test(st), 'an AI error keeps your own foods and offers to try again');
   await page.keyboard.press('Escape'); await page.waitForTimeout(200);
