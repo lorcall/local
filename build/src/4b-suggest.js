@@ -59,14 +59,37 @@ function sugCard(d) {
     '<div class="grow"><div style="font-size:15px;font-weight:500">' + sugType(d) + ' ideas</div><div class="cap">' + esc(sugGap(sugLeft(d), d)) + '</div></div></div>' +
     '<button class="raised-sm btn2" data-a="sugOpen" style="height:46px;border-radius:15px">Suggest something</button></section>';
 }
+/* what's in a suggestion: the items with amounts, for a past meal, a saved food or an AI idea */
+function sugItems(x) {
+  if (x.kind === 'meal') return itemsOf(x.id).map(e => ({name: e.name, amount: amountLabel(e), kcal: num(e.kcal)}));
+  if (x.kind === 'food') return [{name: x.name, amount: x.sub.replace(/, saved$/, ''), kcal: num(x.v.kcal)}];
+  return (x.items || []).map(e => ({name: e.name, amount: amountLabel(e), kcal: num(e.kcal)}));
+}
+/* Tapping a suggestion opens its details under it: calories, macros and micros, what's in it, and
+   for an AI idea that came with one, the recipe. */
+function sugDetail(x) {
+  const v = x.v, cell = (label, val, unit, color) => '<div class="col" style="gap:2px;min-width:0"><span class="cap">' + label + '</span><span style="font-size:14px' + (color ? ';color:' + color : '') + '">' + fmt(r0(num(val))) + ' ' + unit + '</span></div>';
+  const grid = '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 8px">' +
+    cell('Calories', v.kcal, 'kcal', 'var(--ai)') + cell('Protein', v.protein_g, 'g', 'var(--p)') + cell('Carbs', v.carbs_g, 'g', 'var(--c)') + cell('Fat', v.fat_g, 'g', 'var(--f)') +
+    cell('Sugar', v.sugar_g, 'g') + cell('Fiber', v.fiber_g, 'g') + cell('Sodium', v.sodium_mg, 'mg') + '</div>';
+  const items = sugItems(x), r = x.recipe || {};
+  const list = items.length > 1 || x.kind !== 'food' ? '<div class="col" style="gap:4px"><span class="cap" style="font-weight:500">What\'s in it</span>' +
+    items.map(e => '<div class="between" style="font-size:13px;gap:10px"><span style="min-width:0">' + esc(e.name) + ' <span class="mu">' + esc(e.amount) + '</span></span><span class="mu" style="flex-shrink:0">' + fmt(r0(e.kcal)) + '</span></div>').join('') + '</div>' : '';
+  const recipe = (r.ingredients && r.ingredients.length) || (r.steps && r.steps.length) ?
+    '<div class="col" style="gap:6px"><span class="cap" style="font-weight:500">Ingredients</span><ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.5">' + (r.ingredients || []).map(i => '<li>' + esc(i) + '</li>').join('') + '</ul>' +
+    (r.steps && r.steps.length ? '<span class="cap" style="font-weight:500;margin-top:4px">How to make it</span><ol style="margin:0;padding-left:20px;font-size:13px;line-height:1.5">' + r.steps.map(s => '<li style="margin-bottom:3px">' + esc(s) + '</li>').join('') + '</ol>' : '') + '</div>' : '';
+  return '<div class="pressed-sm col" style="gap:12px;margin:0 14px 12px;padding:12px 14px;border-radius:14px">' + grid + list + recipe + '</div>';
+}
 function sugRow(x, v, primary) {
-  const G = S.sug, k = r0(num(x.v.kcal)), leaves = G.left.kcal - k, p = r0(num(x.v.protein_g));
-  return '<div class="row" style="gap:12px;padding:12px 14px"><div class="grow" style="min-width:0">' +
-    '<div style="font-size:14px">' + esc(x.name) + '</div>' +
+  const G = S.sug, k = r0(num(x.v.kcal)), leaves = G.left.kcal - k, p = r0(num(x.v.protein_g)), open = G.open === v;
+  return '<div class="col"><div class="row" style="gap:12px;padding:12px 14px"><button class="grow" data-a="sugDetail" data-v="' + v + '" aria-expanded="' + open + '" style="min-width:0;text-align:left;display:block">' +
+    '<div style="font-size:14px;display:flex;align-items:center;gap:6px"><span style="min-width:0">' + esc(x.name) + '</span>' + (x.recipe && x.recipe.steps && x.recipe.steps.length ? '<span class="cap" style="flex-shrink:0">· recipe</span>' : '') +
+    '<span aria-hidden="true" style="flex-shrink:0;display:flex;color:var(--mu);transform:rotate(' + (open ? 90 : 0) + 'deg)">' + icon('next', 12, 2.2) + '</span></div>' +
     '<div class="cap">' + fmt(k) + ' kcal' + (p >= 1 ? ' · <span style="color:var(--p)">protein +' + fmt(p) + ' g</span>' : '') + ' · ' +
       (leaves >= 0 ? 'leaves ' + fmt(leaves) + ' kcal' : '<span class="ov">' + fmt(-leaves) + ' kcal over</span>') + '</div>' +
-    (x.why || x.sub ? '<div class="cap" style="margin-top:2px">' + esc(x.why || x.sub) + '</div>' : '') + '</div>' +
-    '<button class="' + (primary ? 'cta' : 'raised-sm') + ' btn-sm" data-a="sugLog" data-v="' + v + '" style="height:38px;padding:0 14px;border-radius:12px;font-size:13px' + (primary ? '' : ';color:var(--link);font-weight:500') + '" aria-label="Log ' + esc(x.name) + '">Log</button></div>';
+    (x.why || x.sub ? '<div class="cap" style="margin-top:2px">' + esc(x.why || x.sub) + '</div>' : '') + '</button>' +
+    '<button class="' + (primary ? 'cta' : 'raised-sm') + ' btn-sm" data-a="sugLog" data-v="' + v + '" style="height:38px;padding:0 14px;border-radius:12px;font-size:13px;flex-shrink:0' + (primary ? '' : ';color:var(--link);font-weight:500') + '" aria-label="Log ' + esc(x.name) + '">Log</button></div>' +
+    (open ? sugDetail(x) : '') + '</div>';
 }
 const sugList = rows => '<section class="raised r20" style="display:flex;flex-direction:column">' + rows.join('<div class="sep" style="margin:0 14px"></div>') + '</section>';
 function sugSheet() {

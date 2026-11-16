@@ -99,7 +99,7 @@ ans = prevAns;
 // food ideas: at most four, values kept sane, only clean short inputs reach the prompt
 const prevAns2 = ans;
 const bigItem = {name: 'X'.repeat(200), category: 'weird', serving_unit: 'cup', quantity: 99, grams_per_unit: 9000, kcal: 99999, protein_g: -5, carbs_g: 20, fat_g: 5, sugar_g: 1, fiber_g: 2, sodium_mg: 99999, confidence: 'high', reason: 'r'};
-ans = JSON.stringify({ideas: [1, 2, 3, 4, 5].map(i => ({name: 'Idea ' + i, why: 'W'.repeat(300), items: [bigItem]})).concat([{name: 'Empty', why: '', items: []}])});
+ans = JSON.stringify({ideas: [1, 2, 3, 4, 5].map(i => ({name: 'Idea ' + i, why: 'W'.repeat(300), items: [bigItem], recipe: {ingredients: Array.from({length: 20}, () => 'I'.repeat(300)), steps: i === 2 ? [] : Array.from({length: 12}, () => 'S'.repeat(400))}})).concat([{name: 'Empty', why: '', items: []}])});
 out = post({token: T, action: 'suggestFoods', payload: {meal_type: 'Brunch<script>', left: {kcal: 620, protein_g: 38, carbs_g: 'x', fat_g: -4}, notes: 'Go easy on protein',
   ask: 'I only have eggs ' + 'Q'.repeat(900), usual: ['Chicken adobo\n<b>', 'Tinola'], eaten: Array.from({length: 50}, (_, i) => 'Food ' + i), exclude: ['Idea 9'], extra: 'secret'}});
 const sf = (out.result || {}).ideas || [], sentSf = geminiBodies.pop() || '';
@@ -107,6 +107,7 @@ ok(!out.error && sf.length === 4, 'food ideas: four at most (' + sf.length + ')'
 const si = (sf[0] || {}).items ? sf[0].items[0] : {};
 ok(si.kcal === 2500 && si.protein_g === 0 && si.sodium_mg === 6000 && si.quantity === 20 && si.grams_per_unit === 2000 && si.category === 'other' && si.name.length === 80, 'food idea values are kept within limits');
 ok(sf[0].why.length === 120, 'the reason is clipped');
+ok(sf[0].recipe.ingredients.length === 12 && sf[0].recipe.ingredients[0].length === 100 && sf[0].recipe.steps.length === 8 && sf[0].recipe.steps[0].length === 220, 'recipes are kept to 12 ingredients and 8 steps, clipped');
 ok(/for snack/i.test(sentSf) && !/Brunch|script|secret|<b>|Food 25/.test(sentSf) && /Go easy on protein/.test(sentSf) && /Chicken adobo/.test(sentSf) && /I only have eggs/.test(sentSf) && !/Q{601}/.test(sentSf), 'only a known meal type, cleaned names and the notes reach the prompt');
 ans = prevAns2;
 ok(/Unknown action/.test(post({token: T, action: 'deleteEverything'}).error), 'an unknown action is refused');

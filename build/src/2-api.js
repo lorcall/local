@@ -105,7 +105,7 @@ function DemoAPI() {
         {name: 'Clear chicken broth', why: 'Warm and light.', items: [it('Chicken broth', 'cup', 1, 40, 5, 2, 1, 0, 'other')]},
         {name: 'Fresh mango slices, ½ cup', why: 'Sweet, light and some fibre.', items: [it('Mango', 'cup', 0.5, 50, 1, 12, 0, 1, 'fruit')]}]
       : [
-        {name: 'Chicken tinola with ½ cup rice', why: 'Closes most of your protein gap; light on fat.', items: [it('Chicken tinola', 'bowl', 1, 300, 30, 8, 14, 2, 'meat and fish'), it('Steamed rice', 'cup', 0.5, 105, 2, 23, 0, 0, 'staple')]},
+        {name: 'Chicken tinola with ½ cup rice', why: 'Closes most of your protein gap; light on fat.', recipe: p.ask ? {ingredients: ['300 g chicken', '1 thumb ginger, sliced', '1 small green papaya, cubed', '1 cup malunggay leaves', '½ cup cooked rice'], steps: ['Sauté ginger, garlic and onion.', 'Add chicken and brown lightly, then add 4 cups water.', 'Simmer 20 minutes, add papaya and cook until soft.', 'Add malunggay, season with patis, serve with rice.']} : null, items: [it('Chicken tinola', 'bowl', 1, 300, 30, 8, 14, 2, 'meat and fish'), it('Steamed rice', 'cup', 0.5, 105, 2, 23, 0, 0, 'staple')]},
         {name: 'Grilled bangus with ensaladang talong', why: 'Good fats and fibre; skip the rice.', items: [it('Grilled bangus', 'piece', 1, 330, 34, 0, 20, 0, 'meat and fish'), it('Ensaladang talong', 'bowl', 1, 90, 2, 12, 4, 5, 'vegetables')]},
         {name: 'Sinigang na hipon, no rice', why: 'Lightest option if you\'re not very hungry.', items: [it('Sinigang na hipon', 'bowl', 1, 260, 28, 14, 8, 4, 'meat and fish')]},
         {name: 'Tuna sandwich on wheat bread', why: 'Quick, no cooking, high protein.', items: [it('Tuna sandwich on wheat bread', 'sandwich', 1, 340, 26, 32, 11, 5, 'staple')]},

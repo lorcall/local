@@ -99,7 +99,7 @@ const DATA = {
   check(/Dinner ideas/.test(t) && /820 kcal left · protein 74 g short/.test(t), 'the card shows the meal and what is left (' + (t.match(/Dinner ideas[^S]*/) || [''])[0] + ')');
 
   const IDEAS = {ideas: [
-    {name: 'Sinigang na hipon', why: 'Light, high protein.', items: [{name: 'Sinigang na hipon', category: 'meat and fish', serving_unit: 'bowl', quantity: 1, grams_per_unit: 0, kcal: 260, protein_g: 28, carbs_g: 14, fat_g: 8, sugar_g: 3, fiber_g: 4, sodium_mg: 900}]},
+    {name: 'Sinigang na hipon', why: 'Light, high protein.', recipe: {ingredients: ['200 g shrimp', '1 tamarind mix <img src=x onerror=window.__pwned=1>'], steps: ['Boil water with the tamarind mix.', 'Add shrimp and cook 3 minutes.']}, items: [{name: 'Sinigang na hipon', category: 'meat and fish', serving_unit: 'bowl', quantity: 1, grams_per_unit: 0, kcal: 260, protein_g: 28, carbs_g: 14, fat_g: 8, sugar_g: 3, fiber_g: 4, sodium_mg: 900}]},
     {name: 'Huge <b>feast</b>', why: 'Too big', items: [{name: 'Feast', category: 'other', serving_unit: 'plate', quantity: 1, grams_per_unit: 0, kcal: 1500, protein_g: 20, carbs_g: 150, fat_g: 80, sugar_g: 10, fiber_g: 1, sodium_mg: 2000}]},
     {name: 'Chicken tinola with rice', why: 'Closes the protein gap.', items: [{name: 'Chicken tinola', category: 'meat and fish', serving_unit: 'bowl', quantity: 1, grams_per_unit: 0, kcal: 300, protein_g: 30, carbs_g: 8, fat_g: 14, sugar_g: 2, fiber_g: 2, sodium_mg: 700}, {name: 'Rice', category: 'staple', serving_unit: 'cup', quantity: 0.5, grams_per_unit: 0, kcal: 105, protein_g: 2, carbs_g: 23, fat_g: 0, sugar_g: 0, fiber_g: 0, sodium_mg: 0}]},
     {name: 'Banana cue', why: 'Sweet', items: [{name: 'Banana cue', category: 'snacks and sweets', serving_unit: 'stick', quantity: 1, grams_per_unit: 0, kcal: 220, protein_g: 1, carbs_g: 45, fat_g: 5, sugar_g: 25, fiber_g: 2, sodium_mg: 5}]}]};
@@ -125,6 +125,18 @@ const DATA = {
 
   const mh = await page.evaluate(() => { const b = document.querySelector('.sugsheet [data-a="sugMore"]'), sh = document.querySelector('.sugsheet'); return {b: b.getBoundingClientRect().height, scroll: sh.scrollHeight > sh.clientHeight}; });
   check(mh.b >= 49 && mh.scroll, 'a long sheet scrolls and More ideas keeps its full height (' + JSON.stringify(mh) + ')');
+  // details: tap a row
+  await page.click('.sugsheet [data-a="sugDetail"][data-v="l0"]'); await page.waitForTimeout(200);
+  let det = await page.textContent('.sugsheet');
+  check(/Calories/.test(det) && /Protein/.test(det) && /Sugar/.test(det) && /Fiber/.test(det) && /Sodium/.test(det) && /What's in it/.test(det) && await page.getAttribute('.sugsheet [data-a="sugDetail"][data-v="l0"]', 'aria-expanded') === 'true', 'tapping a suggestion shows its calories, macros, micros and what is in it');
+  const si = await page.$$eval('.sugsheet [data-a="sugLog"][data-v^="a"]', b => b.map(x => x.getAttribute('aria-label')).findIndex(x => /Sinigang/.test(x)));
+  await page.evaluate(() => { const s = document.querySelector('.sugsheet'); s.scrollTop = 200; });
+  await page.click('.sugsheet [data-a="sugDetail"][data-v="a' + si + '"]'); await page.waitForTimeout(200);
+  det = await page.textContent('.sugsheet');
+  check(/Ingredients/.test(det) && /200 g shrimp/.test(det) && /How to make it/.test(det) && /Add shrimp and cook/.test(det) && !/What's in it[\s\S]*Calories[\s\S]*Calories/.test(det), 'an AI idea with a recipe shows its ingredients and steps, one panel open at a time');
+  check(await page.evaluate(() => document.querySelector('.sugsheet').scrollTop) > 0, 'opening details keeps the sheet where it was scrolled');
+  await page.click('.sugsheet [data-a="sugDetail"][data-v="a' + si + '"]'); await page.waitForTimeout(150);
+  check(!/How to make it/.test(await page.textContent('.sugsheet')), 'tapping again closes it');
   await page.click('.sugsheet [data-a="sugClose"]'); await page.waitForTimeout(200);
   await page.click('[data-a="sugOpen"]'); await page.waitForTimeout(500);
   check(proxySent.filter(x => x.action === 'suggestFoods').length === 1, 'reopening keeps the same ideas without another AI call');

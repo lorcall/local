@@ -786,7 +786,7 @@ function DemoAPI() {
         {name: 'Clear chicken broth', why: 'Warm and light.', items: [it('Chicken broth', 'cup', 1, 40, 5, 2, 1, 0, 'other')]},
         {name: 'Fresh mango slices, ½ cup', why: 'Sweet, light and some fibre.', items: [it('Mango', 'cup', 0.5, 50, 1, 12, 0, 1, 'fruit')]}]
       : [
-        {name: 'Chicken tinola with ½ cup rice', why: 'Closes most of your protein gap; light on fat.', items: [it('Chicken tinola', 'bowl', 1, 300, 30, 8, 14, 2, 'meat and fish'), it('Steamed rice', 'cup', 0.5, 105, 2, 23, 0, 0, 'staple')]},
+        {name: 'Chicken tinola with ½ cup rice', why: 'Closes most of your protein gap; light on fat.', recipe: p.ask ? {ingredients: ['300 g chicken', '1 thumb ginger, sliced', '1 small green papaya, cubed', '1 cup malunggay leaves', '½ cup cooked rice'], steps: ['Sauté ginger, garlic and onion.', 'Add chicken and brown lightly, then add 4 cups water.', 'Simmer 20 minutes, add papaya and cook until soft.', 'Add malunggay, season with patis, serve with rice.']} : null, items: [it('Chicken tinola', 'bowl', 1, 300, 30, 8, 14, 2, 'meat and fish'), it('Steamed rice', 'cup', 0.5, 105, 2, 23, 0, 0, 'staple')]},
         {name: 'Grilled bangus with ensaladang talong', why: 'Good fats and fibre; skip the rice.', items: [it('Grilled bangus', 'piece', 1, 330, 34, 0, 20, 0, 'meat and fish'), it('Ensaladang talong', 'bowl', 1, 90, 2, 12, 4, 5, 'vegetables')]},
         {name: 'Sinigang na hipon, no rice', why: 'Lightest option if you\'re not very hungry.', items: [it('Sinigang na hipon', 'bowl', 1, 260, 28, 14, 8, 4, 'meat and fish')]},
         {name: 'Tuna sandwich on wheat bread', why: 'Quick, no cooking, high protein.', items: [it('Tuna sandwich on wheat bread', 'sandwich', 1, 340, 26, 32, 11, 5, 'staple')]},
@@ -1692,14 +1692,37 @@ function sugCard(d) {
     '<div class="grow"><div style="font-size:15px;font-weight:500">' + sugType(d) + ' ideas</div><div class="cap">' + esc(sugGap(sugLeft(d), d)) + '</div></div></div>' +
     '<button class="raised-sm btn2" data-a="sugOpen" style="height:46px;border-radius:15px">Suggest something</button></section>';
 }
+/* what's in a suggestion: the items with amounts, for a past meal, a saved food or an AI idea */
+function sugItems(x) {
+  if (x.kind === 'meal') return itemsOf(x.id).map(e => ({name: e.name, amount: amountLabel(e), kcal: num(e.kcal)}));
+  if (x.kind === 'food') return [{name: x.name, amount: x.sub.replace(/, saved$/, ''), kcal: num(x.v.kcal)}];
+  return (x.items || []).map(e => ({name: e.name, amount: amountLabel(e), kcal: num(e.kcal)}));
+}
+/* Tapping a suggestion opens its details under it: calories, macros and micros, what's in it, and
+   for an AI idea that came with one, the recipe. */
+function sugDetail(x) {
+  const v = x.v, cell = (label, val, unit, color) => '<div class="col" style="gap:2px;min-width:0"><span class="cap">' + label + '</span><span style="font-size:14px' + (color ? ';color:' + color : '') + '">' + fmt(r0(num(val))) + ' ' + unit + '</span></div>';
+  const grid = '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 8px">' +
+    cell('Calories', v.kcal, 'kcal', 'var(--ai)') + cell('Protein', v.protein_g, 'g', 'var(--p)') + cell('Carbs', v.carbs_g, 'g', 'var(--c)') + cell('Fat', v.fat_g, 'g', 'var(--f)') +
+    cell('Sugar', v.sugar_g, 'g') + cell('Fiber', v.fiber_g, 'g') + cell('Sodium', v.sodium_mg, 'mg') + '</div>';
+  const items = sugItems(x), r = x.recipe || {};
+  const list = items.length > 1 || x.kind !== 'food' ? '<div class="col" style="gap:4px"><span class="cap" style="font-weight:500">What\'s in it</span>' +
+    items.map(e => '<div class="between" style="font-size:13px;gap:10px"><span style="min-width:0">' + esc(e.name) + ' <span class="mu">' + esc(e.amount) + '</span></span><span class="mu" style="flex-shrink:0">' + fmt(r0(e.kcal)) + '</span></div>').join('') + '</div>' : '';
+  const recipe = (r.ingredients && r.ingredients.length) || (r.steps && r.steps.length) ?
+    '<div class="col" style="gap:6px"><span class="cap" style="font-weight:500">Ingredients</span><ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.5">' + (r.ingredients || []).map(i => '<li>' + esc(i) + '</li>').join('') + '</ul>' +
+    (r.steps && r.steps.length ? '<span class="cap" style="font-weight:500;margin-top:4px">How to make it</span><ol style="margin:0;padding-left:20px;font-size:13px;line-height:1.5">' + r.steps.map(s => '<li style="margin-bottom:3px">' + esc(s) + '</li>').join('') + '</ol>' : '') + '</div>' : '';
+  return '<div class="pressed-sm col" style="gap:12px;margin:0 14px 12px;padding:12px 14px;border-radius:14px">' + grid + list + recipe + '</div>';
+}
 function sugRow(x, v, primary) {
-  const G = S.sug, k = r0(num(x.v.kcal)), leaves = G.left.kcal - k, p = r0(num(x.v.protein_g));
-  return '<div class="row" style="gap:12px;padding:12px 14px"><div class="grow" style="min-width:0">' +
-    '<div style="font-size:14px">' + esc(x.name) + '</div>' +
+  const G = S.sug, k = r0(num(x.v.kcal)), leaves = G.left.kcal - k, p = r0(num(x.v.protein_g)), open = G.open === v;
+  return '<div class="col"><div class="row" style="gap:12px;padding:12px 14px"><button class="grow" data-a="sugDetail" data-v="' + v + '" aria-expanded="' + open + '" style="min-width:0;text-align:left;display:block">' +
+    '<div style="font-size:14px;display:flex;align-items:center;gap:6px"><span style="min-width:0">' + esc(x.name) + '</span>' + (x.recipe && x.recipe.steps && x.recipe.steps.length ? '<span class="cap" style="flex-shrink:0">· recipe</span>' : '') +
+    '<span aria-hidden="true" style="flex-shrink:0;display:flex;color:var(--mu);transform:rotate(' + (open ? 90 : 0) + 'deg)">' + icon('next', 12, 2.2) + '</span></div>' +
     '<div class="cap">' + fmt(k) + ' kcal' + (p >= 1 ? ' · <span style="color:var(--p)">protein +' + fmt(p) + ' g</span>' : '') + ' · ' +
       (leaves >= 0 ? 'leaves ' + fmt(leaves) + ' kcal' : '<span class="ov">' + fmt(-leaves) + ' kcal over</span>') + '</div>' +
-    (x.why || x.sub ? '<div class="cap" style="margin-top:2px">' + esc(x.why || x.sub) + '</div>' : '') + '</div>' +
-    '<button class="' + (primary ? 'cta' : 'raised-sm') + ' btn-sm" data-a="sugLog" data-v="' + v + '" style="height:38px;padding:0 14px;border-radius:12px;font-size:13px' + (primary ? '' : ';color:var(--link);font-weight:500') + '" aria-label="Log ' + esc(x.name) + '">Log</button></div>';
+    (x.why || x.sub ? '<div class="cap" style="margin-top:2px">' + esc(x.why || x.sub) + '</div>' : '') + '</button>' +
+    '<button class="' + (primary ? 'cta' : 'raised-sm') + ' btn-sm" data-a="sugLog" data-v="' + v + '" style="height:38px;padding:0 14px;border-radius:12px;font-size:13px;flex-shrink:0' + (primary ? '' : ';color:var(--link);font-weight:500') + '" aria-label="Log ' + esc(x.name) + '">Log</button></div>' +
+    (open ? sugDetail(x) : '') + '</div>';
 }
 const sugList = rows => '<section class="raised r20" style="display:flex;flex-direction:column">' + rows.join('<div class="sep" style="margin:0 14px"></div>') + '</section>';
 function sugSheet() {
@@ -2134,6 +2157,8 @@ function overlays() {
 }
 let toastTimer = null;
 function toast(text, undo) { S.toast = {text, undo}; clearTimeout(toastTimer); toastTimer = setTimeout(() => { S.toast = null; const t = document.querySelector('.toast'); if (t) t.remove(); syncPlace(); }, undo ? 5000 : 2600); render(); }
+/* re-draw with the suggestion sheet kept where it was scrolled to */
+function sugRender() { const sh = document.querySelector('.sugsheet'), y = sh ? sh.scrollTop : 0; render(); const n = document.querySelector('.sugsheet'); if (n) n.scrollTop = y; }
 function menu(m) { S.menu = m; render(); const b = document.querySelector('.menu button'); if (b) b.focus(); }
 function confirmBox(title, text, label, fn) { menu({title, text, items: [{label, danger: true, fn}]}); }
 
@@ -2825,13 +2850,14 @@ const A = {
     if (c && c.key === key) Object.assign(S.sug, {ideas: c.ideas, shown: c.shown, asked: c.asked});
     render();
   },
+  sugDetail: el => { const G = S.sug; if (!G) return; G.open = G.open === el.dataset.v ? null : el.dataset.v; sugRender(); },
   sugClose: (el, ev) => { if (ev && el.classList.contains('scrim') && ev.target.closest('[data-stop]')) return; S.sug = null; render(); },
   async sugMore() {
     const G = S.sug; if (!G || G.busy) return;
     // a different request starts over; the same one asks for ideas not shown yet
     const ask = String(S.ui.sugAsk || '').trim();
     if (ask !== G.asked) G.shown = [];
-    G.busy = true; G.err = ''; render();
+    G.busy = true; G.err = ''; sugRender();
     const usual = [...new Set(S.data.favorites.slice().sort((a, b) => num(b.use_count) - num(a.use_count)).map(f => f.name).concat(pastIndex().meals.map(x => x.name)))].slice(0, 30);
     const res = await API.suggestFoods({meal_type: G.type, left: G.left, notes: (lastNotes() || {}).notes || '', usual, eaten: mealsOn(G.d).map(mealName).slice(0, 20), exclude: G.shown.slice(-16), ask});
     if (S.sug !== G) return;
@@ -2839,13 +2865,14 @@ const A = {
     if (res.error) G.err = /NO_IDEAS/.test(res.error) ? 'No ideas came back this time.' : friendly(res.error);
     else {
       const tg = targetFor(G.d);
-      G.ideas = ((res.result && res.result.ideas) || []).map(x => ({name: x.name, why: x.why, items: x.items || [], v: sugTotals(x.items || [])}))
+      G.open = null;
+      G.ideas = ((res.result && res.result.ideas) || []).map(x => ({name: x.name, why: x.why, items: x.items || [], recipe: x.recipe || null, v: sugTotals(x.items || [])}))
         .filter(x => x.items.length).sort((a, b) => sugScore(b.v, G.left, tg) - sugScore(a.v, G.left, tg));
       G.shown = G.shown.concat(G.ideas.map(x => x.name)); G.asked = ask;
       S.ui.sugCache = {key: G.key, ideas: G.ideas, shown: G.shown, asked: ask};
       if (res.analysesToday != null) S.meta.analysesToday = res.analysesToday;
     }
-    render();
+    sugRender();
   },
   // Any suggestion opens the review screen for the day and meal it was for, ready to adjust and save.
   async sugLog(el) {

@@ -46,6 +46,8 @@ function overlays() {
 }
 let toastTimer = null;
 function toast(text, undo) { S.toast = {text, undo}; clearTimeout(toastTimer); toastTimer = setTimeout(() => { S.toast = null; const t = document.querySelector('.toast'); if (t) t.remove(); syncPlace(); }, undo ? 5000 : 2600); render(); }
+/* re-draw with the suggestion sheet kept where it was scrolled to */
+function sugRender() { const sh = document.querySelector('.sugsheet'), y = sh ? sh.scrollTop : 0; render(); const n = document.querySelector('.sugsheet'); if (n) n.scrollTop = y; }
 function menu(m) { S.menu = m; render(); const b = document.querySelector('.menu button'); if (b) b.focus(); }
 function confirmBox(title, text, label, fn) { menu({title, text, items: [{label, danger: true, fn}]}); }
 
@@ -737,13 +739,14 @@ const A = {
     if (c && c.key === key) Object.assign(S.sug, {ideas: c.ideas, shown: c.shown, asked: c.asked});
     render();
   },
+  sugDetail: el => { const G = S.sug; if (!G) return; G.open = G.open === el.dataset.v ? null : el.dataset.v; sugRender(); },
   sugClose: (el, ev) => { if (ev && el.classList.contains('scrim') && ev.target.closest('[data-stop]')) return; S.sug = null; render(); },
   async sugMore() {
     const G = S.sug; if (!G || G.busy) return;
     // a different request starts over; the same one asks for ideas not shown yet
     const ask = String(S.ui.sugAsk || '').trim();
     if (ask !== G.asked) G.shown = [];
-    G.busy = true; G.err = ''; render();
+    G.busy = true; G.err = ''; sugRender();
     const usual = [...new Set(S.data.favorites.slice().sort((a, b) => num(b.use_count) - num(a.use_count)).map(f => f.name).concat(pastIndex().meals.map(x => x.name)))].slice(0, 30);
     const res = await API.suggestFoods({meal_type: G.type, left: G.left, notes: (lastNotes() || {}).notes || '', usual, eaten: mealsOn(G.d).map(mealName).slice(0, 20), exclude: G.shown.slice(-16), ask});
     if (S.sug !== G) return;
@@ -751,13 +754,14 @@ const A = {
     if (res.error) G.err = /NO_IDEAS/.test(res.error) ? 'No ideas came back this time.' : friendly(res.error);
     else {
       const tg = targetFor(G.d);
-      G.ideas = ((res.result && res.result.ideas) || []).map(x => ({name: x.name, why: x.why, items: x.items || [], v: sugTotals(x.items || [])}))
+      G.open = null;
+      G.ideas = ((res.result && res.result.ideas) || []).map(x => ({name: x.name, why: x.why, items: x.items || [], recipe: x.recipe || null, v: sugTotals(x.items || [])}))
         .filter(x => x.items.length).sort((a, b) => sugScore(b.v, G.left, tg) - sugScore(a.v, G.left, tg));
       G.shown = G.shown.concat(G.ideas.map(x => x.name)); G.asked = ask;
       S.ui.sugCache = {key: G.key, ideas: G.ideas, shown: G.shown, asked: ask};
       if (res.analysesToday != null) S.meta.analysesToday = res.analysesToday;
     }
-    render();
+    sugRender();
   },
   // Any suggestion opens the review screen for the day and meal it was for, ready to adjust and save.
   async sugLog(el) {
