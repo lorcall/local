@@ -605,6 +605,12 @@ function WebAPI() {
     },
     async analyzeItem(p) { const r = await proxy('analyzeItem', p); return r.result; },
     async weeklySummary(n) { const r = await proxy('weeklySummary', n); return r.result; },
+    async suggestFoods(p) {
+      try {
+        const r = await proxy('suggestFoods', p);
+        return {result: r.result, analysesToday: bumpLocal()};
+      } catch (e) { return {error: String(e && e.message || e)}; }
+    },
     async adjustTargets(p) {
       try {
         const r = await proxy('adjustTargets', p);

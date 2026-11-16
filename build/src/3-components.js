@@ -1,6 +1,7 @@
 /* ---------- components ---------- */
 const ICONS = {
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  spark: '<path d="M12 3l1.8 4.6L18.5 9l-4.7 1.6L12 15l-1.8-4.4L5.5 9l4.7-1.4z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>',
   calendar: '<path d="M4 6h16v14H4zM4 10h16M8 3v4M16 3v4"/>',
   today: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/>',
   bars: '<path d="M5 20V11M12 20V5M19 20v-6"/>',

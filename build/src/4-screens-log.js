@@ -202,6 +202,8 @@ SCREENS.settings = () => {
     '<section class="raised r22 col" style="padding:6px 16px">' +
     '<div class="row" style="min-height:58px;font-size:14px;gap:12px"><span class="grow">Theme</span>' + track('setTheme', THEMES, currentTheme(), 'Theme', {tight: true}) + '</div>' +
     '<p class="cap" style="margin:-4px 0 10px;line-height:1.45">Saved to your Sheet, so it follows you to any device.</p><div class="sep"></div>' +
+    '<div class="row" style="min-height:58px;font-size:14px;gap:12px"><span class="grow">Food suggestions</span>' + track('setSuggest', ['Off', 'On'], sugOn() ? 'On' : 'Off', 'Food suggestions', {tight: true}) + '</div>' +
+    '<p class="cap" style="margin:-4px 0 10px;line-height:1.45">Ideas on Today for what\'s left of your targets, from your own meals and from the AI. Each set of new ideas uses 1 AI analysis.</p><div class="sep"></div>' +
     '<div class="row" style="min-height:50px;font-size:14px"><span class="grow">Units</span><span class="pressed-sm pill">kg and cm</span></div><div class="sep"></div>' +
     '<div class="row" style="min-height:50px;font-size:14px"><span class="grow">Week starts on</span>' + sel('week_start', ['Monday', 'Sunday'], setting('week_start', 'Monday'), 'Week starts on') + '</div></section>' +
     '<button class="raised-sm btn2" data-a="csv">Download all data as CSV</button>' +
@@ -237,6 +239,7 @@ SCREENS.today = () => {
     meals.map(mealRow).join('') +
     (next ? '<div class="pressed-sm r18 row" style="padding:8px 8px 8px 14px"><span class="mdot empty"></span><div class="grow"><div style="font-size:15px;font-weight:500">' + next + '</div><div class="cap">Nothing logged yet</div></div>' +
       '<button class="cta btn-sm" data-a="logType" data-v="' + next + '">Log ' + lc1(next) + '</button></div>' : '') +
+    sugCard(d) +
     (meals.length ? '<p class="cap" style="text-align:center">Swipe a meal left to edit, copy or delete it. Swipe the dial for other days.</p>' : '<p class="cap" style="text-align:center">Swipe the dial or use the arrows for other days.</p>') +
     '</section></div>' + tabBar('today');
 };

@@ -40,6 +40,7 @@ function overlays() {
     (S.viewer.loading ? '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><span class="spinglow"><span class="spin" style="--s:40px;--t:5px"></span></span></div>' : '') + '</div>' +
     (S.viewer.msg ? '<p class="cap13" style="text-align:center">' + esc(S.viewer.msg) + '</p>' : '') +
     '<button class="raised-sm" data-a="closeViewer" style="height:46px;padding:0 22px;border-radius:16px;font-size:15px">Close</button></div></div>';
+  h += sugSheet();
   if (S.toast) h += '<div class="toast glass' + (TABS.includes(route().name) ? '' : ' notab') + '" role="status"><span>' + esc(S.toast.text) + '</span>' + (S.toast.undo ? '<button data-a="undo" style="color:var(--link);font-weight:600">Undo</button>' : '') + '</div>';
   return h;
 }
@@ -722,6 +723,57 @@ const A = {
   },
 
   syncRetry: () => syncRun(),
+  setSuggest: el => {
+    const v = el.dataset.v === 'On' ? 'on' : 'off'; if (v === setting('suggest', 'off')) return;
+    S.data.settings.suggest = v; queueJob({kind: 'settings', values: {suggest: v}, label: 'suggestions'}); render();
+  },
+  // The AI's ideas are kept for the same day, meal and (roughly) the same numbers, so reopening
+  // the sheet doesn't spend another analysis.
+  sugOpen() {
+    const d = viewDay(), type = sugType(d), left = sugLeft(d);
+    const key = d + '|' + type + '|' + Math.round(left.kcal / 50) + '|' + Math.round(left.protein_g / 5), c = S.ui.sugCache;
+    S.sug = {d, type, left, key, local: sugLocal(d, left, type), ideas: [], shown: [], busy: false, err: ''};
+    if (c && c.key === key) { S.sug.ideas = c.ideas; S.sug.shown = c.shown; render(); } else A.sugMore();
+  },
+  sugClose: (el, ev) => { if (ev && el.classList.contains('scrim') && ev.target.closest('[data-stop]')) return; S.sug = null; render(); },
+  async sugMore() {
+    const G = S.sug; if (!G || G.busy) return;
+    G.busy = true; G.err = ''; render();
+    const usual = [...new Set(S.data.favorites.slice().sort((a, b) => num(b.use_count) - num(a.use_count)).map(f => f.name).concat(pastIndex().meals.map(x => x.name)))].slice(0, 30);
+    const res = await API.suggestFoods({meal_type: G.type, left: G.left, notes: (lastNotes() || {}).notes || '', usual, eaten: mealsOn(G.d).map(mealName).slice(0, 20), exclude: G.shown.slice(-16)});
+    if (S.sug !== G) return;
+    G.busy = false;
+    if (res.error) G.err = /NO_IDEAS/.test(res.error) ? 'No ideas came back this time.' : friendly(res.error);
+    else {
+      const tg = targetFor(G.d);
+      G.ideas = ((res.result && res.result.ideas) || []).map(x => ({name: x.name, why: x.why, items: x.items || [], v: sugTotals(x.items || [])}))
+        .filter(x => x.items.length).sort((a, b) => sugScore(b.v, G.left, tg) - sugScore(a.v, G.left, tg));
+      G.shown = G.shown.concat(G.ideas.map(x => x.name));
+      S.ui.sugCache = {key: G.key, ideas: G.ideas, shown: G.shown};
+      if (res.analysesToday != null) S.meta.analysesToday = res.analysesToday;
+    }
+    render();
+  },
+  // Any suggestion opens the review screen for the day and meal it was for, ready to adjust and save.
+  async sugLog(el) {
+    const G = S.sug, k = el.dataset.v[0], x = (k === 'l' ? G.local : G.ideas)[+el.dataset.v.slice(1)]; if (!G || !x) return;
+    S.log = null; const L = logState();
+    Object.assign(L, {date: G.d, meal_type: G.type, time: G.d === today() ? nowHM() : TYPE_TIME[G.type], timeAuto: G.d !== today()});
+    let draft;
+    if (k === 'a') {
+      const meal = newMeal(G.type, {note: x.name, confidence: 'medium', confidence_reason: x.why, source: 'text'});
+      draft = {mode: 'new', source: 'text', meal, items: x.items.map(it => aiItem(it, meal.meal_id)), ai: {confidence: 'medium', reason: x.why}, demo: S.meta.demo};
+    } else if (x.kind === 'meal') {
+      const m = S.data.meals.find(y => y.meal_id === x.id); if (!m) return;
+      const meal = newMeal(G.type, {source: 'copy', note: m.note, thumb: await thumbOf(m), photo_url: m.photo_url});
+      draft = {mode: 'new', source: 'copy', meal, items: copyItems(m.meal_id, meal.meal_id), ai: null};
+    } else {
+      const f = S.data.favorites.find(y => y.food_id === x.id); if (!f) return;
+      const meal = newMeal(G.type, {source: 'quick add'});
+      draft = {mode: 'new', source: 'quick', meal, items: [entryFrom(f, meal.meal_id, 1)], ai: null};
+    }
+    S.sug = null; S.draft = draft; go('review');
+  },
   // Default, Light or Dark: applied at once, kept in the Sheet's Settings (and on the device, so the
   // next open starts in it before the Sheet has loaded)
   setTheme: el => {
@@ -872,7 +924,7 @@ function bindEvents() {
     if (FULL_ON_INPUT.has(n)) { const r = fn(el); if (!(r && r.then)) render(); }
   });
   document.addEventListener('keydown', ev => {
-    if (ev.key === 'Escape' && (S.menu || S.viewer)) { S.menu = null; S.viewer = null; render(); }
+    if (ev.key === 'Escape' && (S.menu || S.viewer || S.sug)) { S.menu = null; S.viewer = null; S.sug = null; render(); }
     if (ev.key === 'Enter' && ev.target.matches('input.fld') && ev.target.dataset.in === 'wIn') A.saveWeight();
   });
   /* swipe a meal row left to reveal Edit, Copy and Delete */

@@ -23,7 +23,8 @@ const API = IN_GAS ? {
   addWeight: w => gasCall('addWeight', w),
   saveSettings: s => gasCall('saveSettings', s),
   weeklySummary: n => gasCall('weeklySummary', n),
-  adjustTargets: p => gasCall('adjustTargets', p)
+  adjustTargets: p => gasCall('adjustTargets', p),
+  suggestFoods: p => gasCall('suggestFoods', p)
 } : (typeof WebAPI === 'function' ? WebAPI() : DemoAPI());
 /* Three implementations behind one interface: Apps Script (google.script.run),
    the static web build (WebAPI, defined in web/api.js and loaded before this
@@ -94,6 +95,25 @@ function DemoAPI() {
     async addWeight(w) { load(); db.weight = db.weight.filter(x => x.date !== w.date).concat([w]); save(); return w; },
     async saveSettings(s) { load(); Object.assign(db.settings, s); save(); return db.settings; },
     async weeklySummary(n) { await wait(1200); return demoSummary(n); },
+    async suggestFoods(p) {
+      await wait(1000);
+      const it = (name, unit, q, kcal, P, C, F, fib, cat) => ({name, category: cat || 'other', serving_unit: unit, quantity: q, grams_per_unit: 0, kcal, protein_g: P, carbs_g: C, fat_g: F, sugar_g: 2, fiber_g: fib, sodium_mg: 400, confidence: 'medium', reason: ''});
+      const light = num(p.left && p.left.kcal) < 150;
+      const all = light ? [
+        {name: 'Cucumber and tomato salad', why: 'Very light, mostly water and fibre.', items: [it('Cucumber and tomato salad', 'bowl', 1, 45, 2, 8, 0, 3, 'vegetables')]},
+        {name: 'Boiled egg', why: 'Small and filling, adds protein.', items: [it('Boiled egg', 'egg', 1, 75, 6, 1, 5, 0, 'meat and fish')]},
+        {name: 'Clear chicken broth', why: 'Warm and light.', items: [it('Chicken broth', 'cup', 1, 40, 5, 2, 1, 0, 'other')]},
+        {name: 'Fresh mango slices, ½ cup', why: 'Sweet, light and some fibre.', items: [it('Mango', 'cup', 0.5, 50, 1, 12, 0, 1, 'fruit')]}]
+      : [
+        {name: 'Chicken tinola with ½ cup rice', why: 'Closes most of your protein gap; light on fat.', items: [it('Chicken tinola', 'bowl', 1, 300, 30, 8, 14, 2, 'meat and fish'), it('Steamed rice', 'cup', 0.5, 105, 2, 23, 0, 0, 'staple')]},
+        {name: 'Grilled bangus with ensaladang talong', why: 'Good fats and fibre; skip the rice.', items: [it('Grilled bangus', 'piece', 1, 330, 34, 0, 20, 0, 'meat and fish'), it('Ensaladang talong', 'bowl', 1, 90, 2, 12, 4, 5, 'vegetables')]},
+        {name: 'Sinigang na hipon, no rice', why: 'Lightest option if you\'re not very hungry.', items: [it('Sinigang na hipon', 'bowl', 1, 260, 28, 14, 8, 4, 'meat and fish')]},
+        {name: 'Tuna sandwich on wheat bread', why: 'Quick, no cooking, high protein.', items: [it('Tuna sandwich on wheat bread', 'sandwich', 1, 340, 26, 32, 11, 5, 'staple')]},
+        {name: 'Tofu and pechay stir-fry with rice', why: 'Plant protein and fibre.', items: [it('Tofu and pechay stir-fry', 'plate', 1, 240, 18, 10, 14, 4, 'vegetables'), it('Steamed rice', 'cup', 0.5, 105, 2, 23, 0, 0, 'staple')]}];
+      const ex = (p.exclude || []).map(x => String(x).toLowerCase());
+      const fresh = all.filter(x => !ex.includes(x.name.toLowerCase()));
+      return {result: {ideas: (fresh.length >= 4 ? fresh : all).slice(0, 4)}};
+    },
     async adjustTargets(p) {
       await wait(1100);
       const b = p.base, t = Object.assign({}, b), n = String(p.notes).toLowerCase(), changes = [];

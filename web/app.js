@@ -323,7 +323,8 @@ const API = IN_GAS ? {
   addWeight: w => gasCall('addWeight', w),
   saveSettings: s => gasCall('saveSettings', s),
   weeklySummary: n => gasCall('weeklySummary', n),
-  adjustTargets: p => gasCall('adjustTargets', p)
+  adjustTargets: p => gasCall('adjustTargets', p),
+  suggestFoods: p => gasCall('suggestFoods', p)
 } : (typeof WebAPI === 'function' ? WebAPI() : DemoAPI());
 /* Three implementations behind one interface: Apps Script (google.script.run),
    the static web build (WebAPI, defined in web/api.js and loaded before this
@@ -394,6 +395,25 @@ function DemoAPI() {
     async addWeight(w) { load(); db.weight = db.weight.filter(x => x.date !== w.date).concat([w]); save(); return w; },
     async saveSettings(s) { load(); Object.assign(db.settings, s); save(); return db.settings; },
     async weeklySummary(n) { await wait(1200); return demoSummary(n); },
+    async suggestFoods(p) {
+      await wait(1000);
+      const it = (name, unit, q, kcal, P, C, F, fib, cat) => ({name, category: cat || 'other', serving_unit: unit, quantity: q, grams_per_unit: 0, kcal, protein_g: P, carbs_g: C, fat_g: F, sugar_g: 2, fiber_g: fib, sodium_mg: 400, confidence: 'medium', reason: ''});
+      const light = num(p.left && p.left.kcal) < 150;
+      const all = light ? [
+        {name: 'Cucumber and tomato salad', why: 'Very light, mostly water and fibre.', items: [it('Cucumber and tomato salad', 'bowl', 1, 45, 2, 8, 0, 3, 'vegetables')]},
+        {name: 'Boiled egg', why: 'Small and filling, adds protein.', items: [it('Boiled egg', 'egg', 1, 75, 6, 1, 5, 0, 'meat and fish')]},
+        {name: 'Clear chicken broth', why: 'Warm and light.', items: [it('Chicken broth', 'cup', 1, 40, 5, 2, 1, 0, 'other')]},
+        {name: 'Fresh mango slices, ½ cup', why: 'Sweet, light and some fibre.', items: [it('Mango', 'cup', 0.5, 50, 1, 12, 0, 1, 'fruit')]}]
+      : [
+        {name: 'Chicken tinola with ½ cup rice', why: 'Closes most of your protein gap; light on fat.', items: [it('Chicken tinola', 'bowl', 1, 300, 30, 8, 14, 2, 'meat and fish'), it('Steamed rice', 'cup', 0.5, 105, 2, 23, 0, 0, 'staple')]},
+        {name: 'Grilled bangus with ensaladang talong', why: 'Good fats and fibre; skip the rice.', items: [it('Grilled bangus', 'piece', 1, 330, 34, 0, 20, 0, 'meat and fish'), it('Ensaladang talong', 'bowl', 1, 90, 2, 12, 4, 5, 'vegetables')]},
+        {name: 'Sinigang na hipon, no rice', why: 'Lightest option if you\'re not very hungry.', items: [it('Sinigang na hipon', 'bowl', 1, 260, 28, 14, 8, 4, 'meat and fish')]},
+        {name: 'Tuna sandwich on wheat bread', why: 'Quick, no cooking, high protein.', items: [it('Tuna sandwich on wheat bread', 'sandwich', 1, 340, 26, 32, 11, 5, 'staple')]},
+        {name: 'Tofu and pechay stir-fry with rice', why: 'Plant protein and fibre.', items: [it('Tofu and pechay stir-fry', 'plate', 1, 240, 18, 10, 14, 4, 'vegetables'), it('Steamed rice', 'cup', 0.5, 105, 2, 23, 0, 0, 'staple')]}];
+      const ex = (p.exclude || []).map(x => String(x).toLowerCase());
+      const fresh = all.filter(x => !ex.includes(x.name.toLowerCase()));
+      return {result: {ideas: (fresh.length >= 4 ? fresh : all).slice(0, 4)}};
+    },
     async adjustTargets(p) {
       await wait(1100);
       const b = p.base, t = Object.assign({}, b), n = String(p.notes).toLowerCase(), changes = [];
@@ -527,6 +547,7 @@ function seedFavorites() {
 /* ---------- components ---------- */
 const ICONS = {
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  spark: '<path d="M12 3l1.8 4.6L18.5 9l-4.7 1.6L12 15l-1.8-4.4L5.5 9l4.7-1.4z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>',
   calendar: '<path d="M4 6h16v14H4zM4 10h16M8 3v4M16 3v4"/>',
   today: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/>',
   bars: '<path d="M5 20V11M12 20V5M19 20v-6"/>',
@@ -957,6 +978,8 @@ SCREENS.settings = () => {
     '<section class="raised r22 col" style="padding:6px 16px">' +
     '<div class="row" style="min-height:58px;font-size:14px;gap:12px"><span class="grow">Theme</span>' + track('setTheme', THEMES, currentTheme(), 'Theme', {tight: true}) + '</div>' +
     '<p class="cap" style="margin:-4px 0 10px;line-height:1.45">Saved to your Sheet, so it follows you to any device.</p><div class="sep"></div>' +
+    '<div class="row" style="min-height:58px;font-size:14px;gap:12px"><span class="grow">Food suggestions</span>' + track('setSuggest', ['Off', 'On'], sugOn() ? 'On' : 'Off', 'Food suggestions', {tight: true}) + '</div>' +
+    '<p class="cap" style="margin:-4px 0 10px;line-height:1.45">Ideas on Today for what\'s left of your targets, from your own meals and from the AI. Each set of new ideas uses 1 AI analysis.</p><div class="sep"></div>' +
     '<div class="row" style="min-height:50px;font-size:14px"><span class="grow">Units</span><span class="pressed-sm pill">kg and cm</span></div><div class="sep"></div>' +
     '<div class="row" style="min-height:50px;font-size:14px"><span class="grow">Week starts on</span>' + sel('week_start', ['Monday', 'Sunday'], setting('week_start', 'Monday'), 'Week starts on') + '</div></section>' +
     '<button class="raised-sm btn2" data-a="csv">Download all data as CSV</button>' +
@@ -992,6 +1015,7 @@ SCREENS.today = () => {
     meals.map(mealRow).join('') +
     (next ? '<div class="pressed-sm r18 row" style="padding:8px 8px 8px 14px"><span class="mdot empty"></span><div class="grow"><div style="font-size:15px;font-weight:500">' + next + '</div><div class="cap">Nothing logged yet</div></div>' +
       '<button class="cta btn-sm" data-a="logType" data-v="' + next + '">Log ' + lc1(next) + '</button></div>' : '') +
+    sugCard(d) +
     (meals.length ? '<p class="cap" style="text-align:center">Swipe a meal left to edit, copy or delete it. Swipe the dial for other days.</p>' : '<p class="cap" style="text-align:center">Swipe the dial or use the arrows for other days.</p>') +
     '</section></div>' + tabBar('today');
 };
@@ -1225,6 +1249,96 @@ SCREENS.describe = () => {
       : '<button class="cta btn" data-a="describe"' + (L.text.trim() ? '' : ' disabled') + ' data-part="ds-go">Estimate calories</button>') +
     '<p class="cap" style="text-align:center">Uses one AI analysis, the same as a photo. You review every item before it\'s saved.</p></div>';
 };
+
+/* ---------- Food suggestions ----------
+   Opt-in (Settings, saved to the Sheet). A card on Today opens a sheet with two lists: the person's
+   own past meals and foods that fit what's left (worked out here, no AI), and four new ideas from the
+   AI. Logging any of them opens the usual review screen, so nothing is saved without a look. */
+const sugOn = () => setting('suggest', 'off') === 'on';
+/* the meal the ideas are for: by the clock today, otherwise the first main meal not logged yet */
+function sugType(d) {
+  if (d === today()) return mealForNow();
+  const types = mealsOn(d).map(m => m.meal_type);
+  return ['Breakfast', 'Lunch', 'Dinner'].find(x => !types.includes(x)) || 'Snack';
+}
+/* what's left of the day's targets; sugar and sodium are room under their limits (no limit: plenty) */
+function sugLeft(d) {
+  const t = totalsOn(d), tg = targetFor(d), left = (a, b) => Math.max(0, r0(num(a) - num(b)));
+  return {kcal: left(tg.kcal, t.kcal), protein_g: left(tg.protein_g, t.protein_g), carbs_g: left(tg.carbs_g, t.carbs_g), fat_g: left(tg.fat_g, t.fat_g),
+    fiber_g: left(tg.fiber_min_g, t.fiber_g), sugar_g: num(tg.sugar_max_g) > 0 ? left(tg.sugar_max_g, t.sugar_g) : 300, sodium_mg: num(tg.sodium_max_mg) > 0 ? left(tg.sodium_max_mg, t.sodium_mg) : 9000};
+}
+const sugTotals = es => VALUES.reduce((o, k) => (o[k] = sum(es, e => num(e[k])), o), {});
+/* How well something fits what's left: credit for closing gaps (protein counts double, fibre a bit),
+   a penalty for running past what's left. Too big for the calories left: not a fit at all. When the
+   day's calories are used up, only something light (about 150 kcal) can fit. */
+function sugScore(v, L, tg) {
+  const k = num(v.kcal); if (k < 30) return -1;
+  const room = Math.max(L.kcal, 150);
+  if (k > room * 1.15 + 40) return -1;
+  const T = {p: num(tg.protein_g) || 100, c: num(tg.carbs_g) || 200, f: num(tg.fat_g) || 60, fi: num(tg.fiber_min_g) || 25};
+  const part = (x, left, tot) => Math.min(num(x), left) / tot, over = (x, left, tot) => Math.max(0, num(x) - left) / tot;
+  return 2 * part(v.protein_g, L.protein_g, T.p) + part(v.carbs_g, L.carbs_g, T.c) + part(v.fat_g, L.fat_g, T.f) + 0.8 * part(v.fiber_g, L.fiber_g, T.fi)
+    - 1.5 * (over(v.carbs_g, L.carbs_g, T.c) + over(v.fat_g, L.fat_g, T.f) + 0.3 * over(v.protein_g, L.protein_g, T.p)) - 0.5 * Math.max(0, k - L.kcal) / room;
+}
+/* Past meals and saved foods that fit, best first: two of each when both kinds fit, up to four. */
+function sugLocal(d, L, type) {
+  const tg = targetFor(d), eaten = new Set(mealsOn(d).map(m => mealName(m).toLowerCase())), seen = new Set(), all = [];
+  pastIndex().meals.slice(0, 150).forEach(x => {
+    const k = x.name.toLowerCase(); if (eaten.has(k) || seen.has(k)) return; seen.add(k);
+    const v = sugTotals(itemsOf(x.m.meal_id));
+    all.push({kind: 'meal', id: x.m.meal_id, name: x.name, sub: 'Last had ' + relDay(x.m.date), v, score: sugScore(v, L, tg) + (x.m.meal_type === type ? 0.15 : 0)});
+  });
+  S.data.favorites.filter(f => f.pinned || num(f.use_count) > 0).forEach(f => {
+    const k = String(f.name || '').trim().toLowerCase(); if (!k || seen.has(k) || eaten.has(k)) return; seen.add(k);
+    const v = VALUES.reduce((o, x) => (o[x] = num(f[x]), o), {});
+    all.push({kind: 'food', id: f.food_id, name: f.name, sub: servingLabel(f) + (f.pinned ? ', saved' : ''), v, score: sugScore(v, L, tg) + (f.pinned ? 0.1 : 0)});
+  });
+  const fit = all.filter(x => x.score > 0).sort((a, b) => b.score - a.score);
+  const pick = fit.filter(x => x.kind === 'meal').slice(0, 2).concat(fit.filter(x => x.kind === 'food').slice(0, 2));
+  fit.forEach(x => { if (pick.length < 4 && !pick.includes(x)) pick.push(x); });
+  return pick.sort((a, b) => b.score - a.score);
+}
+/* the gap line under a heading: what's left, and the protein still to go */
+function sugGap(L, d) {
+  const t = totalsOn(d), tg = targetFor(d), pShort = r0(num(tg.protein_g) - t.protein_g);
+  return L.kcal >= 50 ? fmt(L.kcal) + ' kcal left' + (pShort >= 5 ? ' · protein ' + fmt(pShort) + ' g short' : '')
+    : 'You\'ve reached your calories. Light ideas if you\'re still hungry';
+}
+function sugCard(d) {
+  if (!sugOn()) return '';
+  return '<section class="pressed-sm r22 col" aria-label="Food suggestions" style="gap:12px;padding:14px 16px">' +
+    '<div class="row" style="gap:10px"><span style="color:var(--ai);display:flex">' + icon('spark', 20) + '</span>' +
+    '<div class="grow"><div style="font-size:15px;font-weight:500">' + sugType(d) + ' ideas</div><div class="cap">' + esc(sugGap(sugLeft(d), d)) + '</div></div></div>' +
+    '<button class="raised-sm btn2" data-a="sugOpen" style="height:46px;border-radius:15px">Suggest something</button></section>';
+}
+function sugRow(x, v, primary) {
+  const G = S.sug, k = r0(num(x.v.kcal)), leaves = G.left.kcal - k, p = r0(num(x.v.protein_g));
+  return '<div class="row" style="gap:12px;padding:12px 14px"><div class="grow" style="min-width:0">' +
+    '<div style="font-size:14px">' + esc(x.name) + '</div>' +
+    '<div class="cap">' + fmt(k) + ' kcal' + (p >= 1 ? ' · <span style="color:var(--p)">protein +' + fmt(p) + ' g</span>' : '') + ' · ' +
+      (leaves >= 0 ? 'leaves ' + fmt(leaves) + ' kcal' : '<span class="ov">' + fmt(-leaves) + ' kcal over</span>') + '</div>' +
+    (x.why || x.sub ? '<div class="cap" style="margin-top:2px">' + esc(x.why || x.sub) + '</div>' : '') + '</div>' +
+    '<button class="' + (primary ? 'cta' : 'raised-sm') + ' btn-sm" data-a="sugLog" data-v="' + v + '" style="height:38px;padding:0 14px;border-radius:12px;font-size:13px' + (primary ? '' : ';color:var(--link);font-weight:500') + '" aria-label="Log ' + esc(x.name) + '">Log</button></div>';
+}
+const sugList = rows => '<section class="raised r20" style="display:flex;flex-direction:column">' + rows.join('<div class="sep" style="margin:0 14px"></div>') + '</section>';
+function sugSheet() {
+  const G = S.sug; if (!G) return '';
+  const notes = (lastNotes() || {}).notes;
+  const head = (t, side) => '<div class="between" style="align-items:baseline"><h3 class="sec15" style="margin:0">' + t + '</h3><span class="cap">' + side + '</span></div>';
+  const ai = G.busy ? '<div class="raised r20 row" style="gap:12px;padding:16px;justify-content:center" aria-live="polite"><span class="spinglow"><span class="spin" style="--s:20px;--t:3px"></span></span><span class="cap13">Finding ideas</span></div>'
+    : G.err ? '<div class="warn" role="alert"><div class="ov" style="font-weight:500">' + esc(G.err) + '</div><div class="mu" style="margin-top:2px">Your own foods above still work without the AI.</div></div>'
+    : G.ideas.length ? sugList(G.ideas.map((x, i) => sugRow(x, 'a' + i, i === 0))) : '';
+  return '<div class="scrim" data-a="sugClose"><div class="menu glass sugsheet" role="dialog" aria-modal="true" aria-label="' + G.type + ' ideas" data-stop="1">' +
+    '<div aria-hidden="true" style="width:40px;height:5px;border-radius:3px;background:var(--mu);opacity:.5;align-self:center;margin-top:-6px"></div>' +
+    '<div class="row" style="gap:12px;align-items:flex-start"><div class="grow"><h2 class="title22" style="margin:0">' + G.type + ' ideas</h2>' +
+    '<p class="cap" style="margin-top:4px">' + esc(sugGap(G.left, G.d)) + (G.left.kcal >= 50 ? ' · carbs ' + fmt(G.left.carbs_g) + ' g · fat ' + fmt(G.left.fat_g) + ' g left' : '') + '</p></div>' +
+    '<button class="raised-sm" data-a="sugClose" aria-label="Close" style="width:40px;height:40px;border-radius:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + icon('close', 16, 2.2) + '</button></div>' +
+    head('From your foods', 'No AI used') +
+    (G.local.length ? sugList(G.local.map((x, i) => sugRow(x, 'l' + i, false))) : '<p class="cap" style="margin:0">Nothing you\'ve logged or saved fits what\'s left yet. The ideas below are made for it.</p>') +
+    head('New ideas', notes ? 'From AI · fits your notes' : 'From AI') + ai +
+    '<button class="raised-sm btn2" data-a="sugMore"' + (G.busy ? ' disabled style="opacity:.55"' : '') + '>' + (G.err ? 'Try again' : 'More ideas') + '</button>' +
+    '<p class="cap" style="text-align:center;margin:0">Each new set uses 1 AI analysis. Estimates, not medical advice.</p></div></div>';
+}
 
 /* ---------- screens: history and insights ---------- */
 
@@ -1627,6 +1741,7 @@ function overlays() {
     (S.viewer.loading ? '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><span class="spinglow"><span class="spin" style="--s:40px;--t:5px"></span></span></div>' : '') + '</div>' +
     (S.viewer.msg ? '<p class="cap13" style="text-align:center">' + esc(S.viewer.msg) + '</p>' : '') +
     '<button class="raised-sm" data-a="closeViewer" style="height:46px;padding:0 22px;border-radius:16px;font-size:15px">Close</button></div></div>';
+  h += sugSheet();
   if (S.toast) h += '<div class="toast glass' + (TABS.includes(route().name) ? '' : ' notab') + '" role="status"><span>' + esc(S.toast.text) + '</span>' + (S.toast.undo ? '<button data-a="undo" style="color:var(--link);font-weight:600">Undo</button>' : '') + '</div>';
   return h;
 }
@@ -2309,6 +2424,57 @@ const A = {
   },
 
   syncRetry: () => syncRun(),
+  setSuggest: el => {
+    const v = el.dataset.v === 'On' ? 'on' : 'off'; if (v === setting('suggest', 'off')) return;
+    S.data.settings.suggest = v; queueJob({kind: 'settings', values: {suggest: v}, label: 'suggestions'}); render();
+  },
+  // The AI's ideas are kept for the same day, meal and (roughly) the same numbers, so reopening
+  // the sheet doesn't spend another analysis.
+  sugOpen() {
+    const d = viewDay(), type = sugType(d), left = sugLeft(d);
+    const key = d + '|' + type + '|' + Math.round(left.kcal / 50) + '|' + Math.round(left.protein_g / 5), c = S.ui.sugCache;
+    S.sug = {d, type, left, key, local: sugLocal(d, left, type), ideas: [], shown: [], busy: false, err: ''};
+    if (c && c.key === key) { S.sug.ideas = c.ideas; S.sug.shown = c.shown; render(); } else A.sugMore();
+  },
+  sugClose: (el, ev) => { if (ev && el.classList.contains('scrim') && ev.target.closest('[data-stop]')) return; S.sug = null; render(); },
+  async sugMore() {
+    const G = S.sug; if (!G || G.busy) return;
+    G.busy = true; G.err = ''; render();
+    const usual = [...new Set(S.data.favorites.slice().sort((a, b) => num(b.use_count) - num(a.use_count)).map(f => f.name).concat(pastIndex().meals.map(x => x.name)))].slice(0, 30);
+    const res = await API.suggestFoods({meal_type: G.type, left: G.left, notes: (lastNotes() || {}).notes || '', usual, eaten: mealsOn(G.d).map(mealName).slice(0, 20), exclude: G.shown.slice(-16)});
+    if (S.sug !== G) return;
+    G.busy = false;
+    if (res.error) G.err = /NO_IDEAS/.test(res.error) ? 'No ideas came back this time.' : friendly(res.error);
+    else {
+      const tg = targetFor(G.d);
+      G.ideas = ((res.result && res.result.ideas) || []).map(x => ({name: x.name, why: x.why, items: x.items || [], v: sugTotals(x.items || [])}))
+        .filter(x => x.items.length).sort((a, b) => sugScore(b.v, G.left, tg) - sugScore(a.v, G.left, tg));
+      G.shown = G.shown.concat(G.ideas.map(x => x.name));
+      S.ui.sugCache = {key: G.key, ideas: G.ideas, shown: G.shown};
+      if (res.analysesToday != null) S.meta.analysesToday = res.analysesToday;
+    }
+    render();
+  },
+  // Any suggestion opens the review screen for the day and meal it was for, ready to adjust and save.
+  async sugLog(el) {
+    const G = S.sug, k = el.dataset.v[0], x = (k === 'l' ? G.local : G.ideas)[+el.dataset.v.slice(1)]; if (!G || !x) return;
+    S.log = null; const L = logState();
+    Object.assign(L, {date: G.d, meal_type: G.type, time: G.d === today() ? nowHM() : TYPE_TIME[G.type], timeAuto: G.d !== today()});
+    let draft;
+    if (k === 'a') {
+      const meal = newMeal(G.type, {note: x.name, confidence: 'medium', confidence_reason: x.why, source: 'text'});
+      draft = {mode: 'new', source: 'text', meal, items: x.items.map(it => aiItem(it, meal.meal_id)), ai: {confidence: 'medium', reason: x.why}, demo: S.meta.demo};
+    } else if (x.kind === 'meal') {
+      const m = S.data.meals.find(y => y.meal_id === x.id); if (!m) return;
+      const meal = newMeal(G.type, {source: 'copy', note: m.note, thumb: await thumbOf(m), photo_url: m.photo_url});
+      draft = {mode: 'new', source: 'copy', meal, items: copyItems(m.meal_id, meal.meal_id), ai: null};
+    } else {
+      const f = S.data.favorites.find(y => y.food_id === x.id); if (!f) return;
+      const meal = newMeal(G.type, {source: 'quick add'});
+      draft = {mode: 'new', source: 'quick', meal, items: [entryFrom(f, meal.meal_id, 1)], ai: null};
+    }
+    S.sug = null; S.draft = draft; go('review');
+  },
   // Default, Light or Dark: applied at once, kept in the Sheet's Settings (and on the device, so the
   // next open starts in it before the Sheet has loaded)
   setTheme: el => {
@@ -2459,7 +2625,7 @@ function bindEvents() {
     if (FULL_ON_INPUT.has(n)) { const r = fn(el); if (!(r && r.then)) render(); }
   });
   document.addEventListener('keydown', ev => {
-    if (ev.key === 'Escape' && (S.menu || S.viewer)) { S.menu = null; S.viewer = null; render(); }
+    if (ev.key === 'Escape' && (S.menu || S.viewer || S.sug)) { S.menu = null; S.viewer = null; S.sug = null; render(); }
     if (ev.key === 'Enter' && ev.target.matches('input.fld') && ev.target.dataset.in === 'wIn') A.saveWeight();
   });
   /* swipe a meal row left to reveal Edit, Copy and Delete */

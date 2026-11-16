@@ -307,6 +307,16 @@ function run_(action, p) {
     return analyzeItem({name: clip_(p.name, 120), serving_unit: clip_(p.serving_unit, 30), grams_per_unit: Number(p.grams_per_unit) || 0,
       quantity: Number(p.quantity) || 1, category: clip_(p.category, 30), note: clip_(p.note, 500)});
   }
+  if (action === 'suggestFoods') {
+    // numbers, a known meal type and short name lists only; the notes clipped like the calculator's
+    var lf = p.left || {}, nn = function (v, hi) { v = Number(v); return isFinite(v) ? Math.round(Math.min(hi, Math.max(0, v))) : 0; };
+    var names = function (a, n) { return (Array.isArray(a) ? a : []).slice(0, n).map(function (x) { return clip_(x, 60).replace(/[\r\n<>]/g, ' '); }).filter(String); };
+    return suggestFoods({
+      meal_type: ['Breakfast', 'Lunch', 'Snack', 'Dinner'].indexOf(p.meal_type) >= 0 ? p.meal_type : 'Snack',
+      left: {kcal: nn(lf.kcal, 5000), protein_g: nn(lf.protein_g, 400), carbs_g: nn(lf.carbs_g, 800), fat_g: nn(lf.fat_g, 300), fiber_g: nn(lf.fiber_g, 100), sugar_g: nn(lf.sugar_g, 300), sodium_mg: nn(lf.sodium_mg, 9000)},
+      notes: clip_(p.notes, 4000), usual: names(p.usual, 30), eaten: names(p.eaten, 20), exclude: names(p.exclude, 16)
+    });
+  }
   if (action === 'adjustTargets') {
     if (!String(p.notes || '').trim()) throw new Error('NO_NOTES');
     // the profile and targets as numbers and known words only; the notes clipped
