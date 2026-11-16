@@ -238,16 +238,19 @@ function estimateMeal_(p) {
 var LABEL_RULES = [
   'Copy the printed numbers; do not estimate. product (name, or a short description), serving_g, servings_per_pack, per_serving: kcal, protein_g, carbs_g (total carbohydrate), fat_g (total fat), sugar_g, fiber_g, sodium_mg.',
   'kJ only: divide by 4.184. Salt only: sodium_mg = salt g * 400. Per 100 g only: convert to one serving.',
-  'Blurry, cut off or missing value: 0, and list its key in unread_fields.'
+  'Blurry, cut off or missing value: 0, and list its key in unread_fields.',
+  'servings_eaten: how many servings the person had, from their note when it says: grams or ml divided by the serving size (120 g with 30 g per serving = 4), pieces against the pieces in one serving, "whole pack" = servings_per_pack, "half a pack" = half of it. The printed numbers stay per serving. No amount in the note: 1.'
 ];
 function labelSchema_() {
   return obj_({
-    product: str_(), serving_g: numT_(), servings_per_pack: numT_(), per_serving: obj_(values_(), VALUE_KEYS),
+    product: str_(), serving_g: numT_(), servings_per_pack: numT_(), servings_eaten: numT_(), per_serving: obj_(values_(), VALUE_KEYS),
     unread_fields: {type: 'array', items: {type: 'string', enum: VALUE_KEYS}}, confidence: conf_()
   }, ['product', 'serving_g', 'servings_per_pack', 'per_serving', 'unread_fields', 'confidence']);
 }
 function cleanLabel_(l) {
   (l.unread_fields || []).forEach(function (k) { if (l.per_serving) l.per_serving[k] = null; });
+  var se = Number(l.servings_eaten);
+  l.servings_eaten = isFinite(se) && se > 0 ? Math.min(50, Math.round(se * 100) / 100) : 1;
   return l;
 }
 
@@ -279,7 +282,8 @@ function analyzeImage_(p) {
 
 /** The label-only call, kept for pages that still ask for it by mode. */
 function readLabel_(p) {
-  var prompt = ['Read the nutrition facts label in this photo.'].concat(LABEL_RULES).concat(['Not a nutrition label: not_a_label true.']).join('\n');
+  var prompt = ['Read the nutrition facts label in this photo.'].concat(LABEL_RULES).concat(['Not a nutrition label: not_a_label true.'],
+    p.note ? ['User note, more reliable than the photo: "' + p.note + '"'] : []).join('\n');
   var schema = labelSchema_();
   schema.properties.not_a_label = {type: 'boolean'};
   var out = geminiJson_([{image: p.image, mime: p.mime || 'image/jpeg'}, {text: prompt}], schema);

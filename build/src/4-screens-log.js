@@ -399,7 +399,7 @@ SCREENS.label = () => {
     '<div class="between" style="height:34px;align-items:center;font-size:12px;color:var(--mu)"><span>Per serving' + (num(r.serving_g) ? ', ' + fmt(r.serving_g) + ' g' : '') + '</span><span>' + (num(r.servings_per_pack) ? fmt(r.servings_per_pack, 1) + ' servings in the pack' : '') + '</span></div><div class="sep"></div>' +
     ordered.map(tr).join('') + '</section>' +
     chips('labelType', MEAL_TYPES, Lb.meal_type, 'Meal') + whenRow('log', logState().date, logState().time) +
-    '<div class="row"><span class="grow" style="font-size:15px">Servings you ate</span>' + stepper(s, 'labelServ', 'servings', {large: true, boxed: true, min: 0.5}) + '</div>' +
+    '<div class="row"><span class="grow" style="font-size:15px">Servings you ate' + (Lb.fromNote ? '<span class="cap" style="display:block">From your note</span>' : '') + '</span>' + stepper(s, 'labelServ', 'servings', {large: true, boxed: true, min: 0.5}) + '</div>' +
     '<div data-part="ls-tot" class="pressed-sm r20 between" style="padding:14px 16px;align-items:center" aria-live="polite"><div><div class="num" style="font-size:30px">' + fmt(tot.kcal) + ' kcal</div><div class="cap">' + esc(Lb.meal_type) + ', ' + plural(s, 'serving') + '</div></div>' +
     '<div class="cap" style="text-align:right;line-height:1.6">Protein ' + fmt(tot.protein_g, 1) + ' g<br>Carbs ' + fmt(tot.carbs_g, 1) + ' g<br>Fat ' + fmt(tot.fat_g, 1) + ' g</div></div>' +
     '<div class="grow"></div>' +

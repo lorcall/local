@@ -96,6 +96,17 @@ ok(at.summary.length === 400 && at.changes.length === 1, 'the explanation is cli
 ok(/More fibre/.test(sentAt) && !/Z{4001}/.test(sentAt) && /Z{3000}/.test(sentAt) && !/script|secret/.test(sentAt), 'notes are clipped and unknown profile fields never reach the prompt');
 ok(/NO_NOTES/.test(post({token: T, action: 'adjustTargets', payload: {profile: prof, base, notes: '   '}}).error || ''), 'a check without notes is refused');
 ans = prevAns;
+// labels: the note reaches the label reader, and the servings it implies are kept sane
+const prevAns3 = ans;
+const LB = {product: 'Oat biscuits', serving_g: 30, servings_per_pack: 8, per_serving: {kcal: 140, protein_g: 2, carbs_g: 20, fat_g: 6, sugar_g: 7, fiber_g: 2, sodium_mg: 90}, unread_fields: [], confidence: 'high'};
+ans = JSON.stringify(Object.assign({}, LB, {servings_eaten: 4}));
+out = post({token: T, action: 'analyzePhoto', payload: {image: 'aGk=', mode: 'label', note: 'consumed 120g'}});
+ok(!out.error && out.result.servings_eaten === 4 && /consumed 120g/.test(geminiBodies.pop() || ''), 'the label reader gets the note and returns servings eaten');
+ans = JSON.stringify(Object.assign({}, LB, {servings_eaten: 999}));
+ok(post({token: T, action: 'analyzePhoto', payload: {image: 'aGk=', mode: 'label', note: 'x'}}).result.servings_eaten === 50, 'servings eaten are capped');
+ans = JSON.stringify(Object.assign({}, LB, {servings_eaten: -2}));
+ok(post({token: T, action: 'analyzePhoto', payload: {image: 'aGk=', mode: 'label'}}).result.servings_eaten === 1, 'a nonsense servings eaten becomes 1');
+ans = prevAns3;
 // food ideas: at most four, values kept sane, only clean short inputs reach the prompt
 const prevAns2 = ans;
 const bigItem = {name: 'X'.repeat(200), category: 'weird', serving_unit: 'cup', quantity: 99, grams_per_unit: 9000, kcal: 99999, protein_g: -5, carbs_g: 20, fat_g: 5, sugar_g: 1, fiber_g: 2, sodium_mg: 99999, confidence: 'high', reason: 'r'};

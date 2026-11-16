@@ -75,7 +75,17 @@ const DATA = {
   await page.click('[data-a=analyze]'); await page.waitForTimeout(1200);
   check(aiSent && aiSent.payload && aiSent.payload.mode === 'auto', 'photo sent with mode auto');
   check(/From the label/.test(await text()) && /Oat biscuits/.test(await page.inputValue('#ls-name')), 'a label photo opens the label screen');
+  check(await page.evaluate(() => S.label.servings) === 1 && !/From your note/.test(await text()), 'no amount in the note: one serving');
   await page.click('[data-a=back]'); await page.waitForTimeout(400);
+  await page.fill('#lm-note', 'consumed 120g'); await page.click('[data-a=analyze]'); await page.waitForTimeout(1200);
+  check(await page.evaluate(() => S.label.servings) === 4 && /From your note/.test(await text()) && /560 kcal/.test(await text()), 'grams in the note set the servings: 120 g at 30 g a serving = 4 (560 kcal)');
+  await page.click('[data-a=back]'); await page.waitForTimeout(400);
+  aiReply = Object.assign({}, aiReply, {servings_eaten: 8});
+  await page.fill('#lm-note', 'ate the whole pack'); await page.click('[data-a=analyze]'); await page.waitForTimeout(1200);
+  check(await page.evaluate(() => S.label.servings) === 8, 'an amount the AI read from the note ("whole pack") sets the servings');
+  check(await page.evaluate(() => [labelServings('2 pieces', {serving_g: 30, servings_eaten: 2}).n, labelServings('250 ml', {serving_g: 200}).n, labelServings('45,5 g', {serving_g: 0, servings_eaten: 1}).n]).then(x => x.join()) === '2,1.25,1', 'servings from notes: pieces via the AI, ml exactly, no serving size falls back');
+  await page.click('[data-a=back]'); await page.waitForTimeout(400);
+  await page.fill('#lm-note', '');
   aiReply = {kind: 'meal', items: [{name: 'Pasta', category: 'staple', serving_unit: 'plate', quantity: 1, grams_per_unit: 300, kcal: 520, protein_g: 18, carbs_g: 80, fat_g: 14, sugar_g: 6, fiber_g: 4, sodium_mg: 600, confidence: 'medium', reason: ''}], confidence: 'medium', reason: 'clear photo'};
   await page.click('[data-a=analyze]'); await page.waitForTimeout(1200);
   check(/Review/.test(await text()) && /Pasta/.test(await text()), 'a meal photo opens the review');

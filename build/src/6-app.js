@@ -341,6 +341,15 @@ function aiHints() {
 }
 
 /* ---------- builders ---------- */
+/* How many servings a label meal was. An amount in the note wins: grams or ml against the printed
+   serving size are worked out here exactly (120 g at 30 g a serving = 4); anything else the AI read
+   from the note ("whole pack", "2 pieces") comes back as servings_eaten. */
+function labelServings(note, r) {
+  const m = String(note || '').match(/(\d+(?:[.,]\d+)?)\s*(?:g|grams?|gms?|ml|mls)\b/i), sg = num(r.serving_g);
+  if (m && sg > 0) { const q = Math.round(num(m[1].replace(',', '.')) / sg * 100) / 100; if (q > 0 && q <= 50) return {n: q, fromNote: true}; }
+  const se = num(r.servings_eaten);
+  return se > 0 && se !== 1 ? {n: Math.min(50, se), fromNote: true} : {n: 1, fromNote: false};
+}
 function newMeal(type, extra) { const L = logState(); return Object.assign({meal_id: uid('meal'), date: L.date || today(), time: L.time || nowHM(), meal_type: type, photo_url: '', note: '', confidence: '', confidence_reason: '', source: 'photo', edited: false, thumb: ''}, extra || {}); }
 function entryFrom(src, mealId, q) {
   const e = {entry_id: uid('ent'), meal_id: mealId, name: src.name, category: src.category || 'other', serving_unit: src.serving_unit || 'serving', grams_per_unit: src.grams_per_unit, serving_label: src.serving_label || '', quantity: q || 1, confidence: src.confidence || 'high', edited: false, reason: src.reason || ''};
@@ -572,7 +581,8 @@ const A = {
       if (res.error) throw new Error('SERVER: ' + res.error);
       const r = res.result;
       if (r.kind === 'label' || (!r.items && r.per_serving)) {
-        S.label = {result: r, name: r.product || 'Packaged food', servings: 1, manual: {}, meal_type: L.meal_type, img: L.img, demo: S.meta.demo};
+        const sv = labelServings(L.note, r);
+        S.label = {result: r, name: r.product || 'Packaged food', servings: sv.n, fromNote: sv.fromNote, manual: {}, meal_type: L.meal_type, img: L.img, demo: S.meta.demo};
         L.busy = false; go('label');
       } else {
         const meal = newMeal(L.meal_type, {photo_url: L.photo_url, note: L.note, confidence: r.confidence || 'medium', confidence_reason: r.reason || '', thumb: L.thumb, source: 'photo'});
@@ -684,11 +694,11 @@ const A = {
     S.edit = null; S.stack.pop(); render();
   },
 
-  labelServ: el => { const Lb = S.label; Lb.servings = Math.max(0.5, (num(Lb.servings) || 1) + 0.5 * +el.dataset.v); render(); },
+  labelServ: el => { const Lb = S.label; Lb.servings = Math.max(0.5, (num(Lb.servings) || 1) + 0.5 * +el.dataset.v); Lb.fromNote = false; render(); },
   async saveLabel() {
     const Lb = S.label, L = logState(); if (!Lb || S.ui.busy) return;
     const ps = Object.assign({}, Lb.result.per_serving); Object.keys(Lb.manual).forEach(k => { if (has(Lb.manual[k])) ps[k] = num(Lb.manual[k]); });
-    const meal = newMeal(Lb.meal_type, {photo_url: L.photo_url, thumb: L.thumb, source: 'label', confidence: Lb.result.confidence || 'high', confidence_reason: 'Read from the printed label'});
+    const meal = newMeal(Lb.meal_type, {photo_url: L.photo_url, thumb: L.thumb, note: L.note || '', source: 'label', confidence: Lb.result.confidence || 'high', confidence_reason: 'Read from the printed label'});
     const src = Object.assign({name: Lb.name, category: 'snacks and sweets', serving_unit: 'serving', grams_per_unit: num(Lb.result.serving_g) || '', confidence: Lb.result.confidence || 'high'}, ps);
     if (/drink|juice|soda|milk|coffee|tea/i.test(Lb.name)) src.category = 'drinks';
     if (/noodle|bread|rice|cracker|biscuit|pasta|cereal/i.test(Lb.name)) src.category = /cracker|biscuit/i.test(Lb.name) ? 'snacks and sweets' : 'staple';
