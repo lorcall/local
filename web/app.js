@@ -2668,19 +2668,22 @@ const I = {
 /* inputs whose change should redraw everything (choices, not typing) */
 const FULL_ON_INPUT = new Set(['setting', 'photo', 'custom', 'itemCat', 'logDate', 'logTime', 'draftDate', 'draftTime']);
 
-/* One tick of a knob: turn it, then run its action a quarter up or down. If the value can't go
-   lower, the knob doesn't turn either. Focus follows the redrawn knob for keyboard use. */
-function dialStep(act, i, d, focus) {
-  const key = act + (i != null ? ':' + i : ''), fn = A[act]; if (!fn) return;
-  const sel = '[data-dial="' + act + '"]' + (i != null ? '[data-i="' + i + '"]' : ''), before = (document.querySelector(sel) || {}).getAttribute && document.querySelector(sel).getAttribute('aria-valuenow');
-  fn({dataset: {v: String(d), i: i == null ? undefined : String(i), fine: '1'}});
-  const el = document.querySelector(sel);
-  if (el && el.getAttribute('aria-valuenow') !== before) {
-    S.ui.dialRot = S.ui.dialRot || {}; S.ui.dialRot[key] = (S.ui.dialRot[key] || 0) + d * 30;
-    el.querySelector('.dial-knob').style.transform = 'rotate(' + S.ui.dialRot[key] + 'deg)';
-  }
-  if (focus && el) el.focus({preventScroll: true});
+/* The knob turns smoothly with the finger; the value moves in steps, a quarter for every 30° turned.
+   Its turn is kept in S.ui.dialRot so redraws (one per step) leave it where the finger is. */
+const dialKey = (act, i) => act + (i != null ? ':' + i : '');
+const dialSel = (act, i) => '[data-dial="' + act + '"]' + (i != null ? '[data-i="' + i + '"]' : '');
+function dialTurn(act, i, deg) {
+  const key = dialKey(act, i), el = document.querySelector(dialSel(act, i) + ' .dial-knob');
+  S.ui.dialRot = S.ui.dialRot || {}; S.ui.dialRot[key] = (S.ui.dialRot[key] || 0) + deg;
+  if (el) el.style.transform = 'rotate(' + S.ui.dialRot[key] + 'deg)';
 }
+function dialStep(act, i, d, focus) {
+  const fn = A[act]; if (!fn) return;
+  fn({dataset: {v: String(d), i: i == null ? undefined : String(i), fine: '1'}});
+  const el = document.querySelector(dialSel(act, i));
+  if (el) { el.querySelector('.dial-knob').style.transform = 'rotate(' + ((S.ui.dialRot || {})[dialKey(act, i)] || 0) + 'deg)'; if (focus) el.focus({preventScroll: true}); }
+}
+const dialAtMin = (act, i) => { const el = document.querySelector(dialSel(act, i)); return el && num(el.getAttribute('aria-valuenow')) <= 0.25; };
 function bindDials() {
   let g = null;
   const ang = (ev) => Math.atan2(ev.clientY - g.cy, ev.clientX - g.cx);
@@ -2689,7 +2692,8 @@ function bindDials() {
     const k = d.querySelector('.dial-knob').getBoundingClientRect();
     g = {act: d.dataset.dial, i: d.dataset.i, cx: k.left + k.width / 2, cy: k.top + k.height / 2, acc: 0, id: ev.pointerId};
     g.a = ang(ev);
-    // the knob is redrawn as it turns; #app stays, so it keeps the finger
+    document.body.classList.add('dialing');
+    // the knob is redrawn at each step; #app stays, so it keeps the finger
     try { document.getElementById('app').setPointerCapture(ev.pointerId); } catch (e) {}
     ev.preventDefault();
   });
@@ -2698,16 +2702,22 @@ function bindDials() {
     if (Math.hypot(ev.clientX - g.cx, ev.clientY - g.cy) < 8) return;  // too near the middle to tell the direction
     const a = ang(ev); let da = a - g.a; g.a = a;
     if (da > Math.PI) da -= 2 * Math.PI; if (da < -Math.PI) da += 2 * Math.PI;
-    g.acc += da * 180 / Math.PI;
+    let deg = da * 180 / Math.PI;
+    // at a quarter it won't go lower, so the knob stops turning that way too
+    if (deg < 0 && g.acc + deg < 0 && dialAtMin(g.act, g.i)) deg = Math.min(0, -g.acc);
+    if (!deg) return;
+    g.acc += deg; dialTurn(g.act, g.i, deg);
     while (g.acc >= 30) { g.acc -= 30; dialStep(g.act, g.i, 1); }
-    while (g.acc <= -30) { g.acc += 30; dialStep(g.act, g.i, -1); }
+    while (g.acc <= -30 && !dialAtMin(g.act, g.i)) { g.acc += 30; dialStep(g.act, g.i, -1); }
   });
-  const end = ev => { if (g && ev.pointerId === g.id) g = null; };
+  const end = ev => { if (g && ev.pointerId === g.id) { g = null; document.body.classList.remove('dialing'); } };
   document.addEventListener('pointerup', end); document.addEventListener('pointercancel', end);
   document.addEventListener('keydown', ev => {
     const d = ev.target.closest && ev.target.closest('[data-dial]'); if (!d) return;
     const dir = {ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1}[ev.key]; if (!dir) return;
-    ev.preventDefault(); dialStep(d.dataset.dial, d.dataset.i, dir, true);
+    ev.preventDefault();
+    if (dir < 0 && dialAtMin(d.dataset.dial, d.dataset.i)) return;
+    dialTurn(d.dataset.dial, d.dataset.i, dir * 30); dialStep(d.dataset.dial, d.dataset.i, dir, true);
   });
 }
 

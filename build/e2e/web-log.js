@@ -87,13 +87,19 @@ const DATA = {
     await page.mouse.up(); await page.waitForTimeout(150); };
   await page.mouse.move(cx, cy - R); await turn(-Math.PI / 2, -Math.PI / 2 + Math.PI / 2 + 0.05);
   check(await page.evaluate(() => S.label.servings) === 4.75 && /4.75/.test(await page.textContent('[data-dial="labelServ"]')), 'turning the knob a quarter turn clockwise adds three quarter servings (' + await page.evaluate(() => S.label.servings) + ')');
-  check(await page.evaluate(() => /rotate\(90deg\)/.test(document.querySelector('[data-dial="labelServ"] .dial-knob').style.transform)), 'the knob turns with the finger');
+  check(await page.evaluate(() => { const m = document.querySelector('[data-dial="labelServ"] .dial-knob').style.transform.match(/rotate\((-?[\d.]+)deg/); return m && Math.abs(+m[1] - 93) < 4; }), 'the knob turns smoothly with the finger, not just in steps');
   await turn(0.05, -Math.PI / 2 - 0.05 - Math.PI / 6);
   check(await page.evaluate(() => S.label.servings) === 3.75, 'turning back anticlockwise takes servings away (' + await page.evaluate(() => S.label.servings) + ')');
   await page.focus('[data-dial="labelServ"]'); await page.keyboard.press('ArrowUp');
   check(await page.evaluate(() => S.label.servings) === 4 && await page.evaluate(() => document.activeElement && document.activeElement.dataset.dial === 'labelServ'), 'arrow keys turn it too and keep focus');
   await page.evaluate(() => { S.label.servings = 0.25; render(); }); await page.focus('[data-dial="labelServ"]'); await page.keyboard.press('ArrowDown');
   check(await page.evaluate(() => S.label.servings) === 0.25, 'never below a quarter');
+  await page.evaluate(() => { S.ui.dialRot = {}; render(); });
+  const kb2 = await (await page.$('[data-dial="labelServ"] .dial-knob')).boundingBox();
+  await page.mouse.move(kb2.x + kb2.width / 2, kb2.y + 6); await page.mouse.down();
+  for (let k = 1; k <= 12; k++) { const t = -Math.PI / 2 - k * 0.1; await page.mouse.move(kb2.x + kb2.width / 2 + 40 * Math.cos(t), kb2.y + kb2.height / 2 + 40 * Math.sin(t)); }
+  await page.mouse.up();
+  check(await page.evaluate(() => (S.ui.dialRot.labelServ || 0) === 0 && S.label.servings === 0.25), 'at a quarter the knob will not turn lower');
   await page.click('[data-a=back]'); await page.waitForTimeout(400);
   aiReply = Object.assign({}, aiReply, {servings_eaten: 8});
   await page.fill('#lm-note', 'ate the whole pack'); await page.click('[data-a=analyze]'); await page.waitForTimeout(1200);
