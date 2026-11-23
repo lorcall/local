@@ -303,9 +303,11 @@ SCREENS.review = () => {
     const head = '<div class="between"><button data-a="editItem" data-v="' + i + '" style="font-size:15px;font-weight:500;text-align:left">' + esc(e.name || 'Unnamed item') + '</button><span style="font-size:15px;white-space:nowrap">' + (has(e.kcal) ? fmt(e.kcal) + ' kcal' : '<span class="ov">Set kcal</span>') + '</span></div>';
     if (low) return '<div class="icard low">' + head + '<div class="ov" style="font-size:13px;font-weight:500">Low confidence: ' + esc(e.reason || 'check this item') + '</div>' +
       '<div class="cap13">' + (num(e.sodium_mg) >= 300 ? 'Sodium of ' + fmt(e.sodium_mg) + ' mg is a guess. ' : '') + 'Check it before saving. <a href="#" data-a="editItem" data-v="' + i + '">Check it</a></div></div>';
-    return '<div class="icard raised-md">' + head + '<div class="row" style="gap:10px">' +
-      '<button class="pressed-sm sel" data-a="editItem" data-v="' + i + '" aria-label="Serving: ' + esc(amountLabel(Object.assign({}, e, {quantity: 1}))) + '. Edit">' + esc(servingLabel(e)) + icon('down', 16, 2, ' style="color:var(--mu)"') + '</button>' +
-      '<span class="grow"></span>' + dial(num(e.quantity) || 1, 'itemQty', 'Amount of ' + (e.name || 'item'), {i}) + '</div></div>';
+    // name and serving on the left, the amount beside the serving, the knob on the right across both rows
+    return '<div class="icard raised-md icard-dial">' + head + '<div class="row" style="gap:12px;min-width:0">' +
+      '<button class="pressed-sm sel" data-a="editItem" data-v="' + i + '" style="flex:1;min-width:0" aria-label="Serving: ' + esc(amountLabel(Object.assign({}, e, {quantity: 1}))) + '. Edit">' + esc(servingLabel(e)) + icon('down', 16, 2, ' style="color:var(--mu)"') + '</button>' +
+      '<span class="dial-val" aria-hidden="true" style="min-width:0;text-align:right">' + fmt(num(e.quantity) || 1, 2) + '</span></div>' +
+      dial(num(e.quantity) || 1, 'itemQty', 'Amount of ' + (e.name || 'item'), {i, xl: true, noVal: true}) + '</div>';
   };
   const photo = isNew && D.source === 'photo' && S.log && S.log.img ? {src: S.log.img} : hasPhoto(m) ? {m} : null;
   const photoRow = photo ? '<button class="raised-md r20 row" data-a="viewPhoto" style="padding:10px;gap:12px;text-align:left;width:100%">' +

@@ -149,7 +149,11 @@ h1,h2,h3,p{margin:0}
 .dial-knob::before{content:"";position:absolute;inset:3px;border-radius:50%;background:repeating-conic-gradient(var(--mu) 0 3deg,transparent 3deg 30deg);opacity:.45;-webkit-mask:radial-gradient(circle,transparent 62%,#000 64%);mask:radial-gradient(circle,transparent 62%,#000 64%)}
 .dial-dot{position:absolute;left:50%;top:8px;width:9px;height:9px;margin-left:-4.5px;border-radius:50%;background:var(--a);box-shadow:0 0 6px var(--a)}
 .dial-val{min-width:40px;font-size:17px;text-align:left;font-variant-numeric:tabular-nums}
-.dial.l .dial-knob{width:64px;height:64px}.dial.l .dial-val{font-size:20px;min-width:44px}
+.dial.l .dial-knob{width:64px;height:64px}
+.dial.xl .dial-knob{width:92px;height:92px;box-shadow:5px 5px 11px var(--lo),-5px -5px 11px var(--hi)}.dial.xl .dial-knob::before{inset:5px}
+.dial.xl .dial-dot{top:12px;width:13px;height:13px;margin-left:-6.5px;box-shadow:0 0 9px var(--a)}
+.icard.icard-dial{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:14px;row-gap:10px;align-items:center}
+.icard.icard-dial>.dial{grid-column:2;grid-row:1/span 2}.dial.l .dial-val{font-size:20px;min-width:44px}
 /* following the finger: no easing, or it lags behind */
 body.dialing .dial-knob{transition:none}
 @media (prefers-reduced-motion:reduce){.dial-knob{transition:none}}

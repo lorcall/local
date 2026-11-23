@@ -158,9 +158,9 @@ function stepper(val, act, label, o = {}) {
    turn between redraws (S.ui.dialRot), so it moves with the finger. */
 function dial(val, act, label, o = {}) {
   const key = act + (o.i != null ? ':' + o.i : ''), rot = (S.ui.dialRot && S.ui.dialRot[key]) || 0;
-  return '<div class="dial' + (o.large ? ' l' : '') + '" role="slider" tabindex="0" aria-label="' + esc(label) + '. Turn the knob to change it" aria-valuenow="' + num(val) + '" aria-valuemin="0.25" aria-valuetext="' + fmt(val, 2) + '" data-dial="' + act + '"' + (o.i != null ? ' data-i="' + o.i + '"' : '') + '>' +
+  return '<div class="dial' + (o.large ? ' l' : '') + (o.xl ? ' xl' : '') + '" role="slider" tabindex="0" aria-label="' + esc(label) + '. Turn the knob to change it" aria-valuenow="' + num(val) + '" aria-valuemin="0.25" aria-valuetext="' + fmt(val, 2) + '" data-dial="' + act + '"' + (o.i != null ? ' data-i="' + o.i + '"' : '') + '>' +
     '<span class="dial-knob" aria-hidden="true" style="transform:rotate(' + rot + 'deg)"><span class="dial-dot"></span></span>' +
-    '<span class="dial-val" aria-hidden="true">' + fmt(val, 2) + '</span></div>';
+    (o.noVal ? '' : '<span class="dial-val" aria-hidden="true">' + fmt(val, 2) + '</span>') + '</div>';
 }
 function switchBtn(on, act, label, arg) {
   return '<button class="sw" role="switch" aria-checked="' + !!on + '" aria-label="' + esc(label) + '" data-a="' + act + '"' + (arg != null ? ' data-v="' + esc(arg) + '"' : '') + '><span class="knob"></span></button>';
