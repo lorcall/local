@@ -429,6 +429,8 @@ function applyRef() {
   if (f == null) { E.ref = snap(it); return; }
   VALUES.forEach(v => { if (has(R[v])) it[v] = r1(num(R[v]) * f); });
 }
+/* the knob's step: a quarter at a time, never below a quarter */
+const fineQ = (q, d) => Math.max(0.25, Math.round((q + d * 0.25) * 4) / 4);
 const stepQ = (q, d, u) => {
   if (['cup', 'bowl', 'g'].includes(u)) return Math.max(0.5, q + d * 0.5);
   return d > 0 ? (q < 1 ? q + 0.5 : q + 1) : (q <= 1 ? Math.max(0.5, q - 0.5) : q - 1);
@@ -596,7 +598,7 @@ const A = {
   reanalyze: () => { if (S.stack.length > 1) S.stack.pop(); S.draft = null; render(); A.analyze(); },
 
   editItem: el => { const i = +el.dataset.v; openEdit('draft', i, S.draft.items[i]); },
-  itemQty: el => { const i = +el.dataset.i, it = S.draft.items[i]; S.draft.items[i] = rescale(it, null, stepQ(num(it.quantity) || 1, +el.dataset.v, it.serving_unit)); render(); },
+  itemQty: el => { const i = +el.dataset.i, it = S.draft.items[i], q = num(it.quantity) || 1; S.draft.items[i] = rescale(it, null, el.dataset.fine ? fineQ(q, +el.dataset.v) : stepQ(q, +el.dataset.v, it.serving_unit)); render(); },
   addItem: () => openEdit('draft', -1, {name: '', serving_unit: 'g', grams_per_unit: 100, quantity: 1, category: 'other', confidence: 'high', kcal: '', protein_g: '', carbs_g: '', fat_g: '', sugar_g: '', fiber_g: '', sodium_mg: ''}, {manual: true}),
   async saveDraft() {
     const D = S.draft; if (!D || S.ui.busy || !D.items.length) return;
@@ -663,7 +665,7 @@ const A = {
 
   manual: () => { S.edit.manual = !S.edit.manual; render(); },
   itemUnit: el => { const it = S.edit.item; it.serving_unit = el.dataset.v; it.serving_label = ''; S.edit.ref.q = num(it.quantity) || 1; S.edit.ref.g = num(it.grams_per_unit); render(); },
-  editQty: el => { const it = S.edit.item; it.quantity = stepQ(num(it.quantity) || 1, +el.dataset.v, it.serving_unit); it.serving_label = ''; applyRef(); render(); },
+  editQty: el => { const it = S.edit.item, q = num(it.quantity) || 1; it.quantity = el.dataset.fine ? fineQ(q, +el.dataset.v) : stepQ(q, +el.dataset.v, it.serving_unit); it.serving_label = ''; applyRef(); render(); },
   useMacroKcal: () => { const it = S.edit.item; it.kcal = r0(macroKcal(it)); S.edit.ref = snap(it); S.edit.edited = true; render(); },
   tglEdited: () => { S.edit.edited = !S.edit.edited; render(); },
   tglDefault: () => { S.edit.asDefault = !S.edit.asDefault; if (S.edit.asDefault) S.edit.edited = true; render(); },
@@ -694,7 +696,7 @@ const A = {
     S.edit = null; S.stack.pop(); render();
   },
 
-  labelServ: el => { const Lb = S.label; Lb.servings = Math.max(0.5, (num(Lb.servings) || 1) + 0.5 * +el.dataset.v); Lb.fromNote = false; render(); },
+  labelServ: el => { const Lb = S.label, q = num(Lb.servings) || 1; Lb.servings = el.dataset.fine ? fineQ(q, +el.dataset.v) : Math.max(0.5, q + 0.5 * +el.dataset.v); Lb.fromNote = false; render(); },
   async saveLabel() {
     const Lb = S.label, L = logState(); if (!Lb || S.ui.busy) return;
     const ps = Object.assign({}, Lb.result.per_serving); Object.keys(Lb.manual).forEach(k => { if (has(Lb.manual[k])) ps[k] = num(Lb.manual[k]); });
@@ -927,7 +929,51 @@ const I = {
 /* inputs whose change should redraw everything (choices, not typing) */
 const FULL_ON_INPUT = new Set(['setting', 'photo', 'custom', 'itemCat', 'logDate', 'logTime', 'draftDate', 'draftTime']);
 
+/* One tick of a knob: turn it, then run its action a quarter up or down. If the value can't go
+   lower, the knob doesn't turn either. Focus follows the redrawn knob for keyboard use. */
+function dialStep(act, i, d, focus) {
+  const key = act + (i != null ? ':' + i : ''), fn = A[act]; if (!fn) return;
+  const sel = '[data-dial="' + act + '"]' + (i != null ? '[data-i="' + i + '"]' : ''), before = (document.querySelector(sel) || {}).getAttribute && document.querySelector(sel).getAttribute('aria-valuenow');
+  fn({dataset: {v: String(d), i: i == null ? undefined : String(i), fine: '1'}});
+  const el = document.querySelector(sel);
+  if (el && el.getAttribute('aria-valuenow') !== before) {
+    S.ui.dialRot = S.ui.dialRot || {}; S.ui.dialRot[key] = (S.ui.dialRot[key] || 0) + d * 30;
+    el.querySelector('.dial-knob').style.transform = 'rotate(' + S.ui.dialRot[key] + 'deg)';
+  }
+  if (focus && el) el.focus({preventScroll: true});
+}
+function bindDials() {
+  let g = null;
+  const ang = (ev) => Math.atan2(ev.clientY - g.cy, ev.clientX - g.cx);
+  document.addEventListener('pointerdown', ev => {
+    const d = ev.target.closest('[data-dial]'); if (!d) return;
+    const k = d.querySelector('.dial-knob').getBoundingClientRect();
+    g = {act: d.dataset.dial, i: d.dataset.i, cx: k.left + k.width / 2, cy: k.top + k.height / 2, acc: 0, id: ev.pointerId};
+    g.a = ang(ev);
+    // the knob is redrawn as it turns; #app stays, so it keeps the finger
+    try { document.getElementById('app').setPointerCapture(ev.pointerId); } catch (e) {}
+    ev.preventDefault();
+  });
+  document.addEventListener('pointermove', ev => {
+    if (!g || ev.pointerId !== g.id) return;
+    if (Math.hypot(ev.clientX - g.cx, ev.clientY - g.cy) < 8) return;  // too near the middle to tell the direction
+    const a = ang(ev); let da = a - g.a; g.a = a;
+    if (da > Math.PI) da -= 2 * Math.PI; if (da < -Math.PI) da += 2 * Math.PI;
+    g.acc += da * 180 / Math.PI;
+    while (g.acc >= 30) { g.acc -= 30; dialStep(g.act, g.i, 1); }
+    while (g.acc <= -30) { g.acc += 30; dialStep(g.act, g.i, -1); }
+  });
+  const end = ev => { if (g && ev.pointerId === g.id) g = null; };
+  document.addEventListener('pointerup', end); document.addEventListener('pointercancel', end);
+  document.addEventListener('keydown', ev => {
+    const d = ev.target.closest && ev.target.closest('[data-dial]'); if (!d) return;
+    const dir = {ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1}[ev.key]; if (!dir) return;
+    ev.preventDefault(); dialStep(d.dataset.dial, d.dataset.i, dir, true);
+  });
+}
+
 function bindEvents() {
+  bindDials();
   document.addEventListener('click', ev => {
     if (S.ui.suppressClick) { ev.preventDefault(); ev.stopPropagation(); return; }
     const el = ev.target.closest('[data-a]'); if (!el) return;

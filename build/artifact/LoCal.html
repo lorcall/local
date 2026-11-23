@@ -147,6 +147,14 @@ h1,h2,h3,p{margin:0}
 .ib.m{color:var(--link)}
 .ib44{width:44px;height:44px}
 .ib40{width:40px;height:40px}
+.dial{display:flex;align-items:center;gap:10px;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab;border-radius:30px;outline-offset:3px}
+.dial-knob{position:relative;width:46px;height:46px;border-radius:50%;flex-shrink:0;background:var(--g);box-shadow:3px 3px 7px var(--lo),-3px -3px 7px var(--hi);transition:transform .12s ease-out}
+/* ticks round the edge, one per quarter step, cut to a thin ring */
+.dial-knob::before{content:"";position:absolute;inset:3px;border-radius:50%;background:repeating-conic-gradient(var(--mu) 0 3deg,transparent 3deg 30deg);opacity:.45;-webkit-mask:radial-gradient(circle,transparent 62%,#000 64%);mask:radial-gradient(circle,transparent 62%,#000 64%)}
+.dial-dot{position:absolute;left:50%;top:7px;width:7px;height:7px;margin-left:-3.5px;border-radius:50%;background:var(--a);box-shadow:0 0 6px var(--a)}
+.dial-val{min-width:38px;font-size:16px;text-align:left;font-variant-numeric:tabular-nums}
+.dial.l .dial-knob{width:54px;height:54px}.dial.l .dial-val{font-size:20px;min-width:44px}
+@media (prefers-reduced-motion:reduce){.dial-knob{transition:none}}
 .st{width:40px;height:40px;border-radius:50%;color:var(--link);font-size:18px;background:var(--g);box-shadow:3px 3px 6px var(--lo),-3px -3px 6px var(--hi);flex-shrink:0;display:flex;align-items:center;justify-content:center}
 .st.l{width:44px;height:44px;font-size:20px;box-shadow:4px 4px 8px var(--lo),-4px -4px 8px var(--hi)}
 .st[disabled]{opacity:.45;cursor:default}
@@ -1080,6 +1088,15 @@ function stepper(val, act, label, o = {}) {
       : '<span style="min-width:18px;text-align:center" aria-live="polite">' + fmt(val, 2) + '</span>') +
     '<button class="st' + (o.large ? ' l' : '') + '" data-a="' + act + '" data-v="1" aria-label="More ' + esc(label) + '">+</button>';
 }
+/* A small turning knob in place of − and +: turn clockwise for more, anticlockwise for less, a
+   quarter at each tick (30°). The value sits beside it. Arrow keys work too. The knob keeps its
+   turn between redraws (S.ui.dialRot), so it moves with the finger. */
+function dial(val, act, label, o = {}) {
+  const key = act + (o.i != null ? ':' + o.i : ''), rot = (S.ui.dialRot && S.ui.dialRot[key]) || 0;
+  return '<div class="dial' + (o.large ? ' l' : '') + '" role="slider" tabindex="0" aria-label="' + esc(label) + '. Turn the knob to change it" aria-valuenow="' + num(val) + '" aria-valuemin="0.25" aria-valuetext="' + fmt(val, 2) + '" data-dial="' + act + '"' + (o.i != null ? ' data-i="' + o.i + '"' : '') + '>' +
+    '<span class="dial-knob" aria-hidden="true" style="transform:rotate(' + rot + 'deg)"><span class="dial-dot"></span></span>' +
+    '<span class="dial-val" aria-hidden="true">' + fmt(val, 2) + '</span></div>';
+}
 function switchBtn(on, act, label, arg) {
   return '<button class="sw" role="switch" aria-checked="' + !!on + '" aria-label="' + esc(label) + '" data-a="' + act + '"' + (arg != null ? ' data-v="' + esc(arg) + '"' : '') + '><span class="knob"></span></button>';
 }
@@ -1462,7 +1479,7 @@ SCREENS.review = () => {
       '<div class="cap13">' + (num(e.sodium_mg) >= 300 ? 'Sodium of ' + fmt(e.sodium_mg) + ' mg is a guess. ' : '') + 'Check it before saving. <a href="#" data-a="editItem" data-v="' + i + '">Check it</a></div></div>';
     return '<div class="icard raised-md">' + head + '<div class="row" style="gap:10px">' +
       '<button class="pressed-sm sel" data-a="editItem" data-v="' + i + '" aria-label="Serving: ' + esc(amountLabel(Object.assign({}, e, {quantity: 1}))) + '. Edit">' + esc(servingLabel(e)) + icon('down', 16, 2, ' style="color:var(--mu)"') + '</button>' +
-      stepper(num(e.quantity) || 1, 'itemQty', 'of ' + (e.name || 'item'), {min: 0.5}).replace(/data-a="itemQty"/g, 'data-a="itemQty" data-i="' + i + '"') + '</div></div>';
+      '<span class="grow"></span>' + dial(num(e.quantity) || 1, 'itemQty', 'Amount of ' + (e.name || 'item'), {i}) + '</div></div>';
   };
   const photo = isNew && D.source === 'photo' && S.log && S.log.img ? {src: S.log.img} : hasPhoto(m) ? {m} : null;
   const photoRow = photo ? '<button class="raised-md r20 row" data-a="viewPhoto" style="padding:10px;gap:12px;text-align:left;width:100%">' +
@@ -1518,7 +1535,7 @@ SCREENS.edit = () => {
     '<div class="col" style="gap:8px"><span class="lb">Serving</span>' + chips('itemUnit', units.map(x => [x, UNIT_LABEL[x] || cap1(x)]), u, 'Serving', {h: 38}) +
     '<div class="row" style="gap:12px"><label for="ei-g" style="font-size:14px;flex-shrink:0">' + (u === 'g' ? 'Portion' : '1 ' + esc(u) + ' is') + '</label>' +
     '<span class="row" style="gap:6px"><input id="ei-g" class="fld" type="number" inputmode="decimal" value="' + (g || '') + '" placeholder="—" data-in="itemGrams" style="width:84px;text-align:right"><span class="mu">g</span></span>' +
-    '<span class="grow"></span>' + stepper(q, 'editQty', 'servings', {min: 0.5}) + '</div></div>' +
+    '<span class="grow"></span>' + dial(q, 'editQty', 'Servings') + '</div></div>' +
     '<section class="raised r24" style="padding:14px;display:flex;flex-direction:column;gap:10px"><div class="between" data-part="ei-vh"><h2 class="sec15">Values for ' + forLabel + '</h2>' +
     (origG && nowG && Math.abs(origG - nowG) > 0.5 ? '<span class="cap">Rescaled from ' + fmt(origG) + ' g</span>' : '') + '</div>' +
     '<div data-part="ei-grid" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">' + cell('kcal', true) + VALUES.slice(1).map(k => cell(k)).join('') + '</div>' +
@@ -1556,7 +1573,7 @@ SCREENS.label = () => {
     '<div class="between" style="height:34px;align-items:center;font-size:12px;color:var(--mu)"><span>Per serving' + (num(r.serving_g) ? ', ' + fmt(r.serving_g) + ' g' : '') + '</span><span>' + (num(r.servings_per_pack) ? fmt(r.servings_per_pack, 1) + ' servings in the pack' : '') + '</span></div><div class="sep"></div>' +
     ordered.map(tr).join('') + '</section>' +
     chips('labelType', MEAL_TYPES, Lb.meal_type, 'Meal') + whenRow('log', logState().date, logState().time) +
-    '<div class="row"><span class="grow" style="font-size:15px">Servings you ate' + (Lb.fromNote ? '<span class="cap" style="display:block">From your note</span>' : '') + '</span>' + stepper(s, 'labelServ', 'servings', {large: true, boxed: true, min: 0.5}) + '</div>' +
+    '<div class="row"><span class="grow" style="font-size:15px">Servings you ate' + (Lb.fromNote ? '<span class="cap" style="display:block">From your note</span>' : '') + '</span>' + dial(s, 'labelServ', 'Servings you ate', {large: true}) + '</div>' +
     '<div data-part="ls-tot" class="pressed-sm r20 between" style="padding:14px 16px;align-items:center" aria-live="polite"><div><div class="num" style="font-size:30px">' + fmt(tot.kcal) + ' kcal</div><div class="cap">' + esc(Lb.meal_type) + ', ' + plural(s, 'serving') + '</div></div>' +
     '<div class="cap" style="text-align:right;line-height:1.6">Protein ' + fmt(tot.protein_g, 1) + ' g<br>Carbs ' + fmt(tot.carbs_g, 1) + ' g<br>Fat ' + fmt(tot.fat_g, 1) + ' g</div></div>' +
     '<div class="grow"></div>' +
@@ -2540,6 +2557,8 @@ function applyRef() {
   if (f == null) { E.ref = snap(it); return; }
   VALUES.forEach(v => { if (has(R[v])) it[v] = r1(num(R[v]) * f); });
 }
+/* the knob's step: a quarter at a time, never below a quarter */
+const fineQ = (q, d) => Math.max(0.25, Math.round((q + d * 0.25) * 4) / 4);
 const stepQ = (q, d, u) => {
   if (['cup', 'bowl', 'g'].includes(u)) return Math.max(0.5, q + d * 0.5);
   return d > 0 ? (q < 1 ? q + 0.5 : q + 1) : (q <= 1 ? Math.max(0.5, q - 0.5) : q - 1);
@@ -2707,7 +2726,7 @@ const A = {
   reanalyze: () => { if (S.stack.length > 1) S.stack.pop(); S.draft = null; render(); A.analyze(); },
 
   editItem: el => { const i = +el.dataset.v; openEdit('draft', i, S.draft.items[i]); },
-  itemQty: el => { const i = +el.dataset.i, it = S.draft.items[i]; S.draft.items[i] = rescale(it, null, stepQ(num(it.quantity) || 1, +el.dataset.v, it.serving_unit)); render(); },
+  itemQty: el => { const i = +el.dataset.i, it = S.draft.items[i], q = num(it.quantity) || 1; S.draft.items[i] = rescale(it, null, el.dataset.fine ? fineQ(q, +el.dataset.v) : stepQ(q, +el.dataset.v, it.serving_unit)); render(); },
   addItem: () => openEdit('draft', -1, {name: '', serving_unit: 'g', grams_per_unit: 100, quantity: 1, category: 'other', confidence: 'high', kcal: '', protein_g: '', carbs_g: '', fat_g: '', sugar_g: '', fiber_g: '', sodium_mg: ''}, {manual: true}),
   async saveDraft() {
     const D = S.draft; if (!D || S.ui.busy || !D.items.length) return;
@@ -2774,7 +2793,7 @@ const A = {
 
   manual: () => { S.edit.manual = !S.edit.manual; render(); },
   itemUnit: el => { const it = S.edit.item; it.serving_unit = el.dataset.v; it.serving_label = ''; S.edit.ref.q = num(it.quantity) || 1; S.edit.ref.g = num(it.grams_per_unit); render(); },
-  editQty: el => { const it = S.edit.item; it.quantity = stepQ(num(it.quantity) || 1, +el.dataset.v, it.serving_unit); it.serving_label = ''; applyRef(); render(); },
+  editQty: el => { const it = S.edit.item, q = num(it.quantity) || 1; it.quantity = el.dataset.fine ? fineQ(q, +el.dataset.v) : stepQ(q, +el.dataset.v, it.serving_unit); it.serving_label = ''; applyRef(); render(); },
   useMacroKcal: () => { const it = S.edit.item; it.kcal = r0(macroKcal(it)); S.edit.ref = snap(it); S.edit.edited = true; render(); },
   tglEdited: () => { S.edit.edited = !S.edit.edited; render(); },
   tglDefault: () => { S.edit.asDefault = !S.edit.asDefault; if (S.edit.asDefault) S.edit.edited = true; render(); },
@@ -2805,7 +2824,7 @@ const A = {
     S.edit = null; S.stack.pop(); render();
   },
 
-  labelServ: el => { const Lb = S.label; Lb.servings = Math.max(0.5, (num(Lb.servings) || 1) + 0.5 * +el.dataset.v); Lb.fromNote = false; render(); },
+  labelServ: el => { const Lb = S.label, q = num(Lb.servings) || 1; Lb.servings = el.dataset.fine ? fineQ(q, +el.dataset.v) : Math.max(0.5, q + 0.5 * +el.dataset.v); Lb.fromNote = false; render(); },
   async saveLabel() {
     const Lb = S.label, L = logState(); if (!Lb || S.ui.busy) return;
     const ps = Object.assign({}, Lb.result.per_serving); Object.keys(Lb.manual).forEach(k => { if (has(Lb.manual[k])) ps[k] = num(Lb.manual[k]); });
@@ -3038,7 +3057,51 @@ const I = {
 /* inputs whose change should redraw everything (choices, not typing) */
 const FULL_ON_INPUT = new Set(['setting', 'photo', 'custom', 'itemCat', 'logDate', 'logTime', 'draftDate', 'draftTime']);
 
+/* One tick of a knob: turn it, then run its action a quarter up or down. If the value can't go
+   lower, the knob doesn't turn either. Focus follows the redrawn knob for keyboard use. */
+function dialStep(act, i, d, focus) {
+  const key = act + (i != null ? ':' + i : ''), fn = A[act]; if (!fn) return;
+  const sel = '[data-dial="' + act + '"]' + (i != null ? '[data-i="' + i + '"]' : ''), before = (document.querySelector(sel) || {}).getAttribute && document.querySelector(sel).getAttribute('aria-valuenow');
+  fn({dataset: {v: String(d), i: i == null ? undefined : String(i), fine: '1'}});
+  const el = document.querySelector(sel);
+  if (el && el.getAttribute('aria-valuenow') !== before) {
+    S.ui.dialRot = S.ui.dialRot || {}; S.ui.dialRot[key] = (S.ui.dialRot[key] || 0) + d * 30;
+    el.querySelector('.dial-knob').style.transform = 'rotate(' + S.ui.dialRot[key] + 'deg)';
+  }
+  if (focus && el) el.focus({preventScroll: true});
+}
+function bindDials() {
+  let g = null;
+  const ang = (ev) => Math.atan2(ev.clientY - g.cy, ev.clientX - g.cx);
+  document.addEventListener('pointerdown', ev => {
+    const d = ev.target.closest('[data-dial]'); if (!d) return;
+    const k = d.querySelector('.dial-knob').getBoundingClientRect();
+    g = {act: d.dataset.dial, i: d.dataset.i, cx: k.left + k.width / 2, cy: k.top + k.height / 2, acc: 0, id: ev.pointerId};
+    g.a = ang(ev);
+    // the knob is redrawn as it turns; #app stays, so it keeps the finger
+    try { document.getElementById('app').setPointerCapture(ev.pointerId); } catch (e) {}
+    ev.preventDefault();
+  });
+  document.addEventListener('pointermove', ev => {
+    if (!g || ev.pointerId !== g.id) return;
+    if (Math.hypot(ev.clientX - g.cx, ev.clientY - g.cy) < 8) return;  // too near the middle to tell the direction
+    const a = ang(ev); let da = a - g.a; g.a = a;
+    if (da > Math.PI) da -= 2 * Math.PI; if (da < -Math.PI) da += 2 * Math.PI;
+    g.acc += da * 180 / Math.PI;
+    while (g.acc >= 30) { g.acc -= 30; dialStep(g.act, g.i, 1); }
+    while (g.acc <= -30) { g.acc += 30; dialStep(g.act, g.i, -1); }
+  });
+  const end = ev => { if (g && ev.pointerId === g.id) g = null; };
+  document.addEventListener('pointerup', end); document.addEventListener('pointercancel', end);
+  document.addEventListener('keydown', ev => {
+    const d = ev.target.closest && ev.target.closest('[data-dial]'); if (!d) return;
+    const dir = {ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1}[ev.key]; if (!dir) return;
+    ev.preventDefault(); dialStep(d.dataset.dial, d.dataset.i, dir, true);
+  });
+}
+
 function bindEvents() {
+  bindDials();
   document.addEventListener('click', ev => {
     if (S.ui.suppressClick) { ev.preventDefault(); ev.stopPropagation(); return; }
     const el = ev.target.closest('[data-a]'); if (!el) return;

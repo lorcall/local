@@ -142,6 +142,14 @@ h1,h2,h3,p{margin:0}
 .ib.m{color:var(--link)}
 .ib44{width:44px;height:44px}
 .ib40{width:40px;height:40px}
+.dial{display:flex;align-items:center;gap:10px;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab;border-radius:30px;outline-offset:3px}
+.dial-knob{position:relative;width:46px;height:46px;border-radius:50%;flex-shrink:0;background:var(--g);box-shadow:3px 3px 7px var(--lo),-3px -3px 7px var(--hi);transition:transform .12s ease-out}
+/* ticks round the edge, one per quarter step, cut to a thin ring */
+.dial-knob::before{content:"";position:absolute;inset:3px;border-radius:50%;background:repeating-conic-gradient(var(--mu) 0 3deg,transparent 3deg 30deg);opacity:.45;-webkit-mask:radial-gradient(circle,transparent 62%,#000 64%);mask:radial-gradient(circle,transparent 62%,#000 64%)}
+.dial-dot{position:absolute;left:50%;top:7px;width:7px;height:7px;margin-left:-3.5px;border-radius:50%;background:var(--a);box-shadow:0 0 6px var(--a)}
+.dial-val{min-width:38px;font-size:16px;text-align:left;font-variant-numeric:tabular-nums}
+.dial.l .dial-knob{width:54px;height:54px}.dial.l .dial-val{font-size:20px;min-width:44px}
+@media (prefers-reduced-motion:reduce){.dial-knob{transition:none}}
 .st{width:40px;height:40px;border-radius:50%;color:var(--link);font-size:18px;background:var(--g);box-shadow:3px 3px 6px var(--lo),-3px -3px 6px var(--hi);flex-shrink:0;display:flex;align-items:center;justify-content:center}
 .st.l{width:44px;height:44px;font-size:20px;box-shadow:4px 4px 8px var(--lo),-4px -4px 8px var(--hi)}
 .st[disabled]{opacity:.45;cursor:default}

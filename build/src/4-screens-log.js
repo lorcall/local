@@ -305,7 +305,7 @@ SCREENS.review = () => {
       '<div class="cap13">' + (num(e.sodium_mg) >= 300 ? 'Sodium of ' + fmt(e.sodium_mg) + ' mg is a guess. ' : '') + 'Check it before saving. <a href="#" data-a="editItem" data-v="' + i + '">Check it</a></div></div>';
     return '<div class="icard raised-md">' + head + '<div class="row" style="gap:10px">' +
       '<button class="pressed-sm sel" data-a="editItem" data-v="' + i + '" aria-label="Serving: ' + esc(amountLabel(Object.assign({}, e, {quantity: 1}))) + '. Edit">' + esc(servingLabel(e)) + icon('down', 16, 2, ' style="color:var(--mu)"') + '</button>' +
-      stepper(num(e.quantity) || 1, 'itemQty', 'of ' + (e.name || 'item'), {min: 0.5}).replace(/data-a="itemQty"/g, 'data-a="itemQty" data-i="' + i + '"') + '</div></div>';
+      '<span class="grow"></span>' + dial(num(e.quantity) || 1, 'itemQty', 'Amount of ' + (e.name || 'item'), {i}) + '</div></div>';
   };
   const photo = isNew && D.source === 'photo' && S.log && S.log.img ? {src: S.log.img} : hasPhoto(m) ? {m} : null;
   const photoRow = photo ? '<button class="raised-md r20 row" data-a="viewPhoto" style="padding:10px;gap:12px;text-align:left;width:100%">' +
@@ -361,7 +361,7 @@ SCREENS.edit = () => {
     '<div class="col" style="gap:8px"><span class="lb">Serving</span>' + chips('itemUnit', units.map(x => [x, UNIT_LABEL[x] || cap1(x)]), u, 'Serving', {h: 38}) +
     '<div class="row" style="gap:12px"><label for="ei-g" style="font-size:14px;flex-shrink:0">' + (u === 'g' ? 'Portion' : '1 ' + esc(u) + ' is') + '</label>' +
     '<span class="row" style="gap:6px"><input id="ei-g" class="fld" type="number" inputmode="decimal" value="' + (g || '') + '" placeholder="—" data-in="itemGrams" style="width:84px;text-align:right"><span class="mu">g</span></span>' +
-    '<span class="grow"></span>' + stepper(q, 'editQty', 'servings', {min: 0.5}) + '</div></div>' +
+    '<span class="grow"></span>' + dial(q, 'editQty', 'Servings') + '</div></div>' +
     '<section class="raised r24" style="padding:14px;display:flex;flex-direction:column;gap:10px"><div class="between" data-part="ei-vh"><h2 class="sec15">Values for ' + forLabel + '</h2>' +
     (origG && nowG && Math.abs(origG - nowG) > 0.5 ? '<span class="cap">Rescaled from ' + fmt(origG) + ' g</span>' : '') + '</div>' +
     '<div data-part="ei-grid" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">' + cell('kcal', true) + VALUES.slice(1).map(k => cell(k)).join('') + '</div>' +
@@ -399,7 +399,7 @@ SCREENS.label = () => {
     '<div class="between" style="height:34px;align-items:center;font-size:12px;color:var(--mu)"><span>Per serving' + (num(r.serving_g) ? ', ' + fmt(r.serving_g) + ' g' : '') + '</span><span>' + (num(r.servings_per_pack) ? fmt(r.servings_per_pack, 1) + ' servings in the pack' : '') + '</span></div><div class="sep"></div>' +
     ordered.map(tr).join('') + '</section>' +
     chips('labelType', MEAL_TYPES, Lb.meal_type, 'Meal') + whenRow('log', logState().date, logState().time) +
-    '<div class="row"><span class="grow" style="font-size:15px">Servings you ate' + (Lb.fromNote ? '<span class="cap" style="display:block">From your note</span>' : '') + '</span>' + stepper(s, 'labelServ', 'servings', {large: true, boxed: true, min: 0.5}) + '</div>' +
+    '<div class="row"><span class="grow" style="font-size:15px">Servings you ate' + (Lb.fromNote ? '<span class="cap" style="display:block">From your note</span>' : '') + '</span>' + dial(s, 'labelServ', 'Servings you ate', {large: true}) + '</div>' +
     '<div data-part="ls-tot" class="pressed-sm r20 between" style="padding:14px 16px;align-items:center" aria-live="polite"><div><div class="num" style="font-size:30px">' + fmt(tot.kcal) + ' kcal</div><div class="cap">' + esc(Lb.meal_type) + ', ' + plural(s, 'serving') + '</div></div>' +
     '<div class="cap" style="text-align:right;line-height:1.6">Protein ' + fmt(tot.protein_g, 1) + ' g<br>Carbs ' + fmt(tot.carbs_g, 1) + ' g<br>Fat ' + fmt(tot.fat_g, 1) + ' g</div></div>' +
     '<div class="grow"></div>' +

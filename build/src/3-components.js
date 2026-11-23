@@ -153,6 +153,15 @@ function stepper(val, act, label, o = {}) {
       : '<span style="min-width:18px;text-align:center" aria-live="polite">' + fmt(val, 2) + '</span>') +
     '<button class="st' + (o.large ? ' l' : '') + '" data-a="' + act + '" data-v="1" aria-label="More ' + esc(label) + '">+</button>';
 }
+/* A small turning knob in place of − and +: turn clockwise for more, anticlockwise for less, a
+   quarter at each tick (30°). The value sits beside it. Arrow keys work too. The knob keeps its
+   turn between redraws (S.ui.dialRot), so it moves with the finger. */
+function dial(val, act, label, o = {}) {
+  const key = act + (o.i != null ? ':' + o.i : ''), rot = (S.ui.dialRot && S.ui.dialRot[key]) || 0;
+  return '<div class="dial' + (o.large ? ' l' : '') + '" role="slider" tabindex="0" aria-label="' + esc(label) + '. Turn the knob to change it" aria-valuenow="' + num(val) + '" aria-valuemin="0.25" aria-valuetext="' + fmt(val, 2) + '" data-dial="' + act + '"' + (o.i != null ? ' data-i="' + o.i + '"' : '') + '>' +
+    '<span class="dial-knob" aria-hidden="true" style="transform:rotate(' + rot + 'deg)"><span class="dial-dot"></span></span>' +
+    '<span class="dial-val" aria-hidden="true">' + fmt(val, 2) + '</span></div>';
+}
 function switchBtn(on, act, label, arg) {
   return '<button class="sw" role="switch" aria-checked="' + !!on + '" aria-label="' + esc(label) + '" data-a="' + act + '"' + (arg != null ? ' data-v="' + esc(arg) + '"' : '') + '><span class="knob"></span></button>';
 }
