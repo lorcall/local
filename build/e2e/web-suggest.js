@@ -152,6 +152,16 @@ const DATA = {
   await page.click('.sugsheet [data-a="sugLog"][data-v="a0"]'); await page.waitForTimeout(400);
   const d = await page.evaluate(() => ({r: route().name, type: S.draft && S.draft.meal.meal_type, date: S.draft && S.draft.meal.date, n: S.draft && S.draft.items.length, sug: !!S.sug}));
   check(d.r === 'review' && d.type === 'Dinner' && d.date === '2026-11-16' && d.n >= 1 && !d.sug, 'Log opens the review for dinner today with the items filled in (' + JSON.stringify(d) + ')');
+  // item editor: the amount is a typed field, not a knob
+  await page.click('[data-a="editItem"][data-v="0"]'); await page.waitForTimeout(300);
+  const k0 = await page.evaluate(() => S.edit.item.kcal);
+  check(await page.$('#ei-q') && !(await page.$('.scr [data-dial]')), 'the item editor has an amount field instead of the knob');
+  await page.fill('#ei-q', '2.5'); await page.waitForTimeout(150);
+  const e2 = await page.evaluate(() => ({q: S.edit.item.quantity, k: S.edit.item.kcal}));
+  check(e2.q === 2.5 && Math.abs(e2.k - k0 * 2.5) < 1.5, 'typing 2.5 scales the values (' + JSON.stringify(e2) + ', from ' + k0 + ')');
+  await page.fill('#ei-q', ''); await page.waitForTimeout(100);
+  check(await page.evaluate(() => S.edit.item.quantity) === 2.5, 'an empty or zero amount is ignored while typing');
+  await page.evaluate(() => back()); await page.waitForTimeout(300);
   await page.evaluate(() => back()); await page.waitForTimeout(300);
 
   aiReply = {error: 'QUOTA: used up'};

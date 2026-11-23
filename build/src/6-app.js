@@ -899,6 +899,8 @@ const I = {
   draftTime: el => { if (el.value) S.draft.meal.time = el.value; },
   draftNote: el => { S.draft.meal.note = el.value; },
   itemName: el => { S.edit.item.name = el.value; },
+  // typed amount: any number above zero, e.g. 0.75 or 2.5
+  itemQtyIn: el => { const q = num(el.value); if (!(q > 0)) return; const it = S.edit.item; it.quantity = Math.round(q * 1000) / 1000; it.serving_label = ''; applyRef(); },
   itemGrams: el => { const it = S.edit.item; it.grams_per_unit = el.value === '' ? '' : num(el.value); it.serving_label = ''; applyRef(); },
   itemVal: el => { const it = S.edit.item; it[el.dataset.k] = el.value === '' ? '' : num(el.value); S.edit.ref = snap(it); S.edit.edited = true; },
   itemCat: el => { S.edit.item.category = el.value; },

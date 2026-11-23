@@ -363,7 +363,8 @@ SCREENS.edit = () => {
     '<div class="col" style="gap:8px"><span class="lb">Serving</span>' + chips('itemUnit', units.map(x => [x, UNIT_LABEL[x] || cap1(x)]), u, 'Serving', {h: 38}) +
     '<div class="row" style="gap:12px"><label for="ei-g" style="font-size:14px;flex-shrink:0">' + (u === 'g' ? 'Portion' : '1 ' + esc(u) + ' is') + '</label>' +
     '<span class="row" style="gap:6px"><input id="ei-g" class="fld" type="number" inputmode="decimal" value="' + (g || '') + '" placeholder="—" data-in="itemGrams" style="width:84px;text-align:right"><span class="mu">g</span></span>' +
-    '<span class="grow"></span>' + dial(q, 'editQty', 'Servings') + '</div></div>' +
+    '<span class="grow"></span><label for="ei-q" style="font-size:14px;flex-shrink:0">Amount</label>' +
+    '<input id="ei-q" class="fld" type="number" inputmode="decimal" min="0" step="any" value="' + q + '" data-in="itemQtyIn" style="width:72px;text-align:right"></div></div>' +
     '<section class="raised r24" style="padding:14px;display:flex;flex-direction:column;gap:10px"><div class="between" data-part="ei-vh"><h2 class="sec15">Values for ' + forLabel + '</h2>' +
     (origG && nowG && Math.abs(origG - nowG) > 0.5 ? '<span class="cap">Rescaled from ' + fmt(origG) + ' g</span>' : '') + '</div>' +
     '<div data-part="ei-grid" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">' + cell('kcal', true) + VALUES.slice(1).map(k => cell(k)).join('') + '</div>' +
